@@ -51,6 +51,10 @@ class Permission implements PermissionProviderInterface
             'manage_leads',
             'manage_oportunidades',
 
+            // Marketing
+            'view_marketing',
+            'manage_marketing',
+
             // Manutenção
             'view_manutencao',
             'create_os',
@@ -117,6 +121,10 @@ class Permission implements PermissionProviderInterface
             'manage_leads',
             'manage_oportunidades',
 
+            // Marketing
+            'view_marketing',
+            'manage_marketing',
+
             // Manutenção
             'view_manutencao',
             'create_os',
@@ -180,6 +188,9 @@ class Permission implements PermissionProviderInterface
             'manage_leads',
             'manage_oportunidades',
 
+            // Marketing
+            'view_marketing',
+
             // Manutenção
             'view_manutencao',
             'create_os',
@@ -207,6 +218,9 @@ class Permission implements PermissionProviderInterface
 
             // CRM — leitura pode visualizar o funil
             'view_crm',
+
+            // Marketing — leitura pode visualizar
+            'view_marketing',
 
             // Manutenção — leitura pode visualizar ordens
             'view_manutencao',
