@@ -451,18 +451,6 @@ Router::group(["middleware" => ["Auth"]], function () {
         Router::get("/estoque/vendas/{id}/imprimir",                    "MovimentacoesController@vendaImprimir");
     });
 
-    // ===== Módulo Marketing =====
-    Router::group(["middleware" => ["Permission:view_marketing"]], function () {
-        Router::get("/marketing",                         "MarketingController@index");
-        Router::get("/marketing/campanhas",               "MarketingController@campanhas");
-        Router::get("/marketing/gatilhos",                "MarketingController@gatilhos");
-        Router::post("/marketing/campanhas",              "MarketingController@campanhaStore");
-        Router::post("/marketing/campanhas/delete/{id}",  "MarketingController@campanhaDelete");
-        Router::post("/marketing/gatilhos",               "MarketingController@gatilhoStore");
-        Router::post("/marketing/gatilhos/toggle/{id}",   "MarketingController@gatilhoToggle");
-        Router::post("/marketing/gatilhos/delete/{id}",   "MarketingController@gatilhoDelete");
-    });
-
     // ===== Módulo CRM =====
     Router::group(["middleware" => ["Permission:view_crm"]], function () {
         Router::get("/crm/funil",         "CrmFunilController@index");
@@ -569,7 +557,6 @@ Router::group(["middleware" => ["Auth"]], function () {
     Router::get("/faturamento/apuracao/superadmin-delete/{id}", "ApuracaoController@deleteSuperAdmin");
     Router::post("/faturamento/apuracao/recalcular/{id}", "ApuracaoController@recalcular");
     Router::post("/faturamento/apuracao/revincular-medico/{id}", "ApuracaoController@revincularMedico");
-    Router::post("/faturamento/apuracao/enviar-email/{id}", "ApuracaoController@enviarEmail");
 
     // ── Módulo de Manutenção ─────────────────────────────────────────────────
     Router::get("/manutencao/ordens",                          "ManutencaoController@index");

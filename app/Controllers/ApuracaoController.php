@@ -845,62 +845,6 @@ class ApuracaoController extends Controller
     }
 
     // =========================================================
-    // ENVIAR E-MAIL MANUAL — POST /faturamento/apuracao/enviar-email/{id}
-    // Reenvia o e-mail de apuração ao médico cadastrado no registro.
-    // =========================================================
-    public function enviarEmail(string $id): void
-    {
-        ob_start(); ob_end_clean();
-        header('Content-Type: application/json');
-
-        try {
-            $user      = Auth::user();
-            $usuarioId = (int) $user->id;
-            $apuracao  = $this->apuracaoModel->findById((int) $id);
-
-            if (!$apuracao || (int) $apuracao->usuario_id !== $usuarioId) {
-                echo json_encode(['success' => false, 'message' => 'Apuração não encontrada.']);
-                exit();
-            }
-
-            if ($apuracao->tipo !== 'prestador') {
-                echo json_encode(['success' => false, 'message' => 'Envio de e-mail disponível apenas para apurações de prestador.']);
-                exit();
-            }
-
-            // Obter e-mail do médico diretamente do registro do médico cadastrado
-            $emailMedico = trim((string)($apuracao->medico_email ?? ''));
-            if (empty($emailMedico) || !filter_var($emailMedico, FILTER_VALIDATE_EMAIL)) {
-                echo json_encode(['success' => false, 'message' => 'Médico não possui e-mail cadastrado. Acesse o cadastro do médico e adicione um e-mail válido.']);
-                exit();
-            }
-
-            // Disparar e-mail de apuração de prestador
-            $this->dispararEmailApuracao($apuracao, $usuarioId);
-
-            AuditLogger::log('apuracao_email_reenviado', [
-                'apuracao_id' => (int) $id,
-                'numero'      => $apuracao->numero,
-                'email'       => $emailMedico,
-                'usuario_id'  => $usuarioId,
-            ]);
-
-            echo json_encode([
-                'success' => true,
-                'message' => 'E-mail enviado com sucesso para ' . $emailMedico,
-            ]);
-
-        } catch (\Throwable $e) {
-            $this->logger->error('[ApuracaoController] Erro ao reenviar e-mail', [
-                'apuracao_id' => $id,
-                'error'       => $e->getMessage(),
-            ]);
-            echo json_encode(['success' => false, 'message' => 'Erro ao enviar e-mail: ' . $e->getMessage()]);
-        }
-        exit();
-    }
-
-    // =========================================================
     // HELPER: JSON error response
     // =========================================================
     private function jsonError(string $msg): void

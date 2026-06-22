@@ -661,24 +661,6 @@ if ($_ec) {
             </ul>
           </li>
 
-          <?php if (Auth::can('view_marketing')): ?>
-          <div class="nav-label">Marketing</div>
-          <li class="nav-item has-submenu <?php echo strpos($_SERVER['REQUEST_URI'], '/marketing') !== false ? 'open active' : ''; ?>">
-            <a href="/marketing" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Marketing">
-              <i class="fas fa-bullhorn"></i>
-              <span class="link-text">MARKETING</span>
-            </a>
-            <ul class="submenu">
-              <li><a href="/marketing"
-                  class="nav-link <?php echo $_SERVER['REQUEST_URI'] === '/marketing' ? 'active' : ''; ?>"><i class="fas fa-chart-pie me-1"></i> DASHBOARD</a></li>
-              <li><a href="/marketing/campanhas"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/marketing/campanhas') !== false ? 'active' : ''; ?>"><i class="fas fa-bullhorn me-1"></i> CAMPANHAS</a></li>
-              <li><a href="/marketing/gatilhos"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/marketing/gatilhos') !== false ? 'active' : ''; ?>"><i class="fas fa-bolt me-1"></i> GATILHOS</a></li>
-            </ul>
-          </li>
-          <?php endif; ?>
-
           <div class="nav-label">Manutenção</div>
           <li class="nav-item has-submenu <?php echo strpos($_SERVER['REQUEST_URI'], '/manutencao') !== false ? 'open active' : ''; ?>">
             <a href="/manutencao/ordens" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Manutenção">
