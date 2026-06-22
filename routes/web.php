@@ -569,6 +569,7 @@ Router::group(["middleware" => ["Auth"]], function () {
     Router::get("/faturamento/apuracao/superadmin-delete/{id}", "ApuracaoController@deleteSuperAdmin");
     Router::post("/faturamento/apuracao/recalcular/{id}", "ApuracaoController@recalcular");
     Router::post("/faturamento/apuracao/revincular-medico/{id}", "ApuracaoController@revincularMedico");
+    Router::post("/faturamento/apuracao/enviar-email/{id}", "ApuracaoController@enviarEmail");
 
     // ── Módulo de Manutenção ─────────────────────────────────────────────────
     Router::get("/manutencao/ordens",                          "ManutencaoController@index");

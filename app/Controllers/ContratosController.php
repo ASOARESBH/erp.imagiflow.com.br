@@ -19,6 +19,7 @@ use App\Models\ContratoExame;
 use App\Models\ContaReceber;
 use App\Models\PlanoConta;
 use App\Services\ContaReceberRecorrenciaService;
+use App\Services\EmailAlertaService;
 
 class ContratosController extends Controller
 {
@@ -671,6 +672,18 @@ class ContratosController extends Controller
                 'log_execucao'     => $logStr,
             ]);
 
+            // ── Envio automático de e-mail ao médico ao gerar apuração direta de prestador ──
+            if ($tipoApuracao === 'prestador') {
+                try {
+                    $apuracaoAtualizada = $this->apuracaoModel->findById($apuracaoId);
+                    if ($apuracaoAtualizada && !empty($apuracaoAtualizada->medico_email)) {
+                        $this->enviarEmailApuracaoPrestador($apuracaoAtualizada, $usuarioId);
+                    }
+                } catch (\Throwable $emailEx) {
+                    $this->logger->warning('[ContratosController] Falha ao enviar email apuração prestador: ' . $emailEx->getMessage());
+                }
+            }
+
             // =================================================================
             // NOVO FLUXO: Se a apuração é do tipo CLIENTE, gerar automaticamente
             // sub-apurações de PRESTADOR para cada médico encontrado na planilha.
@@ -871,6 +884,18 @@ class ContratosController extends Controller
                             'valor'  => 'R$ ' . number_format($subTotal, 2, ',', '.'),
                         ];
                         $log[] = "Sub-apuração prestador: {$subNumero} — {$nomeMedico} — " . ($subNormal + $subUrgencia) . " exames — R$ " . number_format($subTotal, 2, ',', '.');
+
+                        // ── Envio automático de e-mail ao médico ao gerar sub-apuração ──
+                        if ($medicoObj && !empty($medicoObj->email)) {
+                            try {
+                                $subApuracao = $this->apuracaoModel->findById((int)$subId);
+                                if ($subApuracao) {
+                                    $this->enviarEmailApuracaoPrestador($subApuracao, $usuarioId);
+                                }
+                            } catch (\Throwable $emailEx) {
+                                $this->logger->warning('[ContratosController] Falha ao enviar email sub-apuração: ' . $emailEx->getMessage());
+                            }
+                        }
                     }
                 }
 
@@ -1480,5 +1505,78 @@ class ContratosController extends Controller
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
         exit();
+    }
+
+    // =========================================================
+    // EMAIL — APURAÇÃO PRESTADOR (gerada automaticamente)
+    // =========================================================
+
+    /**
+     * Envia e-mail automático ao médico quando a apuração de prestador
+     * é gerada (status concluído), com link de visualização e PDF em anexo.
+     * Usa o código 'corpo_clinico_apuracao_concluida' já configurado.
+     */
+    private function enviarEmailApuracaoPrestador(object $apuracao, int $usuarioId): void
+    {
+        $emailMedico = trim((string)($apuracao->medico_email ?? ''));
+        if (empty($emailMedico) || !filter_var($emailMedico, FILTER_VALIDATE_EMAIL)) {
+            return;
+        }
+
+        $nomeMedico    = htmlspecialchars($apuracao->medico_nome ?? 'Prezado(a)');
+        $numero        = htmlspecialchars($apuracao->numero);
+        $valor         = number_format((float)$apuracao->valor_total, 2, ',', '.');
+        $periodoIni    = !empty($apuracao->periodo_inicio) ? date('d/m/Y', strtotime($apuracao->periodo_inicio)) : '---';
+        $periodoFim    = !empty($apuracao->periodo_fim)    ? date('d/m/Y', strtotime($apuracao->periodo_fim))    : '---';
+        $totalExames   = (int)($apuracao->total_exames ?? 0);
+        $totalNormal   = (int)($apuracao->total_normal ?? 0);
+        $totalUrgencia = (int)($apuracao->total_urgencia ?? 0);
+        $crm           = htmlspecialchars($apuracao->medico_crm ?? '');
+        $linkVis       = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'erp.inlaudo.com.br')
+                         . '/faturamento/apuracao-prestador/visualizar/' . $apuracao->id;
+
+        $corpoHtml = <<<HTML
+<p>Olá, <strong>{$nomeMedico}</strong>!</p>
+<p>Sua <strong>Apuração de Prestador</strong> foi gerada e está disponível para consulta. Confira o resumo abaixo:</p>
+
+<table style="border-collapse:collapse;width:100%;margin:16px 0;">
+  <tr style="background:#1a56db;">
+    <td colspan="2" style="padding:12px 14px;color:#fff;font-weight:700;font-size:15px;">Resumo da Apuração {$numero}</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;font-weight:600;color:#374151;border:1px solid #e5e7eb;">Médico</td>
+    <td style="padding:10px 14px;border:1px solid #e5e7eb;">{$nomeMedico}{$crm ? ' &mdash; CRM ' . $crm : ''}</td>
+  </tr>
+  <tr style="background:#f3f4f6;">
+    <td style="padding:10px 14px;font-weight:600;color:#374151;border:1px solid #e5e7eb;">Período</td>
+    <td style="padding:10px 14px;border:1px solid #e5e7eb;">{$periodoIni} &rarr; {$periodoFim}</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;font-weight:600;color:#374151;border:1px solid #e5e7eb;">Total de Exames</td>
+    <td style="padding:10px 14px;border:1px solid #e5e7eb;">{$totalExames} ({$totalNormal} normais + {$totalUrgencia} urgências)</td>
+  </tr>
+  <tr style="background:#f3f4f6;">
+    <td style="padding:10px 14px;font-weight:600;color:#374151;border:1px solid #e5e7eb;">Valor Total</td>
+    <td style="padding:10px 14px;border:1px solid #e5e7eb;font-size:18px;color:#059669;font-weight:700;">R$ {$valor}</td>
+  </tr>
+</table>
+
+<p>Acesse o link abaixo para visualizar a apuração completa com todos os exames detalhados:</p>
+<p style="text-align:center;margin:24px 0;">
+  <a href="{$linkVis}" style="background:#1a56db;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">
+    Visualizar Apuração Completa
+  </a>
+</p>
+<p style="color:#6b7280;font-size:13px;">O PDF completo da apuração está disponível para download diretamente na página acima.</p>
+HTML;
+
+        $service = new EmailAlertaService($usuarioId);
+        $service->disparar(
+            'corpo_clinico_apuracao_concluida',
+            $emailMedico,
+            (string)($apuracao->medico_nome ?? ''),
+            "Apuração de Prestador Gerada — {$numero} | R\$ {$valor}",
+            $corpoHtml
+        );
     }
 }

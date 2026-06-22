@@ -33,6 +33,17 @@ if (($apuracao->status ?? '') === 'concluido') {
     ];
 }
 
+// Botão Enviar E-mail — disponível para apurações de prestador com médico e e-mail cadastrado
+if ($tipo === 'prestador' && !empty($apuracao->medico_id) && !empty($apuracao->medico_email)) {
+    $actions[] = [
+        'text'       => 'Enviar E-mail',
+        'link'       => '#',
+        'icon'       => 'fas fa-envelope',
+        'class'      => 'btn-outline-primary',
+        'attributes' => 'id="btn-enviar-email" data-apuracao-id="' . (int)$apuracao->id . '" data-email="' . htmlspecialchars($apuracao->medico_email, ENT_QUOTES) . '"',
+    ];
+}
+
 if (!empty($isSuperAdmin)) {
     $saUrl = '/faturamento/apuracao/superadmin-delete/' . $apuracao->id;
     $saNum = htmlspecialchars($apuracao->numero, ENT_QUOTES);
@@ -606,5 +617,53 @@ function confirmarExclusaoSuperAdmin(url, numero) {
         }
     }
 }
+</script>
+<?php endif; ?>
+
+<?php if ($tipo === 'prestador' && !empty($apuracao->medico_id) && !empty($apuracao->medico_email)): ?>
+<!-- Botão Enviar E-mail: script independente do status de faturamento -->
+<script>
+(function () {
+    const CSRF = '<?php echo View::csrfToken(); ?>';
+    const btnEmail = document.getElementById('btn-enviar-email');
+    if (!btnEmail) return;
+
+    btnEmail.addEventListener('click', function () {
+        const apuracaoId = this.dataset.apuracaoId;
+        const emailMedico = this.dataset.email;
+        if (!apuracaoId) return;
+
+        const confirmMsg = 'Enviar e-mail da apuração para:\n' + emailMedico + '\n\nO médico receberá um resumo com link de acesso à apuração.';
+        if (!confirm(confirmMsg)) return;
+
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Enviando...';
+
+        fetch('/faturamento/apuracao/enviar-email/' + apuracaoId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: 'csrf_token=' + encodeURIComponent(CSRF),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ E-mail enviado com sucesso para ' + emailMedico + '!');
+            } else {
+                alert('⚠️ Falha ao enviar e-mail: ' + (data.message || 'Erro desconhecido'));
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-envelope me-1"></i> Enviar E-mail';
+        })
+        .catch(err => {
+            alert('Erro de comunicação: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-envelope me-1"></i> Enviar E-mail';
+        });
+    });
+})();
 </script>
 <?php endif; ?>
