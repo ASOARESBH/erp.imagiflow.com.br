@@ -19,6 +19,8 @@ $tiposAnexo     = $tiposAnexo     ?? [];
 $iconesAnexo    = $iconesAnexo    ?? [];
 $motivosTransferencia = $motivosTransferencia ?? [];
 $donomeAtual    = $donomeAtual    ?? ($_SESSION['user_name'] ?? 'Usuário');
+$marketingInteracoes = $marketingInteracoes ?? [];
+$marketingStats      = $marketingStats      ?? [];
 
 // Botões de ação do header
 $headerActions = [
@@ -79,6 +81,14 @@ $tabs = [
         'locked'         => !$isEdit,
         'locked_message' => 'Salve o lead primeiro para transferi-lo.',
         'view'           => $isEdit ? 'crm.leads.tabs.transferencia' : null,
+    ],
+    [
+        'id'             => 'marketing',
+        'title'          => 'Marketing' . ($isEdit && !empty($marketingInteracoes) ? ' <span class="badge bg-primary rounded-pill ms-1" style="font-size:.65rem">' . count($marketingInteracoes) . '</span>' : ''),
+        'icon'           => 'fas fa-bullhorn',
+        'locked'         => !$isEdit,
+        'locked_message' => 'Salve o lead primeiro para ver interações de marketing.',
+        'view'           => $isEdit ? 'crm.leads.tabs.marketing' : null,
     ],
 ];
 

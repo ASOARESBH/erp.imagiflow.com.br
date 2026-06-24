@@ -576,6 +576,30 @@ Router::group(["middleware" => ["Auth"]], function () {
     // API: buscar produtos para autocomplete (AJAX)
     Router::get("/manutencao/api/produtos",                    "ManutencaoController@apiProdutos");
 
+    // ── Módulo de Marketing ──────────────────────────────────────────────────
+    // Campanhas
+    Router::get("/marketing/campanhas",                         "MarketingCampanhasController@index");
+    Router::get("/marketing/campanhas/create",                  "MarketingCampanhasController@create");
+    Router::post("/marketing/campanhas",                        "MarketingCampanhasController@store");
+    Router::get("/marketing/campanhas/edit/{id}",               "MarketingCampanhasController@edit");
+    Router::post("/marketing/campanhas/update/{id}",            "MarketingCampanhasController@update");
+    Router::post("/marketing/campanhas/delete/{id}",            "MarketingCampanhasController@delete");
+    Router::get("/marketing/campanhas/personalizar/{id}",       "MarketingCampanhasController@personalizar");
+    Router::post("/marketing/campanhas/personalizar/{id}",      "MarketingCampanhasController@salvarPersonalizacao");
+    Router::post("/marketing/campanhas/envio-teste/{id}",       "MarketingCampanhasController@envioTeste");
+    // Disparadores
+    Router::get("/marketing/disparadores",                      "MarketingDisparadorController@index");
+    Router::get("/marketing/disparadores/create",               "MarketingDisparadorController@create");
+    Router::post("/marketing/disparadores",                     "MarketingDisparadorController@store");
+    Router::get("/marketing/disparadores/view/{id}",            "MarketingDisparadorController@view");
+    Router::post("/marketing/disparadores/delete/{id}",         "MarketingDisparadorController@delete");
+    Router::post("/marketing/disparadores/iniciar/{id}",        "MarketingDisparadorController@iniciar");
+    Router::post("/marketing/disparadores/pausar/{id}",         "MarketingDisparadorController@pausar");
+    Router::post("/marketing/disparadores/processar-lote/{id}", "MarketingDisparadorController@processarLote");
+    Router::get("/marketing/disparadores/segmento-count",       "MarketingDisparadorController@segmentoCount");
+    // Dashboard de Marketing
+    Router::get("/marketing/dashboard",                         "MarketingDisparadorController@dashboard");
+
     // Configurações (inclui gestão de usuários)
     Router::group(["middleware" => ["Permission:manage_settings"]], function () {
         Router::get("/configuracoes", "ConfiguracoesController@index");

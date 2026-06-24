@@ -12,6 +12,7 @@ use App\Models\CrmOportunidade;
 use App\Models\CrmAnexo;
 use App\Models\CrmTransferencia;
 use App\Models\User;
+use App\Models\MarketingInteracaoCrm;
 use App\Services\CnpjService;
 
 class CrmLeadsController extends Controller
@@ -22,15 +23,17 @@ class CrmLeadsController extends Controller
     private CrmTransferencia $transferenciaModel;
     private User $userModel;
     private Logger $logger;
+    private MarketingInteracaoCrm $marketingInteracaoModel;
 
     public function __construct()
     {
-        $this->leadModel          = new CrmLead();
-        $this->interacaoModel     = new CrmInteracao();
-        $this->anexoModel         = new CrmAnexo();
-        $this->transferenciaModel = new CrmTransferencia();
-        $this->userModel          = new User();
-        $this->logger             = new Logger();
+        $this->leadModel               = new CrmLead();
+        $this->interacaoModel          = new CrmInteracao();
+        $this->anexoModel              = new CrmAnexo();
+        $this->transferenciaModel      = new CrmTransferencia();
+        $this->userModel               = new User();
+        $this->logger                  = new Logger();
+        $this->marketingInteracaoModel = new MarketingInteracaoCrm();
     }
 
     private function usuarioId(): int
@@ -165,11 +168,13 @@ class CrmLeadsController extends Controller
             exit();
         }
 
-        $interacoes      = $this->interacaoModel->findByRelated('lead', $id);
-        $anexos          = $this->anexoModel->findByRelated('lead', $id);
-        $transferencias  = $this->transferenciaModel->findByRelated('lead', $id);
-        $todosUsuarios   = $this->userModel->findAll();
-        $donoAtual       = $this->userModel->findById((int)($lead->usuario_id ?? 0));
+        $interacoes          = $this->interacaoModel->findByRelated('lead', $id);
+        $anexos              = $this->anexoModel->findByRelated('lead', $id);
+        $transferencias      = $this->transferenciaModel->findByRelated('lead', $id);
+        $todosUsuarios       = $this->userModel->findAll();
+        $donoAtual           = $this->userModel->findById((int)($lead->usuario_id ?? 0));
+        $marketingInteracoes = $this->marketingInteracaoModel->findByRelated('lead', $id);
+        $marketingStats      = $this->marketingInteracaoModel->countEventosByRelated('lead', $id);
         View::render('crm/leads/form', [
             'title'      => 'Editar Lead — ' . htmlspecialchars($lead->nome_lead),
             '_layout'    => 'erp',
@@ -188,8 +193,10 @@ class CrmLeadsController extends Controller
             'especialidades' => CrmLead::ESPECIALIDADES,
             'tiposInteracao' => CrmInteracao::TIPOS,
             'iconesInteracao'=> CrmInteracao::ICONES,
-            'tiposAnexo'     => CrmAnexo::TIPOS,
-            'iconesAnexo'    => CrmAnexo::ICONES,
+            'tiposAnexo'          => CrmAnexo::TIPOS,
+            'iconesAnexo'         => CrmAnexo::ICONES,
+            'marketingInteracoes' => $marketingInteracoes,
+            'marketingStats'      => $marketingStats,
         ]);
     }
 
