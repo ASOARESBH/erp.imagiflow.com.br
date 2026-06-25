@@ -357,10 +357,16 @@ class NotasFiscaisController extends Controller
                 'notas' => $notas,
                 'filtros' => $filtros,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('Erro ao listar notas fiscais: ' . $e->getMessage());
-            header('Location: /dashboard?error=1');
-            exit();
+            View::render('notas_fiscais/index', [
+                '_layout' => 'erp',
+                'title' => 'Notas Fiscais',
+                'breadcrumb' => ['Faturamento' => '/faturamento/notas-fiscais', 0 => 'Notas Fiscais'],
+                'notas' => [],
+                'filtros' => [],
+                'erro_carregamento' => 'Não foi possível carregar as notas fiscais. Verifique se as migrations foram executadas.',
+            ]);
         }
     }
 

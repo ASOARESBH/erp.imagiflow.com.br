@@ -238,33 +238,38 @@ class PedidoVenda extends Model
     // ─── Listagem ────────────────────────────────────────────────────────────
     public function findByUsuarioId(int $usuarioId, array $filtros = []): array
     {
-        $where  = ["p.usuario_id = :uid"];
-        $params = [':uid' => $usuarioId];
-        if (!empty($filtros['status'])) {
-            $where[] = "p.status = :status";
-            $params[':status'] = $filtros['status'];
+        try {
+            $where  = ["p.usuario_id = :uid"];
+            $params = [':uid' => $usuarioId];
+            if (!empty($filtros['status'])) {
+                $where[] = "p.status = :status";
+                $params[':status'] = $filtros['status'];
+            }
+            if (!empty($filtros['q'])) {
+                $where[] = "(p.numero LIKE :q OR p.cliente_nome LIKE :q)";
+                $params[':q'] = '%' . $filtros['q'] . '%';
+            }
+            if (!empty($filtros['data_inicio'])) {
+                $where[] = "p.data_pedido >= :di";
+                $params[':di'] = $filtros['data_inicio'];
+            }
+            if (!empty($filtros['data_fim'])) {
+                $where[] = "p.data_pedido <= :df";
+                $params[':df'] = $filtros['data_fim'];
+            }
+            $stmt = $this->pdo->prepare(
+                "SELECT p.*,
+                        (SELECT COUNT(*) FROM est_pedidos_venda_itens i WHERE i.pedido_id = p.id) AS total_itens
+                 FROM {$this->table} p
+                 WHERE " . implode(' AND ', $where) . "
+                 ORDER BY p.created_at DESC"
+            );
+            $stmt->execute($params);
+            return $stmt->fetchAll(PDO::FETCH_OBJ);
+        } catch (\Throwable $e) {
+            $this->log('error', '[findByUsuarioId] ' . $e->getMessage(), []);
+            return [];
         }
-        if (!empty($filtros['q'])) {
-            $where[] = "(p.numero LIKE :q OR p.cliente_nome LIKE :q)";
-            $params[':q'] = '%' . $filtros['q'] . '%';
-        }
-        if (!empty($filtros['data_inicio'])) {
-            $where[] = "p.data_pedido >= :di";
-            $params[':di'] = $filtros['data_inicio'];
-        }
-        if (!empty($filtros['data_fim'])) {
-            $where[] = "p.data_pedido <= :df";
-            $params[':df'] = $filtros['data_fim'];
-        }
-        $stmt = $this->pdo->prepare(
-            "SELECT p.*,
-                    (SELECT COUNT(*) FROM est_pedidos_venda_itens i WHERE i.pedido_id = p.id) AS total_itens
-             FROM {$this->table} p
-             WHERE " . implode(' AND ', $where) . "
-             ORDER BY p.created_at DESC"
-        );
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_OBJ);
     }
 
     // ─── Busca por ID com itens ──────────────────────────────────────────────
@@ -289,22 +294,27 @@ class PedidoVenda extends Model
     // ─── KPIs ────────────────────────────────────────────────────────────────
     public function kpis(int $usuarioId): object
     {
-        $stmt = $this->pdo->prepare(
-            "SELECT
-               COUNT(*)                                AS total,
-               SUM(status = 'rascunho')                AS rascunho,
-               SUM(status = 'confirmado')              AS confirmado,
-               SUM(status = 'entregue')                AS entregue,
-               SUM(status = 'faturado')                AS faturado,
-               SUM(status = 'cancelado')               AS cancelado,
-               SUM(CASE WHEN status != 'cancelado' THEN valor_total ELSE 0 END) AS valor_total_geral,
-               SUM(CASE WHEN status != 'cancelado' THEN margem_total ELSE 0 END) AS margem_total_geral,
-               SUM(CASE WHEN status != 'cancelado' AND MONTH(data_pedido) = MONTH(NOW()) AND YEAR(data_pedido) = YEAR(NOW()) THEN valor_total ELSE 0 END) AS valor_mes
-             FROM {$this->table}
-             WHERE usuario_id = ?"
-        );
-        $stmt->execute([$usuarioId]);
-        return $stmt->fetch(PDO::FETCH_OBJ) ?: (object)[];
+        try {
+            $stmt = $this->pdo->prepare(
+                "SELECT
+                   COUNT(*)                                AS total,
+                   SUM(status = 'rascunho')                AS rascunho,
+                   SUM(status = 'confirmado')              AS confirmado,
+                   SUM(status = 'entregue')                AS entregue,
+                   SUM(status = 'faturado')                AS faturado,
+                   SUM(status = 'cancelado')               AS cancelado,
+                   SUM(CASE WHEN status != 'cancelado' THEN valor_total ELSE 0 END) AS valor_total_geral,
+                   SUM(CASE WHEN status != 'cancelado' THEN margem_total ELSE 0 END) AS margem_total_geral,
+                   SUM(CASE WHEN status != 'cancelado' AND MONTH(data_pedido) = MONTH(NOW()) AND YEAR(data_pedido) = YEAR(NOW()) THEN valor_total ELSE 0 END) AS valor_mes
+                 FROM {$this->table}
+                 WHERE usuario_id = ?"
+            );
+            $stmt->execute([$usuarioId]);
+            return $stmt->fetch(PDO::FETCH_OBJ) ?: (object)['total'=>0,'rascunho'=>0,'confirmado'=>0,'entregue'=>0,'faturado'=>0,'cancelado'=>0,'valor_total_geral'=>0,'margem_total_geral'=>0,'valor_mes'=>0];
+        } catch (\Throwable $e) {
+            $this->log('error', '[kpis] ' . $e->getMessage(), []);
+            return (object)['total'=>0,'rascunho'=>0,'confirmado'=>0,'entregue'=>0,'faturado'=>0,'cancelado'=>0,'valor_total_geral'=>0,'margem_total_geral'=>0,'valor_mes'=>0];
+        }
     }
 
     // ─── Excluir ─────────────────────────────────────────────────────────────

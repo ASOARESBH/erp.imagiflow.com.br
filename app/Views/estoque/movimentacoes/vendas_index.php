@@ -2,6 +2,7 @@
 $esc  = fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
 $fmt  = fn($v) => 'R$ ' . number_format((float)$v, 2, ',', '.');
 $fmtN = fn($v) => number_format((float)$v, 0, ',', '.');
+$erroCarregamento = $erro_carregamento ?? null;
 
 $statusConfig = [
     'rascunho'   => ['label' => 'Rascunho',   'bg' => '#f3f4f6', 'color' => '#374151'],
@@ -49,6 +50,14 @@ $error   = $_GET['error']   ?? '';
 <?php elseif ($error): ?>
 <div class="alert alert-danger alert-dismissible fade show" role="alert">
     <i class="fas fa-exclamation-circle me-2"></i> Ocorreu um erro. Tente novamente.
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
+
+<?php if ($erroCarregamento): ?>
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    <strong>Atenção:</strong> <?= htmlspecialchars($erroCarregamento, ENT_QUOTES, 'UTF-8') ?>
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 <?php endif; ?>

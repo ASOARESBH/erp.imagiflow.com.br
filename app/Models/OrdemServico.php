@@ -160,11 +160,16 @@ class OrdemServico
     // =========================================================================
     public function findById(int $id): object|null
     {
-        $stmt = $this->pdo->prepare(
-            "SELECT * FROM {$this->table} WHERE id = :id LIMIT 1"
-        );
-        $stmt->execute([':id' => $id]);
-        return $stmt->fetch(\PDO::FETCH_OBJ) ?: null;
+        try {
+            $stmt = $this->pdo->prepare(
+                "SELECT * FROM {$this->table} WHERE id = :id LIMIT 1"
+            );
+            $stmt->execute([':id' => $id]);
+            return $stmt->fetch(\PDO::FETCH_OBJ) ?: null;
+        } catch (\Throwable $e) {
+            $this->logger->error('[OrdemServico::findById] ' . $e->getMessage());
+            return null;
+        }
     }
 
     // =========================================================================
@@ -172,6 +177,7 @@ class OrdemServico
     // =========================================================================
     public function findByUsuarioId(int $uid, array $filtros = []): array
     {
+        try {
         $where  = ['o.usuario_id = :uid'];
         $params = [':uid' => $uid];
 
@@ -205,31 +211,39 @@ class OrdemServico
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY o.created_at DESC
                 LIMIT 500";
-        $stmt = $this->pdo->prepare($sql);
+                $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll(\PDO::FETCH_OBJ);
+        } catch (\Throwable $e) {
+            $this->logger->error('[OrdemServico::findByUsuarioId] ' . $e->getMessage());
+            return [];
+        }
     }
-
     // =========================================================================
     // KPIs para o dashboard do módulo
     // =========================================================================
     public function kpis(int $uid): object
     {
-        $stmt = $this->pdo->prepare(
-            "SELECT
-               COUNT(*) AS total,
-               SUM(status = 'aberta')         AS abertas,
-               SUM(status = 'em_andamento')   AS em_andamento,
-               SUM(status = 'concluida')      AS concluidas,
-               SUM(status = 'faturada')       AS faturadas,
-               SUM(tipo   = 'preventiva')     AS preventivas,
-               SUM(tipo   = 'corretiva')      AS corretivas,
-               SUM(MONTH(data_abertura) = MONTH(CURDATE()) AND YEAR(data_abertura) = YEAR(CURDATE())) AS mes_atual
-             FROM {$this->table}
-             WHERE usuario_id = :uid"
-        );
-        $stmt->execute([':uid' => $uid]);
-        return $stmt->fetch(\PDO::FETCH_OBJ) ?: (object)[];
+        try {
+            $stmt = $this->pdo->prepare(
+                "SELECT
+                   COUNT(*) AS total,
+                   SUM(status = 'aberta')         AS abertas,
+                   SUM(status = 'em_andamento')   AS em_andamento,
+                   SUM(status = 'concluida')      AS concluidas,
+                   SUM(status = 'faturada')       AS faturadas,
+                   SUM(tipo   = 'preventiva')     AS preventivas,
+                   SUM(tipo   = 'corretiva')      AS corretivas,
+                   SUM(MONTH(data_abertura) = MONTH(CURDATE()) AND YEAR(data_abertura) = YEAR(CURDATE())) AS mes_atual
+                 FROM {$this->table}
+                 WHERE usuario_id = :uid"
+            );
+            $stmt->execute([':uid' => $uid]);
+            return $stmt->fetch(\PDO::FETCH_OBJ) ?: (object)['total'=>0,'abertas'=>0,'em_andamento'=>0,'concluidas'=>0,'faturadas'=>0,'preventivas'=>0,'corretivas'=>0,'mes_atual'=>0];
+        } catch (\Throwable $e) {
+            $this->logger->error('[OrdemServico::kpis] ' . $e->getMessage());
+            return (object)['total'=>0,'abertas'=>0,'em_andamento'=>0,'concluidas'=>0,'faturadas'=>0,'preventivas'=>0,'corretivas'=>0,'mes_atual'=>0];
+        }
     }
 
     // =========================================================================
@@ -424,11 +438,16 @@ class OrdemServico
     // =========================================================================
     public function findByToken(string $token): object|null
     {
-        $stmt = $this->pdo->prepare(
-            "SELECT * FROM {$this->table} WHERE token_impressao = :t LIMIT 1"
-        );
-        $stmt->execute([':t' => $token]);
-        return $stmt->fetch(\PDO::FETCH_OBJ) ?: null;
+        try {
+            $stmt = $this->pdo->prepare(
+                "SELECT * FROM {$this->table} WHERE token_impressao = :t LIMIT 1"
+            );
+            $stmt->execute([':t' => $token]);
+            return $stmt->fetch(\PDO::FETCH_OBJ) ?: null;
+        } catch (\Throwable $e) {
+            $this->logger->error('[OrdemServico::findByToken] ' . $e->getMessage());
+            return null;
+        }
     }
 
     // =========================================================================

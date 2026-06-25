@@ -506,27 +506,40 @@ class MovimentacoesController extends Controller
     // ═══════════════════════════════════════════════════════════════════════
     public function vendas(): void
     {
-        $uid     = $this->uid();
-        $filtros = [
-            'status'      => $_GET['status']      ?? '',
-            'q'           => $_GET['q']           ?? '',
-            'data_inicio' => $_GET['data_inicio'] ?? date('Y-m-01'),
-            'data_fim'    => $_GET['data_fim']    ?? date('Y-m-d'),
-        ];
-        $pedidos = $this->pvModel->findByUsuarioId($uid, $filtros);
-        $kpis    = $this->pvModel->kpis($uid);
+        try {
+            $uid     = $this->uid();
+            $filtros = [
+                'status'      => $_GET['status']      ?? '',
+                'q'           => $_GET['q']           ?? '',
+                'data_inicio' => $_GET['data_inicio'] ?? date('Y-m-01'),
+                'data_fim'    => $_GET['data_fim']    ?? date('Y-m-d'),
+            ];
+            $pedidos = $this->pvModel->findByUsuarioId($uid, $filtros);
+            $kpis    = $this->pvModel->kpis($uid);
 
-        View::render('estoque/movimentacoes/vendas_index', [
-            '_layout'    => 'erp',
-            'title'      => 'Pedidos de Venda',
-            'breadcrumb' => [
-                'Estoque' => '/estoque/produtos',
-                0         => 'Pedidos de Venda',
-            ],
-            'pedidos'    => $pedidos,
-            'kpis'       => $kpis,
-            'filtros'    => $filtros,
-        ]);
+            View::render('estoque/movimentacoes/vendas_index', [
+                '_layout'    => 'erp',
+                'title'      => 'Pedidos de Venda',
+                'breadcrumb' => [
+                    'Estoque' => '/estoque/produtos',
+                    0         => 'Pedidos de Venda',
+                ],
+                'pedidos'    => $pedidos,
+                'kpis'       => $kpis,
+                'filtros'    => $filtros,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('[MovimentacoesController::vendas] ' . $e->getMessage());
+            View::render('estoque/movimentacoes/vendas_index', [
+                '_layout'    => 'erp',
+                'title'      => 'Pedidos de Venda',
+                'breadcrumb' => ['Estoque' => '/estoque/produtos', 0 => 'Pedidos de Venda'],
+                'pedidos'    => [],
+                'kpis'       => (object)['total'=>0,'rascunho'=>0,'confirmado'=>0,'entregue'=>0,'faturado'=>0,'cancelado'=>0,'valor_total_geral'=>0,'margem_total_geral'=>0,'valor_mes'=>0],
+                'filtros'    => [],
+                'erro_carregamento' => 'Não foi possível carregar os pedidos. Verifique se as migrations foram executadas. Erro: ' . $e->getMessage(),
+            ]);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
