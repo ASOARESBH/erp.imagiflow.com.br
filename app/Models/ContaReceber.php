@@ -22,15 +22,19 @@ class ContaReceber extends Model
      */
     public function findByGrupoParcelas(int $usuarioId, string $grupoParcelas): array
     {
-        $stmt = $this->pdo->prepare(
-            "SELECT cr.*, c.razao_social AS cliente_nome
-             FROM {$this->table} cr
-             LEFT JOIN clientes c ON c.id = cr.cliente_id
-             WHERE cr.usuario_id = ? AND cr.grupo_parcelas = ?
-             ORDER BY cr.numero_parcela ASC, cr.data_vencimento ASC"
-        );
-        $stmt->execute([$usuarioId, $grupoParcelas]);
-        return $stmt->fetchAll(PDO::FETCH_OBJ);
+        try {
+            $stmt = $this->pdo->prepare(
+                "SELECT cr.*, c.razao_social AS cliente_nome
+                 FROM {$this->table} cr
+                 LEFT JOIN clientes c ON c.id = cr.cliente_id
+                 WHERE cr.usuario_id = ? AND cr.grupo_parcelas = ?
+                 ORDER BY cr.numero_parcela ASC, cr.data_vencimento ASC"
+            );
+            $stmt->execute([$usuarioId, $grupoParcelas]);
+            return $stmt->fetchAll(PDO::FETCH_OBJ);
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     /**

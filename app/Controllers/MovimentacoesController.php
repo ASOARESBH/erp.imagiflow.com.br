@@ -1395,27 +1395,41 @@ class MovimentacoesController extends Controller
     // ═══════════════════════════════════════════════════════════════════════
     public function vendaImprimir(int $id): void
     {
-        $uid    = $this->uid();
-        $pedido = $this->pvModel->findById($id);
-        if (!$pedido || ($pedido->usuario_id != $uid && !$this->isAdmin())) {
-            http_response_code(403);
-            echo 'Sem permissão.';
-            return;
+        try {
+            $uid    = $this->uid();
+            $pedido = $this->pvModel->findById($id);
+            if (!$pedido || ($pedido->usuario_id != $uid && !$this->isAdmin())) {
+                http_response_code(403);
+                echo 'Sem permissão.';
+                return;
+            }
+
+            // Busca parcelas/contas a receber vinculadas ao pedido via grupo_parcelas
+            $grupoParcelas = 'PV-' . $pedido->numero;
+            try {
+                $parcelas = $this->contaReceberModel->findByGrupoParcelas($uid, $grupoParcelas);
+            } catch (\Throwable $e) {
+                $parcelas = [];
+            }
+
+            // Dados da empresa
+            try {
+                $empresa = (new \App\Models\EmpresaConfig())->findByUsuarioId($uid);
+            } catch (\Throwable $e) {
+                $empresa = false;
+            }
+
+            View::render('estoque/movimentacoes/venda_print', [
+                '_layout'  => 'default',
+                'title'    => 'Pedido de Venda ' . $pedido->numero,
+                'pedido'   => $pedido,
+                'parcelas' => $parcelas,
+                'empresa'  => $empresa,
+            ]);
+        } catch (\Throwable $e) {
+            $this->log('error', '[vendaImprimir] ' . $e->getMessage(), ['id' => $id]);
+            http_response_code(500);
+            echo '<p style="font-family:sans-serif;padding:20px;color:#c00">Erro ao carregar impressão: ' . htmlspecialchars($e->getMessage()) . '</p>';
         }
-
-        // Busca parcelas/contas a receber vinculadas ao pedido via grupo_parcelas
-        $grupoParcelas = 'PV-' . $pedido->numero;
-        $parcelas      = $this->contaReceberModel->findByGrupoParcelas($uid, $grupoParcelas);
-
-        // Dados da empresa
-        $empresa = (new \App\Models\EmpresaConfig())->findByUsuarioId($uid);
-
-        View::render('estoque/movimentacoes/venda_print', [
-            '_layout'  => 'default',
-            'title'    => 'Pedido de Venda ' . $pedido->numero,
-            'pedido'   => $pedido,
-            'parcelas' => $parcelas,
-            'empresa'  => $empresa,
-        ]);
     }
 }

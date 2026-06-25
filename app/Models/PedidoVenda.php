@@ -275,20 +275,29 @@ class PedidoVenda extends Model
     // ─── Busca por ID com itens ──────────────────────────────────────────────
     public function findById(int $id): object|false
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE id = ?");
-        $stmt->execute([$id]);
-        $pedido = $stmt->fetch(PDO::FETCH_OBJ);
-        if ($pedido) {
-            $stmt2 = $this->pdo->prepare(
-                "SELECT i.*, pr.nome AS produto_nome, pr.imagem_principal
-                 FROM est_pedidos_venda_itens i
-                 LEFT JOIN produtos pr ON pr.id = i.produto_id
-                 WHERE i.pedido_id = ?"
-            );
-            $stmt2->execute([$id]);
-            $pedido->itens = $stmt2->fetchAll(PDO::FETCH_OBJ);
+        try {
+            $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE id = ?");
+            $stmt->execute([$id]);
+            $pedido = $stmt->fetch(PDO::FETCH_OBJ);
+            if ($pedido) {
+                try {
+                    $stmt2 = $this->pdo->prepare(
+                        "SELECT i.*, pr.nome AS produto_nome, pr.imagem_principal
+                         FROM est_pedidos_venda_itens i
+                         LEFT JOIN produtos pr ON pr.id = i.produto_id
+                         WHERE i.pedido_id = ?"
+                    );
+                    $stmt2->execute([$id]);
+                    $pedido->itens = $stmt2->fetchAll(PDO::FETCH_OBJ);
+                } catch (\Throwable $e) {
+                    $pedido->itens = [];
+                }
+            }
+            return $pedido;
+        } catch (\Throwable $e) {
+            $this->log('error', '[findById] ' . $e->getMessage(), ['id' => $id]);
+            return false;
         }
-        return $pedido;
     }
 
     // ─── KPIs ────────────────────────────────────────────────────────────────
