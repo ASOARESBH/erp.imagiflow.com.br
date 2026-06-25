@@ -7,6 +7,7 @@ use App\Core\Audit\AuditLogger;
 use App\Models\EmailAlerta;
 use App\Models\User;
 use App\Services\EmailAlertaService;
+use App\Services\NotificacaoService;
 use PDO;
 
 /**
@@ -163,6 +164,40 @@ class CronController
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/cron/notificacoes
+    // Gera notificações automáticas para todos os usuários ativos
+    // -------------------------------------------------------------------------
+
+    public function notificacoes(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!$this->autenticar()) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Unauthorized']);
+            exit();
+        }
+
+        try {
+            $service = new NotificacaoService();
+            $total   = $service->gerarTodasNotificacoes();
+
+            AuditLogger::log('cron_notificacoes_geradas', ['total' => $total, 'ts' => date('Y-m-d H:i:s')]);
+
+            echo json_encode([
+                'success' => true,
+                'geradas' => $total,
+                'ts'      => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Throwable $e) {
+            error_log('[CronController] Erro ao gerar notificações: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit();
     }
 
     // -------------------------------------------------------------------------

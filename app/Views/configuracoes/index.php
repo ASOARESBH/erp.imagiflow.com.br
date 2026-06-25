@@ -122,6 +122,9 @@ $roleLabels = [
       <span class="badge rounded-pill ms-1" style="background:#2d9b5e;color:#fff;font-size:.62rem"><?php echo number_format($cnesTotalEstab ?? 0); ?></span>
       <?php endif; ?>
     </button>
+    <button class="cfg-tab <?php echo $activeTab === 'notificacoes' ? 'active' : ''; ?>" onclick="switchTab('notificacoes', this)">
+      <i class="far fa-bell"></i> Notificações
+    </button>
     <?php endif; ?>
   </div>
 
@@ -1275,6 +1278,143 @@ $roleLabels = [
 
 </div>
 
+  <?php if (Auth::can('manage_settings')): ?>
+  <!-- ===== ABA: NOTIFICAÇÕES ===== -->
+  <div id="tab-notificacoes" style="display:<?php echo $activeTab === 'notificacoes' ? 'block' : 'none'; ?>">
+    <div class="cfg-card">
+      <div class="cfg-section">
+        <h2 class="cfg-section-title"><i class="far fa-bell text-primary"></i> Configuração de Alertas</h2>
+        <p style="font-size:.875rem;color:#64748b;margin-bottom:1.5rem;">
+          Gerencie quais alertas aparecem no sino de notificações do sistema.
+          Você pode ativar ou desativar cada tipo e definir com quantos dias de antecedência deseja ser avisado.
+        </p>
+
+        <?php if (isset($_GET['success']) && $_GET['tab'] === 'notificacoes'): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert" style="font-size:.875rem;">
+          <i class="fas fa-check-circle me-2"></i>Configurações de alertas salvas com sucesso!
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+
+        <form method="POST" action="/configuracoes/notificacoes/salvar">
+          <?php echo View::csrfField(); ?>
+
+          <?php
+          $tiposNotif   = \App\Models\Notificacao::TIPOS;
+          $configsNotif = $notificacaoConfigs ?? [];
+
+          // Agrupar por categoria
+          $grupos = [
+            'CRM'                => ['crm_retorno_vencendo','crm_lead_retorno_vencendo','oportunidade_fechamento'],
+            'Financeiro'         => ['conta_pagar_vencendo','conta_pagar_vencida','conta_receber_vencendo','conta_receber_vencida'],
+            'Contratos'          => ['contrato_vencendo'],
+            'Marketing'          => ['marketing_disparo'],
+            'Sistema'            => ['sistema_geral'],
+          ];
+          ?>
+
+          <?php foreach ($grupos as $grupoLabel => $tiposGrupo): ?>
+          <div style="margin-bottom:2rem;">
+            <h3 style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #e2e8f0;">
+              <?php echo htmlspecialchars($grupoLabel); ?>
+            </h3>
+            <div style="display:flex;flex-direction:column;gap:.75rem;">
+              <?php foreach ($tiposGrupo as $tipo): ?>
+                <?php
+                $info   = $tiposNotif[$tipo] ?? ['label' => $tipo, 'icone' => 'fas fa-bell', 'cor' => 'primary'];
+                $config = $configsNotif[$tipo] ?? null;
+                $ativo  = $config ? (bool)$config->ativo : true;
+                $dias   = $config ? (int)$config->dias_antecedencia : 3;
+                $cor    = ['primary'=>'#00529B','warning'=>'#f59e0b','danger'=>'#ef4444','success'=>'#10b981','info'=>'#3b82f6'][$info['cor']] ?? '#00529B';
+                $temDias = !in_array($tipo, ['conta_pagar_vencida','conta_receber_vencida','marketing_disparo','sistema_geral']);
+                ?>
+                <div style="display:flex;align-items:center;gap:1rem;padding:.875rem 1rem;background:#f8fafc;border-radius:.5rem;border:1px solid <?php echo $ativo ? '#e2e8f0' : '#f1f5f9'; ?>;transition:all .2s;">
+                  <!-- Ícone -->
+                  <div style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:<?php echo $cor; ?>15;display:flex;align-items:center;justify-content:center;">
+                    <i class="<?php echo $info['icone']; ?>" style="color:<?php echo $cor; ?>;font-size:.9rem;"></i>
+                  </div>
+                  <!-- Label -->
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:.875rem;font-weight:500;color:#1a202c;"><?php echo htmlspecialchars($info['label']); ?></div>
+                  </div>
+                  <!-- Dias de antecedência -->
+                  <?php if ($temDias): ?>
+                  <div style="display:flex;align-items:center;gap:.4rem;flex-shrink:0;">
+                    <label style="font-size:.75rem;color:#64748b;white-space:nowrap;">Avisar com</label>
+                    <input
+                      type="number"
+                      name="dias[<?php echo $tipo; ?>]"
+                      value="<?php echo $dias; ?>"
+                      min="1" max="30"
+                      style="width:52px;padding:.25rem .4rem;font-size:.8rem;border:1px solid #e2e8f0;border-radius:.375rem;text-align:center;"
+                      <?php echo !$ativo ? 'disabled' : ''; ?>
+                    >
+                    <label style="font-size:.75rem;color:#64748b;white-space:nowrap;">dias de antecedência</label>
+                  </div>
+                  <?php else: ?>
+                  <input type="hidden" name="dias[<?php echo $tipo; ?>]" value="0">
+                  <?php endif; ?>
+                  <!-- Toggle ativo -->
+                  <div class="form-check form-switch mb-0" style="flex-shrink:0;">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      role="switch"
+                      name="ativo[<?php echo $tipo; ?>]"
+                      id="notif_<?php echo $tipo; ?>"
+                      value="1"
+                      <?php echo $ativo ? 'checked' : ''; ?>
+                      style="cursor:pointer;width:2.5em;height:1.25em;"
+                    >
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <?php endforeach; ?>
+
+          <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top:1px solid #e2e8f0;">
+            <div style="font-size:.78rem;color:#94a3b8;">
+              <i class="fas fa-info-circle me-1"></i>
+              As notificações são geradas automaticamente pelo cron diário.
+              Você também pode gerar manualmente clicando no botão ao lado.
+            </div>
+            <div class="d-flex gap-2">
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                onclick="gerarNotificacoesAgora(this)"
+                style="font-size:.8rem;"
+              >
+                <i class="fas fa-sync me-1"></i>Gerar agora
+              </button>
+              <button type="submit" class="btn btn-primary btn-sm" style="font-size:.8rem;">
+                <i class="fas fa-save me-1"></i>Salvar configurações
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Informações sobre o cron -->
+    <div class="cfg-card mt-3">
+      <div class="cfg-section">
+        <h2 class="cfg-section-title"><i class="fas fa-clock text-primary"></i> Agendamento do Cron</h2>
+        <p style="font-size:.875rem;color:#64748b;margin-bottom:1rem;">
+          Para que as notificações sejam geradas automaticamente, adicione a linha abaixo no crontab do servidor:
+        </p>
+        <div style="background:#1e293b;color:#e2e8f0;padding:1rem;border-radius:.5rem;font-family:monospace;font-size:.8rem;overflow-x:auto;">
+          <code style="color:#7dd3fc;">0 8 * * * curl -s "https://erp.inlaudo.com.br/api/cron/notificacoes?key=SUA_CRON_KEY" &gt; /dev/null 2&gt;&amp;1</code>
+        </div>
+        <p style="font-size:.78rem;color:#94a3b8;margin-top:.75rem;">
+          Substitua <code>SUA_CRON_KEY</code> pelo valor da variável <code>CRON_KEY</code> definida no <code>.env</code> do servidor.
+        </p>
+      </div>
+    </div>
+  </div>
+  <?php endif; ?>
+
 <!-- Form oculto para reset de senha -->
 <form id="resetPasswordForm" method="POST" style="display:none">
   <?php echo View::csrfField(); ?>
@@ -1290,6 +1430,37 @@ function switchTab(tab, btn) {
   const url = new URL(window.location);
   url.searchParams.set('tab', tab);
   window.history.replaceState({}, '', url);
+}
+
+function gerarNotificacoesAgora(btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Gerando...';
+  fetch('/api/notificacoes/gerar', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      btn.innerHTML = '<i class="fas fa-check me-1"></i>' + (d.geradas || 0) + ' geradas';
+      btn.classList.remove('btn-outline-secondary');
+      btn.classList.add('btn-success');
+    } else {
+      btn.innerHTML = '<i class="fas fa-times me-1"></i>Erro';
+      btn.classList.add('btn-danger');
+    }
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-sync me-1"></i>Gerar agora';
+      btn.classList.remove('btn-success','btn-danger');
+      btn.classList.add('btn-outline-secondary');
+    }, 3000);
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-sync me-1"></i>Gerar agora';
+  });
 }
 
 function confirmResetPassword(userId, userName) {

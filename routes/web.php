@@ -23,8 +23,9 @@ Router::get("/api/webhooks/cora/ping", "IntegracaoController@webhookCoraPing");
 // Uso: GET /api/cron/alertas?key=SUA_CRON_KEY
 // crontab: 0 8 * * * curl -s "https://erp.inlaudo.com.br/api/cron/alertas?key=KEY" > /dev/null
 // ============================================================
-Router::get("/api/cron/alertas",     "CronController@alertas");
-Router::get("/api/cron/alertas-crm", "CronController@alertasCrm");
+Router::get("/api/cron/alertas",         "CronController@alertas");
+Router::get("/api/cron/alertas-crm",     "CronController@alertasCrm");
+Router::get("/api/cron/notificacoes",    "CronController@notificacoes");
 
 // ============================================================
 // Primeiro Acesso — Clientes do Portal (via login unificado /login)
@@ -613,5 +614,16 @@ Router::group(["middleware" => ["Auth"]], function () {
         Router::post("/configuracoes/nfs/salvar", "ConfiguracoesController@nfsSalvar");
         // Configurações Financeiras
         Router::post("/configuracoes/financeiro/salvar", "ConfiguracoesController@financeiroSalvar");
+        // Configurações de Notificações
+        Router::post("/configuracoes/notificacoes/salvar", "NotificacoesController@salvarConfiguracoes");
     });
+
+    // ============================================================
+    // Notificações — API AJAX (autenticado)
+    // ============================================================
+    Router::get("/api/notificacoes/count",              "NotificacoesController@count");
+    Router::get("/api/notificacoes/recentes",           "NotificacoesController@recentes");
+    Router::post("/api/notificacoes/marcar-lida/{id}",  "NotificacoesController@marcarLida");
+    Router::post("/api/notificacoes/marcar-todas-lidas","NotificacoesController@marcarTodasLidas");
+    Router::post("/api/notificacoes/gerar",             "NotificacoesController@gerar");
 });

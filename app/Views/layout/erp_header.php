@@ -769,10 +769,60 @@ if ($_ec) {
         </div>
 
         <div class="header-right">
-          <!-- Notificações Placeholder -->
-          <div class="notification-btn" title="Notificações">
-            <i class="far fa-bell"></i>
+
+          <!-- ===== NOTIFICAÇÕES ===== -->
+          <div class="dropdown" id="notifDropdownWrapper">
+            <button
+              class="notification-btn position-relative"
+              id="notifDropdownBtn"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+              title="Notificações"
+              style="background:none;border:none;cursor:pointer;padding:0.4rem 0.6rem;border-radius:0.5rem;transition:background .2s;"
+            >
+              <i class="far fa-bell" style="font-size:1.2rem;"></i>
+              <span
+                id="notifBadge"
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                style="font-size:.6rem;min-width:18px;display:none;"
+              >0</span>
+            </button>
+
+            <!-- Dropdown de notificações -->
+            <div
+              class="dropdown-menu dropdown-menu-end p-0"
+              id="notifDropdown"
+              aria-labelledby="notifDropdownBtn"
+              style="width:380px;max-width:95vw;border-radius:.75rem;box-shadow:0 10px 40px rgba(0,0,0,.15);border:1px solid #e2e8f0;"
+            >
+              <!-- Cabeçalho -->
+              <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom" style="background:#f8fafc;border-radius:.75rem .75rem 0 0;">
+                <span style="font-weight:600;font-size:.875rem;color:#1a202c;"><i class="far fa-bell me-2 text-primary"></i>Notificações</span>
+                <button
+                  id="notifMarcarTodasBtn"
+                  class="btn btn-link btn-sm p-0 text-primary"
+                  style="font-size:.75rem;text-decoration:none;"
+                  onclick="notifMarcarTodas()"
+                >Marcar todas como lidas</button>
+              </div>
+
+              <!-- Lista de notificações -->
+              <div id="notifLista" style="max-height:380px;overflow-y:auto;">
+                <div class="text-center py-4 text-muted" id="notifEmpty" style="font-size:.85rem;">
+                  <i class="far fa-bell-slash fa-2x mb-2 d-block"></i>
+                  Nenhuma notificação no momento
+                </div>
+              </div>
+
+              <!-- Rodapé -->
+              <div class="border-top text-center py-2" style="background:#f8fafc;border-radius:0 0 .75rem .75rem;">
+                <a href="/configuracoes?tab=notificacoes" style="font-size:.78rem;color:#00529B;text-decoration:none;font-weight:500;">
+                  <i class="fas fa-cog me-1"></i>Configurar alertas
+                </a>
+              </div>
+            </div>
           </div>
+          <!-- ===== /NOTIFICAÇÕES ===== -->
 
           <!-- Perfil do Usuário -->
           <div class="dropdown">

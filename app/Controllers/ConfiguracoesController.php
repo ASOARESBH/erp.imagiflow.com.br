@@ -15,6 +15,7 @@ use App\Services\MailService;
 use App\Services\CryptoService;
 use App\Services\CnesImportService;
 use App\Core\Database;
+use App\Models\NotificacaoConfigAlerta;
 
 class ConfiguracoesController extends Controller
 {
@@ -93,6 +94,13 @@ class ConfiguracoesController extends Controller
 
         $activeTab  = $_GET['tab'] ?? 'geral';
         $usuarios   = Auth::can('manage_users') ? $this->userModel->findAll() : [];
+
+        // Configurações de alertas de notificação
+        $notificacaoConfigs = [];
+        try {
+            $notifConfigModel   = new NotificacaoConfigAlerta();
+            $notificacaoConfigs = $notifConfigModel->findByUsuario((int) Auth::user()->id);
+        } catch (\Throwable $e) {}
         $configNfs        = $this->configNfsModel->findByUsuarioId((int) Auth::user()->id);
         $configFinanceiro = $this->configFinanceiroModel->findByUsuarioId((int) Auth::user()->id);
 
@@ -124,6 +132,7 @@ class ConfiguracoesController extends Controller
             'cnesTotalEstab' => $cnesTotalEstab,
             'cnesTotalEquip' => $cnesTotalEquip,
             'cnesTotalProf'  => $cnesTotalProf,
+            'notificacaoConfigs' => $notificacaoConfigs,
         ]);
     }
 
