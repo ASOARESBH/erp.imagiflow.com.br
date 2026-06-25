@@ -34,21 +34,26 @@ class NotificacaoService
      */
     public function gerarTodasNotificacoes(): int
     {
-        $total = 0;
+        try {
+            $total = 0;
 
-        // Buscar todos os usuários ativos
-        $stmt  = $this->pdo->query("SELECT id FROM users WHERE status = 'active' OR status = 1 OR status IS NULL");
-        $users = $stmt->fetchAll(PDO::FETCH_OBJ);
+            // Buscar todos os usuários ativos
+            $stmt  = $this->pdo->query("SELECT id FROM users WHERE status = 'active' OR status = 1 OR status IS NULL");
+            $users = $stmt->fetchAll(PDO::FETCH_OBJ);
 
-        foreach ($users as $user) {
-            $uid    = (int) $user->id;
-            $total += $this->gerarParaUsuario($uid);
+            foreach ($users as $user) {
+                $uid    = (int) $user->id;
+                $total += $this->gerarParaUsuario($uid);
+            }
+
+            // Limpar notificações antigas (>60 dias, já lidas)
+            $this->notifModel->limparAntigas(60);
+
+            return $total;
+        } catch (\Throwable $e) {
+            error_log('[NotificacaoService] gerarTodasNotificacoes: ' . $e->getMessage());
+            return 0;
         }
-
-        // Limpar notificações antigas (>60 dias, já lidas)
-        $this->notifModel->limparAntigas(60);
-
-        return $total;
     }
 
     /**
@@ -57,14 +62,14 @@ class NotificacaoService
     public function gerarParaUsuario(int $usuarioId): int
     {
         $total = 0;
-        $total += $this->gerarCrmRetornoOportunidades($usuarioId);
-        $total += $this->gerarCrmRetornoLeads($usuarioId);
-        $total += $this->gerarContasPagarVencendo($usuarioId);
-        $total += $this->gerarContasPagarVencidas($usuarioId);
-        $total += $this->gerarContasReceberVencendo($usuarioId);
-        $total += $this->gerarContasReceberVencidas($usuarioId);
-        $total += $this->gerarOportunidadesFechamento($usuarioId);
-        $total += $this->gerarContratosVencendo($usuarioId);
+        try { $total += $this->gerarCrmRetornoOportunidades($usuarioId); } catch (\Throwable $e) { error_log('[Notif] crm_retorno: ' . $e->getMessage()); }
+        try { $total += $this->gerarCrmRetornoLeads($usuarioId); } catch (\Throwable $e) { error_log('[Notif] crm_leads: ' . $e->getMessage()); }
+        try { $total += $this->gerarContasPagarVencendo($usuarioId); } catch (\Throwable $e) { error_log('[Notif] cp_vencendo: ' . $e->getMessage()); }
+        try { $total += $this->gerarContasPagarVencidas($usuarioId); } catch (\Throwable $e) { error_log('[Notif] cp_vencida: ' . $e->getMessage()); }
+        try { $total += $this->gerarContasReceberVencendo($usuarioId); } catch (\Throwable $e) { error_log('[Notif] cr_vencendo: ' . $e->getMessage()); }
+        try { $total += $this->gerarContasReceberVencidas($usuarioId); } catch (\Throwable $e) { error_log('[Notif] cr_vencida: ' . $e->getMessage()); }
+        try { $total += $this->gerarOportunidadesFechamento($usuarioId); } catch (\Throwable $e) { error_log('[Notif] op_fechamento: ' . $e->getMessage()); }
+        try { $total += $this->gerarContratosVencendo($usuarioId); } catch (\Throwable $e) { error_log('[Notif] contratos: ' . $e->getMessage()); }
         return $total;
     }
 

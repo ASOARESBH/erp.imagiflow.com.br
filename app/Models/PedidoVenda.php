@@ -475,5 +475,27 @@ class PedidoVenda extends Model
         }
     }
 
+    // ─── Buscar itens de um pedido ───────────────────────────────────────────────
+    public function getItens(int $pedidoId): array
+    {
+        try {
+            $stmt = $this->pdo->prepare(
+                "SELECT i.*,
+                        pr.nome        AS produto_nome,
+                        pr.imagem_principal,
+                        pr.codigo      AS produto_codigo
+                 FROM est_pedidos_venda_itens i
+                 LEFT JOIN produtos pr ON pr.id = i.produto_id
+                 WHERE i.pedido_id = ?
+                 ORDER BY i.id ASC"
+            );
+            $stmt->execute([$pedidoId]);
+            return $stmt->fetchAll(\PDO::FETCH_OBJ);
+        } catch (\Throwable $e) {
+            $this->log('error', '[getItens] ' . $e->getMessage(), ['pedido_id' => $pedidoId]);
+            return [];
+        }
+    }
+
 
 }
