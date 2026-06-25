@@ -702,10 +702,12 @@ class CrmPropostasController extends Controller
 
     private function gerarPdf(object $proposta, array $itens, object|false $user): string
     {
-        // ── FPDF: biblioteca PHP pura embutida no repositório ─────────────────
-        // Compatível com qualquer hospedagem compartilhada (HostGator, cPanel etc.)
-        // Não requer Composer, binários externos ou instalação de pacotes.
-        require_once BASE_PATH . '/app/Lib/fpdf/fpdf.php';
+        // ── Motor PDF: tenta mPDF (Composer), cai para FPDF (embutido) ──────────
+        // Fallback automático: se mPDF não estiver instalado, usa FPDF puro PHP.
+        $usandoMpdf = class_exists('\Mpdf\Mpdf');
+        if (!$usandoMpdf) {
+            require_once BASE_PATH . '/app/Lib/fpdf/fpdf.php';
+        }
 
         // Dados básicos
         $numero      = $proposta->numero;
@@ -768,53 +770,117 @@ class CrmPropostasController extends Controller
         $pagamento = $proposta->condicao_pagamento ?? '-';
         $obs       = $proposta->observacoes        ?? '';
 
-        // ── Instância FPDF ────────────────────────────────────────────────────
+        // ── Instância do motor PDF ────────────────────────────────────────────
+        // Função auxiliar para texto UTF-8 → Latin-1 (FPDF padrão)
+        $enc = fn(string $s): string => iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $s);
+
+        if ($usandoMpdf) {
+            // ── mPDF (quando disponível via Composer) ────────────────────────
+            $mpdf = new \Mpdf\Mpdf([
+                'mode'          => 'utf-8',
+                'format'        => 'A4',
+                'margin_left'   => 15,
+                'margin_right'  => 15,
+                'margin_top'    => 8,
+                'margin_bottom' => 15,
+            ]);
+            $logoHtml = '';
+            if (!empty($fornecedorLogo) && file_exists($fornecedorLogo)) {
+                $ext = strtolower(pathinfo($fornecedorLogo, PATHINFO_EXTENSION));
+                $mime = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : 'image/png';
+                $b64  = base64_encode(file_get_contents($fornecedorLogo));
+                $logoHtml = '<img src="data:' . $mime . ';base64,' . $b64 . '" style="height:32px;max-width:100px;object-fit:contain;vertical-align:middle;margin-right:10px">';
+            }
+            $infoLinha = htmlspecialchars(trim(implode('  |  ', array_filter([$fornecedorEmail, $fornecedorDoc, $fornecedorTel]))));
+            $endLinha  = htmlspecialchars($fornecedorEnd);
+            $html = '<style>
+.cab{background:#1a56db;color:#fff;padding:8px 12px;width:100%;border-collapse:collapse}
+.cab td{vertical-align:middle;color:#fff}
+.badge{background:#fff;color:#1a56db;border-radius:4px;padding:6px 10px;font-weight:700;font-size:11pt;text-align:center;white-space:nowrap}
+.nome{font-size:14pt;font-weight:700}
+.info{font-size:8pt;opacity:.9;margin-top:2px}
+ h3{font-size:12pt;color:#1e1e1e;margin:6px 0 2px}
+</style>
+<table class="cab" width="100%"><tr>
+<td width="75%">' . $logoHtml . '<span class="nome">' . htmlspecialchars($fornecedorNome) . '</span>
+<div class="info">' . $infoLinha . '</div>
+<div class="info">' . $endLinha . '</div></td>
+<td width="25%" align="right"><div class="badge">PROPOSTA<br>' . htmlspecialchars($numero) . '</div></td>
+</tr></table>
+<h3>' . htmlspecialchars($titulo) . '</h3>
+';
+            $mpdf->WriteHTML($html);
+            // Salvar
+            $tmpPdf = sys_get_temp_dir() . '/proposta_' . $proposta->id . '_' . time() . '.pdf';
+            $mpdf->Output($tmpPdf, 'F');
+            if (!file_exists($tmpPdf) || filesize($tmpPdf) < 100) {
+                throw new \RuntimeException('mPDF nao gerou o PDF.');
+            }
+            return $tmpPdf;
+        }
+
+        // ── FPDF (fallback — biblioteca PHP pura embutida) ────────────────────
         $pdf = new \FPDF('P', 'mm', 'A4');
         $pdf->SetAutoPageBreak(true, 15);
         $pdf->AddPage();
         $pdf->SetMargins(15, 15, 15);
 
-        // Função auxiliar para texto UTF-8 → Latin-1 (FPDF padrão)
-        $enc = fn(string $s): string => iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $s);
-
         // ── CABEÇALHO ─────────────────────────────────────────────────────────
-        $pdf->SetFillColor(26, 86, 219);   // azul
+        // Altura do cabeçalho: 38mm para acomodar logo + texto sem sobreposição
+        $cabH = 38;
+        $pdf->SetFillColor(26, 86, 219);
         $pdf->SetTextColor(255, 255, 255);
-        $pdf->Rect(0, 0, 210, 32, 'F');
-        // Logo (se existir e for imagem válida)
-        $logoX = 15;
+        $pdf->Rect(0, 0, 210, $cabH, 'F');
+
+        // Logo: largura fixa 30mm, altura proporcional automática, Y=5
+        $textX = 15;   // X onde começa o texto do nome
         if (!empty($fornecedorLogo) && file_exists($fornecedorLogo)) {
             try {
-                $pdf->Image($fornecedorLogo, 15, 4, 0, 24);
-                $logoX = 50;
-            } catch (\Throwable $__le) { $logoX = 15; }
+                // Largura fixa 30mm; FPDF calcula altura proporcional
+                $pdf->Image($fornecedorLogo, 15, 5, 30, 0);
+                $textX = 15 + 30 + 4;  // 4mm de margem após a logo
+            } catch (\Throwable $__le) {
+                $textX = 15;
+            }
         }
+
+        // Largura disponível para texto (entre $textX e o badge em X=145)
+        $textW = 145 - $textX;
+
+        // Nome da empresa (linha 1)
         $pdf->SetFont('Arial', 'B', 13);
-        $pdf->SetXY($logoX, 6);
-        $pdf->Cell(130 - ($logoX - 15), 8, $enc($fornecedorNome), 0, 0, 'L');
+        $pdf->SetXY($textX, 7);
+        $pdf->Cell($textW, 8, $enc($fornecedorNome), 0, 0, 'L');
+
+        // Linha de info: email | CNPJ | telefone (linha 2)
         $pdf->SetFont('Arial', '', 8);
-        $pdf->SetXY($logoX, 15);
         $infoLinha = trim(implode('  |  ', array_filter([$fornecedorEmail, $fornecedorDoc, $fornecedorTel])));
-        $pdf->Cell(130 - ($logoX - 15), 5, $enc($infoLinha), 0, 0, 'L');
-        if (!empty($fornecedorEnd)) {
-            $pdf->SetXY($logoX, 21);
-            $pdf->Cell(130 - ($logoX - 15), 5, $enc($fornecedorEnd), 0, 0, 'L');
+        if (!empty($infoLinha)) {
+            $pdf->SetXY($textX, 17);
+            $pdf->Cell($textW, 5, $enc($infoLinha), 0, 0, 'L');
         }
-        // Badge número
+
+        // Endereço (linha 3)
+        if (!empty($fornecedorEnd)) {
+            $pdf->SetXY($textX, 24);
+            $pdf->Cell($textW, 5, $enc($fornecedorEnd), 0, 0, 'L');
+        }
+
+        // Badge número (canto direito)
         $pdf->SetFillColor(255, 255, 255);
         $pdf->SetTextColor(26, 86, 219);
         $pdf->SetFont('Arial', 'B', 10);
-        $pdf->Rect(148, 5, 47, 20, 'F');
-        $pdf->SetXY(148, 7);
-        $pdf->Cell(47, 5, 'PROPOSTA', 0, 2, 'C');
+        $pdf->Rect(148, 6, 47, 24, 'F');
+        $pdf->SetXY(148, 10);
+        $pdf->Cell(47, 6, 'PROPOSTA', 0, 2, 'C');
         $pdf->SetFont('Arial', 'B', 12);
         $pdf->SetX(148);
         $pdf->Cell(47, 8, $enc($numero), 0, 0, 'C');
 
-        // Título da proposta
+        // Título da proposta (abaixo do cabeçalho)
         $pdf->SetTextColor(30, 30, 30);
         $pdf->SetFont('Arial', 'B', 12);
-        $pdf->SetXY(15, 34);
+        $pdf->SetXY(15, $cabH + 4);
         $pdf->MultiCell(180, 7, $enc($titulo), 0, 'L');
         $pdf->Ln(2);
 
