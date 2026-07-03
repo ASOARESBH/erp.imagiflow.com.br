@@ -845,4 +845,126 @@ class AsaasService
             throw $e;
         }
     }
+
+    // =========================================================================
+    // DDA — Débito Direto Autorizado (Bill Payments)
+    // =========================================================================
+
+    /**
+     * Lista boletos DDA recebidos na conta Asaas.
+     * Endpoint: GET /v3/bill-payments
+     *
+     * @param  array $params  Filtros: status, dueDateStart, dueDateEnd, offset, limit
+     * @return array          ['data' => [...], 'totalCount' => int, 'hasMore' => bool]
+     */
+    public function listarDdaBoletos(array $params = []): array
+    {
+        $defaults = ['limit' => 50, 'offset' => 0];
+        $query    = array_merge($defaults, $params);
+        $qs       = http_build_query($query);
+        try {
+            $response = $this->makeRequest('GET', '/bill-payments?' . $qs);
+            $this->logAsaas('info', '[DDA] Boletos listados', [
+                'total'  => $response['totalCount'] ?? 0,
+                'params' => $params,
+            ]);
+            return $response;
+        } catch (\Exception $e) {
+            $this->logAsaas('error', '[DDA] Erro ao listar boletos', ['error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Busca detalhes de um boleto DDA específico.
+     * Endpoint: GET /v3/bill-payments/{id}
+     */
+    public function detalharDdaBoleto(string $billId): array
+    {
+        try {
+            return $this->makeRequest('GET', '/bill-payments/' . $billId);
+        } catch (\Exception $e) {
+            $this->logAsaas('error', '[DDA] Erro ao detalhar boleto', ['id' => $billId, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Paga um boleto DDA via Asaas.
+     * Endpoint: POST /v3/bill-payments/{id}/pay
+     */
+    public function pagarDdaBoleto(string $billId, array $dados = []): array
+    {
+        try {
+            $response = $this->makeRequest('POST', '/bill-payments/' . $billId . '/pay', $dados);
+            $this->logAsaas('info', '[DDA] Boleto pago via Asaas', ['id' => $billId]);
+            return $response;
+        } catch (\Exception $e) {
+            $this->logAsaas('error', '[DDA] Erro ao pagar boleto', ['id' => $billId, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Cancela o pagamento agendado de um boleto DDA.
+     * Endpoint: POST /v3/bill-payments/{id}/cancel
+     */
+    public function cancelarDdaBoleto(string $billId): array
+    {
+        try {
+            $response = $this->makeRequest('POST', '/bill-payments/' . $billId . '/cancel');
+            $this->logAsaas('info', '[DDA] Pagamento DDA cancelado', ['id' => $billId]);
+            return $response;
+        } catch (\Exception $e) {
+            $this->logAsaas('error', '[DDA] Erro ao cancelar boleto DDA', ['id' => $billId, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Mapeia status Asaas DDA para status interno do ERP.
+     */
+    public static function mapearStatusDda(string $asaasStatus): string
+    {
+        return match (strtoupper($asaasStatus)) {
+            'PAID'            => 'pago_asaas',
+            'CANCELLED'       => 'cancelado',
+            'FAILED'          => 'cancelado',
+            default           => 'pendente',
+        };
+    }
+
+    /**
+     * Normaliza um item de boleto DDA retornado pela API Asaas
+     * para o formato esperado pelo Model DdaBoleto.
+     */
+    public static function normalizarDdaItem(array $item, int $usuarioId): array
+    {
+        $valor      = (float)($item['value'] ?? $item['originalValue'] ?? 0);
+        $desconto   = (float)($item['discount'] ?? 0);
+        $juros      = (float)($item['interest'] ?? 0);
+        $multa      = (float)($item['fine'] ?? 0);
+        $valorFinal = (float)($item['netValue'] ?? ($valor - $desconto + $juros + $multa));
+
+        return [
+            'usuario_id'            => $usuarioId,
+            'asaas_id'              => $item['id'] ?? '',
+            'asaas_status'          => strtoupper($item['status'] ?? 'PENDING'),
+            'beneficiario_nome'     => $item['companyName'] ?? ($item['beneficiary']['name'] ?? null),
+            'beneficiario_cpf_cnpj' => $item['cpfCnpj'] ?? ($item['beneficiary']['cpfCnpj'] ?? null),
+            'beneficiario_banco'    => $item['bank']['name'] ?? ($item['bankName'] ?? null),
+            'codigo_barras'         => $item['barCode'] ?? ($item['identificationField'] ?? null),
+            'linha_digitavel'       => $item['identificationField'] ?? ($item['barCode'] ?? null),
+            'valor'                 => $valor,
+            'valor_desconto'        => $desconto,
+            'valor_juros'           => $juros,
+            'valor_multa'           => $multa,
+            'valor_final'           => $valorFinal > 0 ? $valorFinal : $valor,
+            'data_vencimento'       => $item['dueDate'] ?? date('Y-m-d'),
+            'data_limite_pagamento' => $item['limitDate'] ?? ($item['dueDate'] ?? null),
+            'descricao'             => $item['description'] ?? ($item['companyName'] ?? 'Boleto DDA'),
+            'status_interno'        => self::mapearStatusDda($item['status'] ?? 'PENDING'),
+            'asaas_raw'             => json_encode($item),
+        ];
+    }
 }

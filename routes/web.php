@@ -278,6 +278,18 @@ Router::group(["middleware" => ["Auth"]], function () {
         Router::post("/financeiro/contas-a-pagar/delete/{id}", "ContasPagarController@delete");
     });
 
+    // DDA — Débito Direto Autorizado
+    Router::group(["middleware" => ["Permission:view_contas_pagar"]], function () {
+        Router::get("/financeiro/contas-a-pagar/dda", "ContasPagarController@ddaIndex");
+        Router::get("/financeiro/contas-a-pagar/dda/detalhar/{id}", "ContasPagarController@ddaDetalhar");
+    });
+    Router::group(["middleware" => ["Permission:edit_contas_pagar"]], function () {
+        Router::post("/financeiro/contas-a-pagar/dda/sincronizar", "ContasPagarController@ddaSincronizar");
+        Router::post("/financeiro/contas-a-pagar/dda/importar/{id}", "ContasPagarController@ddaImportar");
+        Router::post("/financeiro/contas-a-pagar/dda/pagar/{id}", "ContasPagarController@ddaPagar");
+        Router::post("/financeiro/contas-a-pagar/dda/ignorar/{id}", "ContasPagarController@ddaIgnorar");
+    });
+
     // Contas a Receber
     Router::group(["middleware" => ["Permission:view_contas_receber"]], function () {
         Router::get("/financeiro/receber", "ContasReceberController@index");

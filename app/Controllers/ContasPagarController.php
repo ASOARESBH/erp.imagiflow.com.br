@@ -11,6 +11,9 @@ use App\Models\ContaPagar;
 use App\Models\ContaPagarAnexo;
 use App\Models\PlanoConta;
 use App\Models\Fornecedor;
+use App\Models\DdaBoleto;
+use App\Models\Integracao;
+use App\Services\AsaasService;
 
 class ContasPagarController extends Controller
 {
@@ -19,6 +22,8 @@ class ContasPagarController extends Controller
     private PlanoConta $planoContaModel;
     private Fornecedor $fornecedorModel;
     private Logger $logger;
+    private DdaBoleto $ddaModel;
+    private ?AsaasService $asaasService = null;
 
     public function __construct()
     {
@@ -27,6 +32,7 @@ class ContasPagarController extends Controller
         $this->planoContaModel = new PlanoConta();
         $this->fornecedorModel = new Fornecedor();
         $this->logger = new Logger();
+        $this->ddaModel = new DdaBoleto();
     }
 
     public function index(): void
@@ -457,6 +463,212 @@ class ContasPagarController extends Controller
             http_response_code(500);
             echo 'Erro ao baixar arquivo';
             exit();
+        }
+    }
+
+    // =========================================================================
+    // DDA — Débito Direto Autorizado
+    // =========================================================================
+
+    private function getAsaasService(): AsaasService
+    {
+        if ($this->asaasService === null) {
+            $usuarioId = (int)(Auth::user()->id ?? 0);
+            $apiKey    = null;
+            $env       = null;
+            if ($usuarioId > 0) {
+                $integracaoModel = new Integracao();
+                $config = $integracaoModel->findByProvider('asaas', $usuarioId);
+                if ($config && !empty($config->api_key)) {
+                    $apiKey = $config->api_key;
+                    $env    = $config->environment ?? 'sandbox';
+                }
+            }
+            $this->asaasService = new AsaasService($apiKey, $env);
+        }
+        return $this->asaasService;
+    }
+
+    public function ddaIndex(): void
+    {
+        try {
+            $usuarioId = (int)Auth::user()->id;
+            $filtros = [
+                'status_interno' => $_GET['status'] ?? '',
+                'pesquisa'       => $_GET['q'] ?? '',
+                'venc_de'        => $_GET['venc_de'] ?? '',
+                'venc_ate'       => $_GET['venc_ate'] ?? '',
+            ];
+            $boletos      = $this->ddaModel->findByUsuarioId($usuarioId, $filtros);
+            $contagens    = $this->ddaModel->countByStatus($usuarioId);
+            $planos       = $this->planoContaModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
+            $fornecedores = $this->fornecedorModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
+
+            View::render('contas_pagar/dda_index', [
+                '_layout'      => 'erp',
+                'title'        => 'Pagamento DDA',
+                'breadcrumb'   => ['Financeiro' => '/financeiro/pagar', 0 => 'Pagamento DDA'],
+                'boletos'      => $boletos,
+                'contagens'    => $contagens,
+                'filtros'      => $filtros,
+                'planos'       => $planos,
+                'fornecedores' => $fornecedores,
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('[DDA] Erro ao listar: ' . $e->getMessage());
+            header('Location: /financeiro/pagar?error=dda');
+            exit();
+        }
+    }
+
+    public function ddaSincronizar(): void
+    {
+        header('Content-Type: application/json');
+        try {
+            $usuarioId = (int)Auth::user()->id;
+            $asaas     = $this->getAsaasService();
+            $params    = ['limit' => 100, 'offset' => 0];
+            $dueDateStart = $_POST['dueDateStart'] ?? '';
+            $dueDateEnd   = $_POST['dueDateEnd'] ?? '';
+            if ($dueDateStart) $params['dueDateStart'] = $dueDateStart;
+            if ($dueDateEnd)   $params['dueDateEnd']   = $dueDateEnd;
+
+            $response    = $asaas->listarDdaBoletos($params);
+            $items       = $response['data'] ?? [];
+            $novos       = 0;
+            $atualizados = 0;
+
+            foreach ($items as $item) {
+                $dados     = AsaasService::normalizarDdaItem($item, $usuarioId);
+                $existente = $this->ddaModel->findByAsaasId($dados['asaas_id'], $usuarioId);
+                $this->ddaModel->upsert($dados);
+                $existente ? $atualizados++ : $novos++;
+            }
+
+            echo json_encode([
+                'success'     => true,
+                'total'       => count($items),
+                'novos'       => $novos,
+                'atualizados' => $atualizados,
+                'message'     => "Sincronizado: {$novos} novos, {$atualizados} atualizados.",
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('[DDA] Erro ao sincronizar: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    public function ddaDetalhar($id): void
+    {
+        header('Content-Type: application/json');
+        try {
+            $usuarioId = (int)Auth::user()->id;
+            $boleto    = $this->ddaModel->findById((int)$id);
+            if (!$boleto || (int)$boleto->usuario_id !== $usuarioId) {
+                echo json_encode(['success' => false, 'message' => 'Boleto não encontrado.']);
+                return;
+            }
+            echo json_encode(['success' => true, 'boleto' => $boleto]);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    public function ddaImportar($id): void
+    {
+        header('Content-Type: application/json');
+        try {
+            $usuarioId = (int)Auth::user()->id;
+            $boleto    = $this->ddaModel->findById((int)$id);
+            if (!$boleto || (int)$boleto->usuario_id !== $usuarioId) {
+                echo json_encode(['success' => false, 'message' => 'Boleto não encontrado.']);
+                return;
+            }
+            if ($boleto->status_interno !== DdaBoleto::STATUS_PENDENTE) {
+                echo json_encode(['success' => false, 'message' => 'Este boleto já foi importado ou não pode ser importado.']);
+                return;
+            }
+
+            $descricao    = trim($_POST['descricao'] ?? $boleto->descricao ?? 'Boleto DDA');
+            $planoId      = (int)($_POST['plano_id'] ?? 0);
+            $fornecedorId = (int)($_POST['fornecedor_id'] ?? 0);
+            $observacao   = trim($_POST['observacao'] ?? '');
+
+            $contaPagarId = $this->model->create([
+                'usuario_id'      => $usuarioId,
+                'descricao'       => $descricao,
+                'valor'           => $boleto->valor_final,
+                'data_vencimento' => $boleto->data_vencimento,
+                'status'          => 'aberta',
+                'plano_conta_id'  => $planoId ?: null,
+                'fornecedor_id'   => $fornecedorId ?: null,
+                'observacoes'     => $observacao ?: ('Importado via DDA. Beneficiário: ' . $boleto->beneficiario_nome),
+                'codigo_barras'   => $boleto->linha_digitavel ?? $boleto->codigo_barras ?? null,
+            ]);
+
+            $this->ddaModel->marcarImportado((int)$boleto->id, $contaPagarId);
+
+            echo json_encode([
+                'success'        => true,
+                'conta_pagar_id' => $contaPagarId,
+                'message'        => 'Boleto importado para Contas a Pagar com sucesso!',
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('[DDA] Erro ao importar: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    public function ddaPagar($id): void
+    {
+        header('Content-Type: application/json');
+        try {
+            $usuarioId = (int)Auth::user()->id;
+            $boleto    = $this->ddaModel->findById((int)$id);
+            if (!$boleto || (int)$boleto->usuario_id !== $usuarioId) {
+                echo json_encode(['success' => false, 'message' => 'Boleto não encontrado.']);
+                return;
+            }
+
+            $pagoPor       = $_POST['pago_por'] ?? 'inlaudo';
+            $dataPagamento = $_POST['data_pagamento'] ?? date('Y-m-d');
+
+            if ($pagoPor === 'asaas') {
+                $asaas = $this->getAsaasService();
+                $asaas->pagarDdaBoleto($boleto->asaas_id);
+            }
+
+            $this->ddaModel->confirmarPagamento((int)$boleto->id, $pagoPor, $dataPagamento);
+
+            if ($boleto->conta_pagar_id) {
+                $this->model->update((int)$boleto->conta_pagar_id, [
+                    'status'         => 'paga',
+                    'data_pagamento' => $dataPagamento,
+                ]);
+            }
+
+            $label = $pagoPor === 'asaas' ? 'Asaas' : 'InLaudo';
+            echo json_encode(['success' => true, 'message' => "Pagamento confirmado via {$label}!"]);
+        } catch (\Exception $e) {
+            $this->logger->error('[DDA] Erro ao confirmar pagamento: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    public function ddaIgnorar($id): void
+    {
+        header('Content-Type: application/json');
+        try {
+            $usuarioId = (int)Auth::user()->id;
+            $boleto    = $this->ddaModel->findById((int)$id);
+            if (!$boleto || (int)$boleto->usuario_id !== $usuarioId) {
+                echo json_encode(['success' => false, 'message' => 'Boleto não encontrado.']);
+                return;
+            }
+            $this->ddaModel->ignorar((int)$boleto->id);
+            echo json_encode(['success' => true, 'message' => 'Boleto ignorado.']);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
 }
