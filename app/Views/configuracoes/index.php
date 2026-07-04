@@ -408,6 +408,13 @@ $roleLabels = [
                 <small style="font-size:.7rem;color:#94a3b8">Atividade Econômica (sem pontos/traços)</small>
               </div>
               <div>
+                <label style="font-size:.8rem;font-weight:600;color:#374151">NBS — Nomenclatura Brasileira de Serviços</label>
+                <input type="text" name="nbs_codigo" class="form-control form-control-sm mt-1"
+                       value="<?php echo htmlspecialchars($nfsConfig->nbs_codigo ?? ''); ?>"
+                       placeholder="Ex: 1.07.00.00.00" maxlength="20">
+                <small style="font-size:.7rem;color:#94a3b8">Obrigatório para NFS-e Nacional (Portal Nacional). Formato: X.XX.XX.XX.XX</small>
+              </div>
+              <div>
                 <label style="font-size:.8rem;font-weight:600;color:#374151">ID do Serviço Municipal (Asaas)</label>
                 <input type="text" name="municipal_service_id" class="form-control form-control-sm mt-1"
                        value="<?php echo htmlspecialchars($nfsConfig->municipal_service_id ?? ''); ?>"

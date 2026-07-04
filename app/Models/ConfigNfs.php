@@ -77,6 +77,7 @@ class ConfigNfs extends Model
             'municipal_service_code' => $data['municipal_service_code'] ?? '',
             'municipal_service_id'   => $data['municipal_service_id'] ?? '',
             'cnae'                   => $data['cnae'] ?? '8640205',
+            'nbs_codigo'             => $data['nbs_codigo'] ?? '',
             'deductions'             => (float) ($data['deductions'] ?? 0),
             'retain_iss'             => (int) ($data['retain_iss'] ?? 0),
             'iss_aliquota'           => (float) ($data['iss_aliquota'] ?? 0),
@@ -170,6 +171,10 @@ class ConfigNfs extends Model
         // CNAE (opcional mas recomendado para Portal Nacional)
         if (!empty($config->cnae)) {
             $payload['cnae'] = preg_replace('/\D/', '', $config->cnae);
+        }
+        // NBS — Nomenclatura Brasileira de Serviços (Portal Nacional NFS-e)
+        if (!empty($config->nbs_codigo)) {
+            $payload['nbs'] = $config->nbs_codigo;
         }
 
         // Vínculo com pagamento Asaas

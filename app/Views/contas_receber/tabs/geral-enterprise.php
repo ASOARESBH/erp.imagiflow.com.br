@@ -224,6 +224,65 @@ $meioPagamentoAtual = $conta->meio_pagamento ?? '';
             <label for="observacoes" class="form-label">Observações</label>
             <textarea name="observacoes" id="observacoes" class="form-control" rows="2"><?php echo htmlspecialchars($conta->observacoes ?? ''); ?></textarea>
         </div>
+
+        <!-- ===== NF AVULSA ===== -->
+        <div class="mt-3 p-3" style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch"
+                           name="emitir_nf_avulsa" id="emitir_nf_avulsa" value="1"
+                           <?php echo !empty($conta->emitir_nf_avulsa) ? 'checked' : ''; ?>>
+                    <label class="form-check-label fw-semibold" for="emitir_nf_avulsa" style="color:#15803d;">
+                        <i class="fas fa-file-invoice me-1"></i> Emitir NFS-e Avulsa
+                    </label>
+                </div>
+                <?php if (!empty($conta->nf_avulsa_status)): ?>
+                <?php
+                    $nfBadgeMap = [
+                        'pendente'    => 'bg-warning text-dark',
+                        'emitida'     => 'bg-success',
+                        'cancelada'   => 'bg-danger',
+                        'erro'        => 'bg-danger',
+                        'processando' => 'bg-info',
+                    ];
+                    $nfBadgeCls = $nfBadgeMap[$conta->nf_avulsa_status] ?? 'bg-secondary';
+                ?>
+                <span class="badge <?php echo $nfBadgeCls; ?>">
+                    NF: <?php echo strtoupper(htmlspecialchars($conta->nf_avulsa_status)); ?>
+                </span>
+                <?php if (!empty($conta->nf_avulsa_nota_id)): ?>
+                <a href="/faturamento/notas-fiscais" target="_blank" class="btn btn-sm btn-outline-success py-0">
+                    <i class="fas fa-external-link-alt me-1"></i>Ver Nota
+                </a>
+                <?php endif; ?>
+                <?php endif; ?>
+            </div>
+            <div id="nf-avulsa-info" style="<?php echo empty($conta->emitir_nf_avulsa) ? 'display:none' : ''; ?>">
+                <small class="text-muted d-block mt-2">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Ao salvar, o sistema emitirá automaticamente uma NFS-e via Asaas vinculada a esta conta.
+                    A nota ficará disponível em
+                    <a href="/faturamento/notas-fiscais" target="_blank">Faturamento → Notas Fiscais</a>.
+                    Certifique-se de que as configurações de NF estão preenchidas em
+                    <a href="/configuracoes?tab=notas-fiscais" target="_blank">Configurações → Notas Fiscais</a>.
+                </small>
+                <?php if (!empty($conta->nf_avulsa_nota_id)): ?>
+                <small class="text-success d-block mt-1">
+                    <i class="fas fa-check-circle me-1"></i>
+                    Nota emitida — ID Asaas: <code><?php echo htmlspecialchars($conta->nf_avulsa_nota_id); ?></code>
+                </small>
+                <?php endif; ?>
+                <?php if (!empty($conta->nf_avulsa_status) && $conta->nf_avulsa_status === 'erro'): ?>
+                <small class="text-danger d-block mt-1">
+                    <i class="fas fa-exclamation-circle me-1"></i>
+                    Erro na emissão. Verifique as configurações em
+                    <a href="/configuracoes?tab=notas-fiscais" target="_blank">Configurações → Notas Fiscais</a>.
+                </small>
+                <?php endif; ?>
+            </div>
+        </div>
+        <!-- ===== FIM NF AVULSA ===== -->
+
     </section>
 
 </form>
@@ -307,5 +366,15 @@ $meioPagamentoAtual = $conta->meio_pagamento ?? '';
         select.addEventListener('change', updateAsaasPanel);
         updateAsaasPanel(); // estado inicial
     }
+})();
+
+// Toggle painel NF Avulsa
+(function () {
+    var chk   = document.getElementById('emitir_nf_avulsa');
+    var panel = document.getElementById('nf-avulsa-info');
+    if (!chk || !panel) return;
+    chk.addEventListener('change', function () {
+        panel.style.display = chk.checked ? '' : 'none';
+    });
 })();
 </script>

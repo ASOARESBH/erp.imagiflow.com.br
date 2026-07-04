@@ -374,6 +374,7 @@ class ConfiguracoesController extends Controller
             'municipal_service_code' => trim($_POST['municipal_service_code'] ?? ''),
             'municipal_service_id'   => trim($_POST['municipal_service_id'] ?? ''),
             'cnae'                   => preg_replace('/\D/', '', $_POST['cnae'] ?? '8640205'),
+            'nbs_codigo'             => trim($_POST['nbs_codigo'] ?? ''),
             'deductions'             => (float) ($_POST['deductions'] ?? 0),
             'retain_iss'             => isset($_POST['retain_iss']) ? 1 : 0,
             'iss_aliquota'           => (float) ($_POST['iss_aliquota'] ?? 0),

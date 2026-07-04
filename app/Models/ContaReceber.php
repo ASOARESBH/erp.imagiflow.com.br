@@ -272,11 +272,13 @@ class ContaReceber extends Model
         $sql = "INSERT INTO {$this->table}
                 (usuario_id, cliente_id, plano_conta_id, descricao, valor, data_vencimento, data_recebimento, status, observacoes,
                  meio_pagamento, recorrente, recorrencia_tipo, recorrencia_intervalo, asaas_payment_id, asaas_subscription_id, cora_invoice_id, external_reference,
-                 numero_parcela, total_parcelas, grupo_parcelas, recorrencia_modo, contrato_id)
+                 numero_parcela, total_parcelas, grupo_parcelas, recorrencia_modo, contrato_id,
+                 emitir_nf_avulsa, nf_avulsa_status, nf_avulsa_nota_id)
                 VALUES
                 (:usuario_id, :cliente_id, :plano_conta_id, :descricao, :valor, :data_vencimento, :data_recebimento, :status, :observacoes,
                  :meio_pagamento, :recorrente, :recorrencia_tipo, :recorrencia_intervalo, :asaas_payment_id, :asaas_subscription_id, :cora_invoice_id, :external_reference,
-                 :numero_parcela, :total_parcelas, :grupo_parcelas, :recorrencia_modo, :contrato_id)";
+                 :numero_parcela, :total_parcelas, :grupo_parcelas, :recorrencia_modo, :contrato_id,
+                 :emitir_nf_avulsa, :nf_avulsa_status, :nf_avulsa_nota_id)";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':usuario_id', $data['usuario_id']);
@@ -379,6 +381,13 @@ class ContaReceber extends Model
         $contratoId = $data['contrato_id'] ?? null;
         $stmt->bindValue(':contrato_id', ($contratoId === '' || $contratoId === null) ? null : (int)$contratoId, PDO::PARAM_INT);
 
+        // NF Avulsa
+        $stmt->bindValue(':emitir_nf_avulsa', (int)($data['emitir_nf_avulsa'] ?? 0), PDO::PARAM_INT);
+        $nfStatus = $data['nf_avulsa_status'] ?? null;
+        $stmt->bindValue(':nf_avulsa_status', ($nfStatus === '' || $nfStatus === null) ? null : (string)$nfStatus);
+        $nfNotaId = $data['nf_avulsa_nota_id'] ?? null;
+        $stmt->bindValue(':nf_avulsa_nota_id', ($nfNotaId === '' || $nfNotaId === null) ? null : (string)$nfNotaId);
+
         if ($stmt->execute()) {
             return $this->pdo->lastInsertId();
         }
@@ -410,6 +419,9 @@ class ContaReceber extends Model
             'grupo_parcelas',
             'recorrencia_modo',
             'contrato_id',
+            'emitir_nf_avulsa',
+            'nf_avulsa_status',
+            'nf_avulsa_nota_id',
         ];
 
         $updateFields = [];

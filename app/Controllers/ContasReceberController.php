@@ -14,6 +14,8 @@ use App\Models\Cliente;
 use App\Services\ContaReceberRecorrenciaService;
 use App\Services\AsaasService;
 use App\Models\ConfiguracaoFinanceira;
+use App\Models\ConfigNfs;
+use App\Models\NotaFiscal;
 use App\Services\MailService;
 
 class ContasReceberController extends Controller
@@ -341,6 +343,16 @@ class ContasReceberController extends Controller
             $id = $this->model->create($dados);
             if ($id) {
                 $this->model->update((int)$id, ['external_reference' => 'cr:' . (int)$id . '|u:' . (int)$usuarioId]);
+
+                // Emitir NF Avulsa se solicitado
+                if (!empty($_POST['emitir_nf_avulsa'])) {
+                    $this->model->update((int)$id, ['emitir_nf_avulsa' => 1]);
+                    try {
+                        $this->emitirNfAvulsa((int)$id, (int)$usuarioId, $cliente, $dados);
+                    } catch (\Throwable $eNf) {
+                        $this->logger->warning('[store] Falha ao emitir NF avulsa: ' . $eNf->getMessage(), ['conta_id' => $id]);
+                    }
+                }
 
                 // Gerar parcelas antecipadas se solicitado
                 $parcelasGeradas = 0;
@@ -766,8 +778,25 @@ class ContasReceberController extends Controller
             $oldStatus = (string)($conta->status ?? '');
             $newStatus = (string)($dados['status'] ?? '');
 
+            // Adicionar campos NF avulsa ao update
+            $dados['emitir_nf_avulsa'] = !empty($_POST['emitir_nf_avulsa']) ? 1 : 0;
+
             if ($this->model->update((int)$id, $dados)) {
                 AuditLogger::log('update_conta_receber', ['id' => (int)$id, 'descricao' => $descricao, 'valor' => $valor]);
+
+                // Emitir NF Avulsa se marcado e ainda não emitida
+                if (!empty($_POST['emitir_nf_avulsa'])) {
+                    $nfModel = new NotaFiscal();
+                    $nfExistente = $nfModel->findByContaReceberId((int)$id, (int)$usuarioId);
+                    $nfJaEmitida = $nfExistente && !in_array($nfExistente->status ?? '', ['pendente', 'erro_emissao']);
+                    if (!$nfJaEmitida) {
+                        try {
+                            $this->emitirNfAvulsa((int)$id, (int)$usuarioId, $cliente, $dados);
+                        } catch (\Throwable $eNf) {
+                            $this->logger->warning('[update] Falha ao emitir NF avulsa: ' . $eNf->getMessage(), ['conta_id' => $id]);
+                        }
+                    }
+                }
 
                 if ($newStatus === 'recebida' && $oldStatus !== 'recebida') {
                     $svc = new ContaReceberRecorrenciaService();
@@ -783,6 +812,183 @@ class ContasReceberController extends Controller
             header("Location: /financeiro/contas-a-receber/edit/{$id}?error=fatal");
         }
         exit();
+    }
+
+    /**
+     * Emite NFS-e avulsa via Asaas para uma conta a receber.
+     * Chamado automaticamente quando emitir_nf_avulsa=1 no store/update.
+     */
+    private function emitirNfAvulsa(int $contaId, int $usuarioId, object $cliente, array $dados): void
+    {
+        // Verificar se o Asaas está configurado para este tenant antes de instanciar
+        $integracaoModel = new \App\Models\Integracao();
+        $integracao = $integracaoModel->findByProvider('asaas', $usuarioId);
+        if (!$integracao || empty($integracao->api_key)) {
+            $this->logger->warning('[emitirNfAvulsa] Asaas não configurado para este tenant — NF avulsa ignorada', ['conta_id' => $contaId, 'usuario_id' => $usuarioId]);
+            return;
+        }
+
+        $asaas = $this->getAsaasService();
+        $configNfs  = (new ConfigNfs())->findByUsuarioId($usuarioId);
+        $nfModel    = new NotaFiscal();
+        $valor      = (float)($dados['valor'] ?? 0);
+        $descricao  = $dados['descricao'] ?? 'Serviços Prestados';
+        $dataHoje   = date('Y-m-d');
+        $customerId = null;
+
+        // ── 1. Buscar ou criar cliente no Asaas ──────────────────────────────
+        try {
+            $documento = AsaasService::formatarDocumento($cliente->cpf_cnpj ?? '');
+            $asaasCliente = $asaas->buscarCliente($documento, $cliente->email ?? null);
+
+            $clienteData = [
+                'name'    => $cliente->razao_social ?: ($cliente->nome_fantasia ?? $cliente->nome ?? ''),
+                'email'   => $cliente->email ?? '',
+                'phone'   => $cliente->telefone ?? $cliente->celular ?? '',
+                'cpfCnpj' => $documento,
+            ];
+
+            // Adicionar endereço se disponível
+            $cep = preg_replace('/\D/', '', (string)($cliente->cep ?? ''));
+            if (strlen($cep) === 8) {
+                $clienteData['postalCode']    = $cep;
+                $clienteData['address']       = trim((string)($cliente->endereco ?? ''));
+                $clienteData['addressNumber'] = trim((string)($cliente->numero ?? '')) ?: 'S/N';
+                $clienteData['complement']    = trim((string)($cliente->complemento ?? ''));
+                $clienteData['province']      = trim((string)($cliente->bairro ?? ''));
+                $clienteData['city']          = trim((string)($cliente->cidade ?? ''));
+                $clienteData['state']         = strtoupper(trim((string)($cliente->estado ?? '')));
+            }
+
+            if ($asaasCliente && !empty($asaasCliente['id'])) {
+                $customerId = $asaasCliente['id'];
+                $asaas->atualizarCliente($customerId, $clienteData);
+            } else {
+                $novoCliente = $asaas->criarCliente($clienteData);
+                $customerId  = $novoCliente['id'] ?? null;
+            }
+        } catch (\Throwable $eSyncCliente) {
+            $this->logger->warning('[emitirNfAvulsa] Falha ao sincronizar cliente no Asaas', [
+                'error'     => $eSyncCliente->getMessage(),
+                'conta_id'  => $contaId,
+                'cliente_id'=> $cliente->id ?? null,
+            ]);
+        }
+
+        // ── 2. Montar payload da NFS-e ───────────────────────────────────────
+        $layoutTipo = $configNfs->layout_tipo ?? 'padrao';
+
+        if ($layoutTipo === 'personalizado' && !empty($configNfs->json_template)) {
+            $jsonRaw = $configNfs->json_template;
+            $jsonRaw = str_replace('{{value}}',       $valor,     $jsonRaw);
+            $jsonRaw = str_replace('{{effectiveDate}}', $dataHoje, $jsonRaw);
+            $jsonRaw = str_replace('{{payment}}',     '',          $jsonRaw);
+            $jsonRaw = str_replace('{{descricao}}',   $descricao,  $jsonRaw);
+            $jsonRaw = str_replace('{{dataHoje}}',    $dataHoje,   $jsonRaw);
+            $payload = json_decode($jsonRaw, true);
+            if (!is_array($payload)) {
+                throw new \RuntimeException('Template JSON personalizado inválido nas configurações de NFS-e.');
+            }
+            $payload['value']        = $valor;
+            $payload['effectiveDate'] = $payload['effectiveDate'] ?? $dataHoje;
+            $payload['_layout_tipo'] = 'personalizado';
+        } else {
+            $taxes = ['retainIss' => (bool)($configNfs->retain_iss ?? false)];
+            foreach (['iss', 'pis', 'cofins', 'csll', 'inss', 'ir'] as $tributo) {
+                $aliquota = (float)($configNfs->{$tributo . '_aliquota'} ?? 0);
+                if ($aliquota > 0) $taxes[$tributo] = $aliquota;
+            }
+
+            $payload = [
+                'serviceDescription'   => $configNfs->service_description ?? $descricao,
+                'observations'         => $configNfs->observations ?? ('NF-s avulsa. Ref: ' . $descricao),
+                'value'                => $valor,
+                'deductions'           => (float)($configNfs->deductions ?? 0),
+                'effectiveDate'        => $dataHoje,
+                'municipalServiceName' => $configNfs->municipal_service_name ?? 'Serviços Prestados',
+                'taxes'                => $taxes,
+                'externalReference'    => 'avulsa|cr:' . $contaId . '|u:' . $usuarioId,
+                '_layout_tipo'         => 'padrao',
+            ];
+
+            if (!empty($configNfs->municipal_service_id)) {
+                $payload['municipalServiceId'] = $configNfs->municipal_service_id;
+            } elseif (!empty($configNfs->municipal_service_code)) {
+                $payload['municipalServiceCode'] = $configNfs->municipal_service_code;
+            }
+            if (!empty($configNfs->cnae)) {
+                $payload['cnae'] = preg_replace('/\D/', '', (string)$configNfs->cnae);
+            }
+            if (!empty($configNfs->nbs_codigo)) {
+                $payload['nbs'] = $configNfs->nbs_codigo;
+            }
+            if (!empty($configNfs->serie_nf)) {
+                $payload['serie'] = $configNfs->serie_nf;
+            }
+        }
+
+        // Vincular ao customer avulso (sem payment Asaas)
+        if (!empty($customerId)) {
+            $payload['customer'] = $customerId;
+        }
+
+        // ── 3. Enviar ao Asaas ───────────────────────────────────────────────
+        $response       = $asaas->agendarNotaFiscal($payload);
+        $asaasInvoiceId = $response['id'] ?? null;
+        $asaasStatus    = $response['status'] ?? 'SCHEDULED';
+        $pdfUrl         = $response['pdfUrl'] ?? $response['invoiceUrl'] ?? null;
+        $numeroNf       = $response['number'] ?? '';
+        $statusBanco    = AsaasService::mapearStatusNfsParaBanco($asaasStatus);
+
+        // ── 4. Persistir registro em notas_fiscais ───────────────────────────
+        $nfExistente = $nfModel->findByContaReceberId($contaId, $usuarioId);
+
+        if ($nfExistente && in_array($nfExistente->status ?? '', ['pendente', 'erro_emissao'])) {
+            $nfModel->update((int)$nfExistente->id, [
+                'numero_nf'        => (string)$numeroNf,
+                'status'           => $statusBanco,
+                'asaas_invoice_id' => $asaasInvoiceId,
+                'origem_emissao'   => 'asaas',
+                'asaas_pdf_url'    => $pdfUrl,
+                'asaas_status'     => $asaasStatus,
+                'data_emissao'     => $dataHoje,
+                'observacoes_nf'   => $payload['observations'] ?? null,
+            ]);
+        } else {
+            $nfModel->create([
+                'usuario_id'        => $usuarioId,
+                'cliente_id'        => (int)$cliente->id,
+                'numero_nf'         => (string)$numeroNf,
+                'serie'             => $configNfs->serie_nf ?? '1',
+                'valor_total'       => $valor,
+                'data_emissao'      => $dataHoje,
+                'status'            => $statusBanco,
+                'xml_path'          => null,
+                'asaas_invoice_id'  => $asaasInvoiceId,
+                'origem_emissao'    => 'asaas',
+                'conta_receber_id'  => $contaId,
+                'asaas_pdf_url'     => $pdfUrl,
+                'asaas_xml_url'     => null,
+                'asaas_status'      => $asaasStatus,
+                'asaas_error_desc'  => null,
+                'servico_descricao' => $configNfs->service_description ?? $descricao,
+                'servico_codigo'    => $configNfs->municipal_service_code ?? null,
+                'servico_id_asaas'  => $configNfs->municipal_service_id ?? null,
+                'observacoes_nf'    => $payload['observations'] ?? null,
+            ]);
+        }
+
+        // ── 5. Atualizar status NF avulsa na conta a receber ─────────────────
+        $this->model->update($contaId, [
+            'nf_avulsa_status'  => $statusBanco,
+            'nf_avulsa_nota_id' => $asaasInvoiceId,
+        ]);
+
+        $this->logger->info('[emitirNfAvulsa] NF avulsa emitida com sucesso', [
+            'conta_id'         => $contaId,
+            'asaas_invoice_id' => $asaasInvoiceId,
+            'status'           => $statusBanco,
+        ]);
     }
 
     public function delete($id): void
