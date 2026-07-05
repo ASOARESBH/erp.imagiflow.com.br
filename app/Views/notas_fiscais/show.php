@@ -14,6 +14,10 @@ $errorDesc     = $nota->asaas_error_desc ?? null;
 $invoiceId     = $nota->asaas_invoice_id ?? null;
 $id            = (int)$nota->id;
 
+// Flag: recém emitida via Asaas (ativa o auto-polling)
+$recemEmitida = isset($_GET['success']) && $_GET['success'] === 'emitida_asaas';
+$erroAsaas    = isset($_GET['error'])   && $_GET['error']   === 'asaas_falhou';
+
 // ── Helpers de badge ─────────────────────────────────────────────────────────
 $localBadgeHtml = match ($status) {
     'emitida'      => '<span class="badge bg-success fs-6 px-3 py-2">Emitida</span>',
@@ -39,6 +43,24 @@ if ($asaasStatus !== null && $asaasStatus !== '') {
     };
 }
 ?>
+
+<!-- ── Alertas de contexto ──────────────────────────────────────────────────── -->
+<?php if ($recemEmitida): ?>
+<div class="alert alert-success alert-dismissible fade show mb-4" role="alert" id="alertEmitida">
+    <i class="fas fa-bolt me-2"></i>
+    <strong>NF enviada ao Asaas!</strong>
+    O status será atualizado automaticamente assim que a prefeitura processar.
+    <span class="text-muted small ms-2" id="pollingMsg">Consultando status em <span id="pollingCountdown">10</span>s...</span>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php elseif ($erroAsaas): ?>
+<div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    <strong>Falha ao emitir no Asaas.</strong>
+    <?php echo htmlspecialchars($errorDesc ?? 'Verifique o erro abaixo e tente reemitir.'); ?>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
@@ -75,7 +97,7 @@ if ($asaasStatus !== null && $asaasStatus !== '') {
                 <div class="row g-3">
                     <div class="col-sm-6">
                         <small class="text-muted d-block">Número</small>
-                        <span class="fw-bold"><?php echo htmlspecialchars($nota->numero_nf ?: '—'); ?></span>
+                        <span class="fw-bold" id="spanNumeroNf"><?php echo htmlspecialchars($nota->numero_nf ?: '—'); ?></span>
                     </div>
                     <div class="col-sm-6">
                         <small class="text-muted d-block">Série</small>
@@ -114,6 +136,14 @@ if ($asaasStatus !== null && $asaasStatus !== '') {
                         <span><?php echo nl2br(htmlspecialchars($nota->observacoes_nf)); ?></span>
                     </div>
                     <?php endif; ?>
+                    <?php if (!empty($nota->conta_receber_id)): ?>
+                    <div class="col-sm-12">
+                        <small class="text-muted d-block">Conta a Receber Vinculada</small>
+                        <a href="/financeiro/contas-a-receber/edit/<?php echo (int)$nota->conta_receber_id; ?>" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-link me-1"></i>Ver Conta #<?php echo (int)$nota->conta_receber_id; ?>
+                        </a>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
             <?php if (Auth::can('edit_notas_fiscais') && $origemEmissao !== 'asaas'): ?>
@@ -145,14 +175,14 @@ if ($asaasStatus !== null && $asaasStatus !== '') {
         </div>
         <?php endif; ?>
 
-    </div>
+    </div><!-- /col-lg-7 -->
 
     <!-- ── Coluna Asaas ─────────────────────────────────────────────────── -->
     <div class="col-lg-5">
 
         <?php if ($invoiceId): ?>
         <!-- Status Asaas -->
-        <div class="card border-0 shadow-sm mb-4 <?php echo $asaasStatusCfg ? 'border-' . $asaasStatusCfg['cls'] . ' border-start border-4' : ''; ?>">
+        <div class="card border-0 shadow-sm mb-4 <?php echo $asaasStatusCfg ? 'border-' . $asaasStatusCfg['cls'] . ' border-start border-4' : ''; ?>" id="cardStatusAsaas">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                 <h6 class="mb-0 fw-bold"><i class="fas fa-bolt me-2" style="color:#00b37e"></i>Status Asaas</h6>
                 <?php if (Auth::can('view_notas_fiscais')): ?>
@@ -174,7 +204,10 @@ if ($asaasStatus !== null && $asaasStatus !== '') {
                     </div>
                 </div>
                 <?php else: ?>
-                <div class="text-muted small"><i class="fas fa-circle-notch fa-spin me-1"></i>Status não disponível</div>
+                <div class="text-muted small" id="statusSpinner">
+                    <i class="fas fa-circle-notch fa-spin me-1"></i>
+                    <?php echo ($status === 'pendente') ? 'Aguardando resposta do Asaas...' : 'Status não disponível'; ?>
+                </div>
                 <?php endif; ?>
 
                 <?php if ($asaasStatus === 'ERROR' && $errorDesc): ?>
@@ -208,18 +241,18 @@ if ($asaasStatus !== null && $asaasStatus !== '') {
                     <dd class="col-7"><code><?php echo htmlspecialchars($invoiceId); ?></code></dd>
                     <?php if (!empty($nota->numero_nf)): ?>
                     <dt class="col-5 text-muted">Número NF</dt>
-                    <dd class="col-7"><?php echo htmlspecialchars($nota->numero_nf); ?></dd>
+                    <dd class="col-7" id="ddNumeroNf"><?php echo htmlspecialchars($nota->numero_nf); ?></dd>
                     <?php endif; ?>
                 </dl>
             </div>
         </div>
 
         <!-- PDF da NF -->
-        <div class="card border-0 shadow-sm mb-4">
+        <div class="card border-0 shadow-sm mb-4" id="cardPdfNf">
             <div class="card-header bg-white py-3">
                 <h6 class="mb-0 fw-bold"><i class="fas fa-file-pdf me-2 text-danger"></i>PDF da NF-e</h6>
             </div>
-            <div class="card-body">
+            <div class="card-body" id="pdfCard">
                 <?php if ($pdfUrl): ?>
                 <div class="d-grid gap-2">
                     <a href="<?php echo htmlspecialchars($pdfUrl); ?>" target="_blank" class="btn btn-danger fw-bold">
@@ -304,38 +337,126 @@ if ($asaasStatus !== null && $asaasStatus !== '') {
 </div>
 
 <script>
+// ── Configurações de polling ─────────────────────────────────────────────────
+var NF_ID          = <?php echo $id; ?>;
+var RECEM_EMITIDA  = <?php echo $recemEmitida ? 'true' : 'false'; ?>;
+var STATUS_ATUAL   = <?php echo json_encode($asaasStatus ?? ''); ?>;
+var POLLING_MAX    = 12;   // máximo de tentativas automáticas (12 × 10s = 2 min)
+var POLLING_INTERVAL = 10000; // 10 segundos
+var pollingCount   = 0;
+var pollingTimer   = null;
+var countdownTimer = null;
+
 function showToast(message, type) {
-    const toast  = document.getElementById('toastShow');
-    const header = document.getElementById('toastShowHeader');
-    const body   = document.getElementById('toastShowBody');
-    const cls    = { success: 'bg-success text-white', danger: 'bg-danger text-white', warning: 'bg-warning text-dark', info: 'bg-info text-dark' };
+    var toast  = document.getElementById('toastShow');
+    var header = document.getElementById('toastShowHeader');
+    var body   = document.getElementById('toastShowBody');
+    var cls    = { success: 'bg-success text-white', danger: 'bg-danger text-white', warning: 'bg-warning text-dark', info: 'bg-info text-dark' };
     header.className = 'toast-header ' + (cls[type] || '');
     body.innerHTML   = message;
     toast.style.display = 'block';
     setTimeout(function() { toast.style.display = 'none'; }, type === 'danger' ? 8000 : 4000);
 }
 
-function consultarAsaas(id, reloadOnSuccess) {
+function consultarAsaas(id) {
     return fetch('/faturamento/notas-fiscais/consultar-asaas/' + id, {
         method: 'POST',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
     })
     .then(function(r) {
-        const ct = r.headers.get('Content-Type') || '';
+        var ct = r.headers.get('Content-Type') || '';
         if (ct.includes('application/json')) return r.json();
         if (r.status === 401) return { success: false, _sessionExpired: true };
         throw new Error('HTTP ' + r.status);
     });
 }
 
+// ── Polling automático pós-emissão ───────────────────────────────────────────
+function iniciarPolling() {
+    if (!RECEM_EMITIDA) return;
+    // Não faz polling se já está em status final
+    var statusFinais = ['AUTHORIZED', 'CANCELED', 'ERROR', 'CANCELLATION_DENIED'];
+    if (statusFinais.indexOf(STATUS_ATUAL) !== -1) return;
+
+    var countdown = POLLING_INTERVAL / 1000;
+    var spanCountdown = document.getElementById('pollingCountdown');
+
+    function atualizarCountdown() {
+        if (spanCountdown) spanCountdown.textContent = countdown;
+        countdown--;
+        if (countdown < 0) {
+            clearInterval(countdownTimer);
+        }
+    }
+    countdownTimer = setInterval(atualizarCountdown, 1000);
+
+    pollingTimer = setInterval(function() {
+        pollingCount++;
+        clearInterval(countdownTimer);
+
+        consultarAsaas(NF_ID)
+        .then(function(data) {
+            if (data._sessionExpired) {
+                clearInterval(pollingTimer);
+                return;
+            }
+            if (data.success) {
+                var st = data.asaas_status || '';
+                var statusFinais = ['AUTHORIZED', 'CANCELED', 'ERROR', 'CANCELLATION_DENIED'];
+
+                // Atualiza número da NF se chegou
+                if (data.numero_nf) {
+                    var spanNum = document.getElementById('spanNumeroNf');
+                    if (spanNum) spanNum.textContent = '#' + data.numero_nf;
+                    var ddNum = document.getElementById('ddNumeroNf');
+                    if (ddNum) ddNum.textContent = data.numero_nf;
+                }
+
+                // Se chegou status final, recarrega a página para mostrar PDF/XML
+                if (statusFinais.indexOf(st) !== -1) {
+                    clearInterval(pollingTimer);
+                    var msg = st === 'AUTHORIZED'
+                        ? '<i class="fas fa-check-circle me-1"></i>NF <strong>autorizada pela prefeitura!</strong> Recarregando...'
+                        : '<i class="fas fa-info-circle me-1"></i>Status: <strong>' + (data.asaas_status_label || st) + '</strong>. Recarregando...';
+                    showToast(msg, st === 'AUTHORIZED' ? 'success' : (st === 'ERROR' ? 'danger' : 'info'));
+                    setTimeout(function() { location.reload(); }, 2500);
+                    return;
+                }
+
+                // Ainda processando — mostra toast e continua polling
+                var msgPoll = document.getElementById('pollingMsg');
+                if (msgPoll) {
+                    msgPoll.innerHTML = 'Status: <strong>' + (data.asaas_status_label || st) + '</strong>. Próxima consulta em <span id="pollingCountdown">10</span>s...';
+                }
+                countdown = POLLING_INTERVAL / 1000;
+                spanCountdown = document.getElementById('pollingCountdown');
+                countdownTimer = setInterval(atualizarCountdown, 1000);
+            }
+        })
+        .catch(function() { /* silencioso — tenta de novo */ });
+
+        // Para o polling após o máximo de tentativas
+        if (pollingCount >= POLLING_MAX) {
+            clearInterval(pollingTimer);
+            var msgPoll = document.getElementById('pollingMsg');
+            if (msgPoll) {
+                msgPoll.innerHTML = 'Consulta automática encerrada. Use o botão <strong>Atualizar</strong> para verificar o status.';
+            }
+        }
+    }, POLLING_INTERVAL);
+}
+
+// Inicia polling se recém emitida
+iniciarPolling();
+
 // ── Botão "Reemitir NF" ──────────────────────────────────────────────────────
-const btnReemitirShow = document.getElementById('btnReemitirShow');
+var btnReemitirShow = document.getElementById('btnReemitirShow');
 if (btnReemitirShow) {
     btnReemitirShow.addEventListener('click', function () {
         if (!confirm('Confirmar reemissão desta NF no Asaas?\n\nUma nova NF-s será criada com os mesmos dados de serviço.')) return;
 
-        const id   = this.dataset.id;
-        const orig = this.innerHTML;
+        var id   = this.dataset.id;
+        var orig = this.innerHTML;
         this.disabled = true;
         this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Reemitindo...';
 
@@ -344,7 +465,7 @@ if (btnReemitirShow) {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
         })
         .then(function (r) {
-            const ct = r.headers.get('Content-Type') || '';
+            var ct = r.headers.get('Content-Type') || '';
             if (ct.includes('application/json')) return r.json();
             if (r.status === 401) return { success: false, _sessionExpired: true };
             throw new Error('HTTP ' + r.status);
@@ -380,33 +501,33 @@ if (btnReemitirShow) {
 }
 
 // ── Botão "Atualizar" no card de status ──────────────────────────────────────
-const btnAtualizar = document.getElementById('btnConsultarAsaas');
+var btnAtualizar = document.getElementById('btnConsultarAsaas');
 if (btnAtualizar) {
     btnAtualizar.addEventListener('click', function() {
-        const id   = this.dataset.id;
-        const orig = this.innerHTML;
+        var id   = this.dataset.id;
+        var orig = this.innerHTML;
         this.disabled = true;
         this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Consultando...';
 
-        consultarAsaas(id, true)
+        // Para o polling automático se estiver rodando
+        if (pollingTimer) clearInterval(pollingTimer);
+        if (countdownTimer) clearInterval(countdownTimer);
+
+        consultarAsaas(id)
         .then(function(data) {
             if (data._sessionExpired) {
                 if (confirm('Sessão expirada. Ir para login?')) window.location.href = '/login';
                 return;
             }
             if (data.success) {
-                const isError = data.asaas_status === 'ERROR';
-                const isOk    = data.asaas_status === 'AUTHORIZED';
-                let msg = '<i class="fas fa-check me-1"></i>Status: <strong>' + (data.asaas_status_label || data.asaas_status) + '</strong>';
+                var isError = data.asaas_status === 'ERROR';
+                var isOk    = data.asaas_status === 'AUTHORIZED';
+                var msg = '<i class="fas fa-check me-1"></i>Status: <strong>' + (data.asaas_status_label || data.asaas_status) + '</strong>';
                 if (isError && data.error_desc) {
                     msg += '<br><small>' + data.error_desc + '</small>';
                 }
-                if (data.pdf_url && !document.querySelector('a[href="' + data.pdf_url + '"]')) {
-                    // PDF URL veio novo — recarrega para refletir
-                    setTimeout(function() { location.reload(); }, 1500);
-                }
                 showToast(msg, isError ? 'danger' : (isOk ? 'success' : 'info'));
-                setTimeout(function() { location.reload(); }, 3000);
+                setTimeout(function() { location.reload(); }, 2500);
             } else {
                 showToast('<i class="fas fa-exclamation-circle me-1"></i>' + (data.message || 'Erro ao consultar'), 'warning');
             }
@@ -424,38 +545,44 @@ if (btnAtualizar) {
 }
 
 // Botão "Buscar XML no Asaas"
-const btnBuscarXml = document.getElementById('btnBuscarXml');
+var btnBuscarXml = document.getElementById('btnBuscarXml');
 if (btnBuscarXml) {
     btnBuscarXml.addEventListener('click', function() {
-        const id   = this.dataset.id;
-        const orig = this.innerHTML;
+        var id   = this.dataset.id;
+        var orig = this.innerHTML;
         this.disabled = true;
         this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Buscando...';
 
-        consultarAsaas(id, false)
+        consultarAsaas(id)
         .then(function(data) {
             if (data._sessionExpired) {
                 if (confirm('Sessão expirada. Ir para login?')) window.location.href = '/login';
                 return;
             }
             if (data.success && data.xml_url) {
-                const xmlCard = document.getElementById('xmlCard');
+                var xmlCard = document.getElementById('xmlCard');
                 if (xmlCard) {
                     xmlCard.innerHTML = '<div class="d-grid"><a href="' + data.xml_url + '" target="_blank" class="btn btn-success fw-bold"><i class="fas fa-download me-2"></i>Baixar XML</a></div>';
                 }
                 showToast('<i class="fas fa-check me-1"></i>XML encontrado!', 'success');
             } else if (data.success && !data.xml_url) {
-                showToast('<i class="fas fa-info-circle me-1"></i>XML ainda não disponível no Asaas. Tente novamente em alguns instantes.', 'warning');
+                showToast('<i class="fas fa-info-circle me-1"></i>XML ainda não disponível no Asaas.', 'warning');
+                if (btnBuscarXml) {
+                    btnBuscarXml.disabled = false;
+                    btnBuscarXml.innerHTML = orig;
+                }
             } else {
-                showToast('<i class="fas fa-exclamation-circle me-1"></i>' + (data.message || 'Erro ao buscar XML'), 'danger');
+                showToast('<i class="fas fa-exclamation-circle me-1"></i>' + (data.message || 'Erro ao buscar XML.'), 'danger');
+                if (btnBuscarXml) {
+                    btnBuscarXml.disabled = false;
+                    btnBuscarXml.innerHTML = orig;
+                }
             }
         })
         .catch(function(err) {
             showToast('<i class="fas fa-exclamation-circle me-1"></i>Erro: ' + err.message, 'danger');
-        })
-        .finally(function() {
             if (btnBuscarXml) {
-                btnBuscarXml.disabled  = false;
+                btnBuscarXml.disabled = false;
                 btnBuscarXml.innerHTML = orig;
             }
         });

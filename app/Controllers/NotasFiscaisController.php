@@ -373,15 +373,22 @@ class NotasFiscaisController extends Controller
     public function create(): void
     {
         $usuarioId = Auth::user()->id;
-        $clientes = $this->clienteModel->findByUsuarioId($usuarioId, ['status' => 'ativo', 'pesquisa' => '', 'uf' => '']);
+        $clientes  = $this->clienteModel->findByUsuarioId($usuarioId, ['status' => 'ativo', 'pesquisa' => '', 'uf' => '']);
+        $configNfs = (new ConfigNfs())->findByUsuarioId($usuarioId);
 
         View::render('notas_fiscais/form-enterprise', [
-            '_layout' => 'erp',
-            'title' => 'Nova Nota Fiscal',
-            'nota' => null,
-            'clientes' => $clientes,
-            'anexos' => [],
-            'tab' => 'geral',
+            '_layout'   => 'erp',
+            'title'     => 'Nova Nota Fiscal',
+            'breadcrumb'=> [
+                'Faturamento'   => '/faturamento/notas-fiscais',
+                'Notas Fiscais' => '/faturamento/notas-fiscais',
+                0               => 'Nova Nota',
+            ],
+            'nota'      => null,
+            'clientes'  => $clientes,
+            'configNfs' => $configNfs,
+            'anexos'    => [],
+            'tab'       => 'geral',
         ]);
     }
 
@@ -390,13 +397,13 @@ class NotasFiscaisController extends Controller
         try {
             $usuarioId = Auth::user()->id;
 
-            $clienteId   = (int)($_POST['cliente_id'] ?? 0);
-            $numeroNf    = trim($_POST['numero_nf'] ?? '');
-            $serie       = trim($_POST['serie'] ?? '');
-            $valorTotal  = trim($_POST['valor_total'] ?? '');
-            $dataEmissao = $_POST['data_emissao'] ?? '';
+            $clienteId       = (int)($_POST['cliente_id'] ?? 0);
+            $valorTotal      = trim($_POST['valor_total'] ?? '');
+            $dataEmissao     = $_POST['data_emissao'] ?? '';
+            $emitirViaAsaas  = !empty($_POST['emitir_via_asaas']);
 
-            if ($clienteId <= 0 || $numeroNf === '' || $serie === '' || $valorTotal === '' || $dataEmissao === '') {
+            // Validações básicas
+            if ($clienteId <= 0 || $valorTotal === '' || $dataEmissao === '') {
                 header('Location: /faturamento/notas-fiscais/create?error=missing_fields');
                 exit();
             }
@@ -407,30 +414,223 @@ class NotasFiscaisController extends Controller
                 exit();
             }
 
-            $status = $_POST['status'] ?? 'rascunho';
+            $numeroNf = trim($_POST['numero_nf'] ?? '');
+            $serie    = trim($_POST['serie'] ?? '');
 
+            // Para emissão manual, número e série são obrigatórios
+            if (!$emitirViaAsaas && ($numeroNf === '' || $serie === '')) {
+                header('Location: /faturamento/notas-fiscais/create?error=missing_fields_manual');
+                exit();
+            }
+
+            // ── Dados base da NF ─────────────────────────────────────────────
             $dados = [
-                'usuario_id'  => $usuarioId,
-                'cliente_id'  => $clienteId,
-                'numero_nf'   => $numeroNf,
-                'serie'       => $serie,
-                'valor_total' => $valorTotal,
-                'data_emissao'=> $dataEmissao,
-                'status'      => $status,
+                'usuario_id'       => $usuarioId,
+                'cliente_id'       => $clienteId,
+                'numero_nf'        => $numeroNf,
+                'serie'            => $serie,
+                'valor_total'      => $valorTotal,
+                'data_emissao'     => $dataEmissao,
+                'status'           => $emitirViaAsaas ? 'pendente' : ($_POST['status'] ?? 'rascunho'),
+                'origem_emissao'   => $emitirViaAsaas ? 'asaas' : 'manual',
+                'servico_descricao'=> trim($_POST['servico_descricao'] ?? '') ?: null,
+                'servico_codigo'   => trim($_POST['servico_codigo'] ?? '') ?: null,
+                'observacoes_nf'   => trim($_POST['observacoes_nf'] ?? '') ?: null,
+                'conta_receber_id' => !empty($_POST['conta_receber_id']) ? (int)$_POST['conta_receber_id'] : null,
             ];
 
             $id = $this->model->create($dados);
-            if ($id) {
-                AuditLogger::log('create_nota_fiscal', ['id' => $id, 'numero_nf' => $numeroNf, 'serie' => $serie]);
-                header("Location: /faturamento/notas-fiscais/edit/{$id}?success=created");
-            } else {
+            if (!$id) {
                 header('Location: /faturamento/notas-fiscais/create?error=db_failure');
+                exit();
+            }
+
+            AuditLogger::log('create_nota_fiscal', [
+                'id'          => $id,
+                'numero_nf'   => $numeroNf,
+                'serie'       => $serie,
+                'via_asaas'   => $emitirViaAsaas,
+            ]);
+
+            // ── Emissão via Asaas ─────────────────────────────────────────────
+            if ($emitirViaAsaas) {
+                try {
+                    $this->emitirNfViaAsaas((int)$id, $usuarioId, $cliente, $dados);
+                    header("Location: /faturamento/notas-fiscais/show/{$id}?success=emitida_asaas");
+                } catch (\Throwable $eAsaas) {
+                    $this->logger->error('[store] Falha ao emitir NF via Asaas: ' . $eAsaas->getMessage(), ['nota_id' => $id]);
+                    // Salva o erro no registro e redireciona para show com aviso
+                    $this->model->update((int)$id, [
+                        'status'           => 'erro_emissao',
+                        'asaas_error_desc' => $eAsaas->getMessage(),
+                    ]);
+                    header("Location: /faturamento/notas-fiscais/show/{$id}?error=asaas_falhou");
+                }
+            } else {
+                header("Location: /faturamento/notas-fiscais/edit/{$id}?success=created");
             }
         } catch (\Exception $e) {
             $this->logger->error('Erro ao criar nota fiscal: ' . $e->getMessage());
             header('Location: /faturamento/notas-fiscais/create?error=fatal');
         }
         exit();
+    }
+
+    // ---------------------------------------------------------------
+    // Emite a NF via Asaas e atualiza o registro no banco
+    // Lança \Throwable em caso de falha para o caller tratar
+    // ---------------------------------------------------------------
+    private function emitirNfViaAsaas(int $notaId, int $usuarioId, object $cliente, array $dados): void
+    {
+        // Verificar se o Asaas está configurado para este tenant
+        $integracaoModel = new \App\Models\Integracao();
+        $integracao = $integracaoModel->findByProvider('asaas', $usuarioId);
+        if (!$integracao || empty($integracao->api_key)) {
+            throw new \RuntimeException('Asaas não configurado para este tenant. Configure a integração em Configurações → Integrações.');
+        }
+
+        $asaas     = $this->getAsaasService();
+        $configNfs = (new ConfigNfs())->findByUsuarioId($usuarioId);
+        $valor     = (float)($dados['valor_total'] ?? 0);
+        $dataHoje  = $dados['data_emissao'] ?? date('Y-m-d');
+        $descricao = $dados['servico_descricao'] ?? ($configNfs->service_description ?? 'PRESTAÇÃO DE SERVIÇOS');
+        $customerId = null;
+
+        // ── 1. Sincronizar cliente no Asaas ──────────────────────────────────
+        try {
+            $doc = preg_replace('/\D/', '', (string)($cliente->cpf_cnpj ?? ''));
+            if ($doc !== '') {
+                $asaasCliente = $asaas->buscarCliente($doc, $cliente->email ?? null);
+                $clienteData  = [
+                    'name'    => $cliente->razao_social ?: ($cliente->nome_fantasia ?? $cliente->nome ?? ''),
+                    'email'   => $cliente->email ?? '',
+                    'phone'   => $cliente->telefone ?? $cliente->celular ?? '',
+                    'cpfCnpj' => $doc,
+                ];
+                $cep = preg_replace('/\D/', '', (string)($cliente->cep ?? ''));
+                if (strlen($cep) === 8) {
+                    $clienteData['postalCode']    = $cep;
+                    $clienteData['address']       = trim((string)($cliente->endereco ?? ''));
+                    $clienteData['addressNumber'] = trim((string)($cliente->numero ?? '')) ?: 'S/N';
+                    $clienteData['complement']    = trim((string)($cliente->complemento ?? ''));
+                    $clienteData['province']      = trim((string)($cliente->bairro ?? ''));
+                    $clienteData['city']          = trim((string)($cliente->cidade ?? ''));
+                    $clienteData['state']         = strtoupper(trim((string)($cliente->estado ?? '')));
+                }
+                if ($asaasCliente && !empty($asaasCliente['id'])) {
+                    $customerId = $asaasCliente['id'];
+                    $asaas->atualizarCliente($customerId, $clienteData);
+                } else {
+                    $novoCliente = $asaas->criarCliente($clienteData);
+                    $customerId  = $novoCliente['id'] ?? null;
+                }
+            }
+        } catch (\Throwable $eSyncCliente) {
+            $this->logger->warning('[emitirNfViaAsaas] Falha ao sincronizar cliente no Asaas', [
+                'error'      => $eSyncCliente->getMessage(),
+                'nota_id'    => $notaId,
+                'cliente_id' => $cliente->id ?? null,
+            ]);
+        }
+
+        // ── 2. Montar payload ─────────────────────────────────────────────────
+        $taxes = ['retainIss' => (bool)($configNfs->retain_iss ?? false)];
+        foreach (['iss', 'pis', 'cofins', 'csll', 'inss', 'ir'] as $tributo) {
+            $aliquota = (float)($configNfs->{$tributo . '_aliquota'} ?? 0);
+            if ($aliquota > 0) $taxes[$tributo] = $aliquota;
+        }
+
+        $payload = [
+            'serviceDescription'   => $descricao,
+            'observations'         => $dados['observacoes_nf'] ?? ($configNfs->observations ?? ('NF-s avulsa. Ref: ' . $descricao)),
+            'value'                => $valor,
+            'deductions'           => (float)($_POST['deducoes'] ?? $configNfs->deductions ?? 0),
+            'effectiveDate'        => $dataHoje,
+            'municipalServiceName' => $configNfs->municipal_service_name ?? 'Serviços Prestados',
+            'taxes'                => $taxes,
+            'externalReference'    => 'nf:' . $notaId . '|u:' . $usuarioId,
+        ];
+
+        // Código de serviço municipal
+        $servicoCodigo = $dados['servico_codigo'] ?? null;
+        if (!empty($servicoCodigo)) {
+            $payload['municipalServiceCode'] = $servicoCodigo;
+        } elseif (!empty($configNfs->municipal_service_id)) {
+            $payload['municipalServiceId'] = $configNfs->municipal_service_id;
+        } elseif (!empty($configNfs->municipal_service_code)) {
+            $payload['municipalServiceCode'] = $configNfs->municipal_service_code;
+        }
+
+        // CNAE
+        if (!empty($configNfs->cnae)) {
+            $payload['cnae'] = preg_replace('/\D/', '', (string)$configNfs->cnae);
+        }
+
+        // NBS
+        if (!empty($configNfs->nbs_codigo)) {
+            $payload['nbs'] = $configNfs->nbs_codigo;
+        }
+
+        // Série
+        $serie = $dados['serie'] ?? ($configNfs->serie_nf ?? null);
+        if (!empty($serie)) {
+            $payload['serie'] = $serie;
+        }
+
+        // Vincular ao payment Asaas (se conta a receber informada)
+        $asaasPaymentId = null;
+        $contaReceberId = !empty($dados['conta_receber_id']) ? (int)$dados['conta_receber_id'] : null;
+        if ($contaReceberId) {
+            $crModel = new ContaReceber();
+            $cr      = $crModel->findById($contaReceberId);
+            if ($cr && !empty($cr->asaas_payment_id)) {
+                $asaasPaymentId = $cr->asaas_payment_id;
+            }
+        }
+
+        if ($asaasPaymentId) {
+            $payload['payment'] = $asaasPaymentId;
+        } elseif (!empty($customerId)) {
+            $payload['customer'] = $customerId;
+        }
+
+        // ── 3. Enviar ao Asaas ────────────────────────────────────────────────
+        $this->logger->info('[emitirNfViaAsaas] Enviando NF ao Asaas', [
+            'nota_id' => $notaId,
+            'payload' => array_diff_key($payload, ['taxes' => '']),
+        ]);
+
+        $response       = $asaas->agendarNotaFiscal($payload);
+        $asaasInvoiceId = $response['id']     ?? null;
+        $asaasStatus    = $response['status']  ?? 'SCHEDULED';
+        $pdfUrl         = $response['pdfUrl']  ?? $response['invoiceUrl'] ?? null;
+        $xmlUrl         = $response['xmlUrl']  ?? null;
+        $numeroNf       = $response['number']  ?? '';
+        $statusBanco    = AsaasService::mapearStatusNfsParaBanco($asaasStatus);
+
+        // ── 4. Atualizar registro no banco ────────────────────────────────────
+        $this->model->update($notaId, [
+            'asaas_invoice_id'  => $asaasInvoiceId,
+            'asaas_status'      => $asaasStatus,
+            'asaas_pdf_url'     => $pdfUrl,
+            'asaas_xml_url'     => $xmlUrl,
+            'status'            => $statusBanco,
+            'numero_nf'         => $numeroNf ? (string)$numeroNf : '',
+            'servico_codigo'    => $servicoCodigo ?? ($configNfs->municipal_service_code ?? null),
+            'servico_id_asaas'  => $configNfs->municipal_service_id ?? null,
+        ]);
+
+        AuditLogger::log('emitir_nf_asaas', [
+            'nota_id'          => $notaId,
+            'asaas_invoice_id' => $asaasInvoiceId,
+            'asaas_status'     => $asaasStatus,
+        ]);
+
+        $this->logger->info('[emitirNfViaAsaas] NF enviada com sucesso', [
+            'nota_id'          => $notaId,
+            'asaas_invoice_id' => $asaasInvoiceId,
+            'status'           => $statusBanco,
+        ]);
     }
 
     public function edit($id): void
@@ -443,16 +643,23 @@ class NotasFiscaisController extends Controller
             exit();
         }
 
-        $clientes = $this->clienteModel->findByUsuarioId($usuarioId, ['status' => 'ativo', 'pesquisa' => '', 'uf' => '']);
-        $anexos   = $this->anexoModel->findByNotaId((int)$id, $usuarioId);
+        $clientes  = $this->clienteModel->findByUsuarioId($usuarioId, ['status' => 'ativo', 'pesquisa' => '', 'uf' => '']);
+        $anexos    = $this->anexoModel->findByNotaId((int)$id, $usuarioId);
+        $configNfs = (new ConfigNfs())->findByUsuarioId($usuarioId);
 
         View::render('notas_fiscais/form-enterprise', [
-            '_layout' => 'erp',
-            'title'   => 'Editar Nota Fiscal',
-            'nota'    => $nota,
-            'clientes'=> $clientes,
-            'anexos'  => $anexos,
-            'tab'     => $_GET['tab'] ?? 'geral',
+            '_layout'   => 'erp',
+            'title'     => 'Editar Nota Fiscal',
+            'breadcrumb'=> [
+                'Faturamento'   => '/faturamento/notas-fiscais',
+                'Notas Fiscais' => '/faturamento/notas-fiscais',
+                0               => 'Editar NF',
+            ],
+            'nota'      => $nota,
+            'clientes'  => $clientes,
+            'configNfs' => $configNfs,
+            'anexos'    => $anexos,
+            'tab'       => $_GET['tab'] ?? 'geral',
         ]);
     }
 
