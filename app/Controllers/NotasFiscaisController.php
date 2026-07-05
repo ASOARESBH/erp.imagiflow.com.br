@@ -504,7 +504,10 @@ class NotasFiscaisController extends Controller
                 $clienteData  = [
                     'name'    => $cliente->razao_social ?: ($cliente->nome_fantasia ?? $cliente->nome ?? ''),
                     'email'   => $cliente->email ?? '',
-                    'phone'   => $cliente->telefone ?? $cliente->celular ?? '',
+                    'phone'   => AsaasService::formatarTelefone(
+                                    $cliente->telefone ?? null,
+                                    $cliente->celular  ?? null
+                                ),
                     'cpfCnpj' => $doc,
                 ];
                 $cep = preg_replace('/\D/', '', (string)($cliente->cep ?? ''));

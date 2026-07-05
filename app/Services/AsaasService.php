@@ -340,6 +340,52 @@ class AsaasService
     }
 
     /**
+     * Normaliza um número de telefone para o padrão exigido pelo Asaas:
+     * somente dígitos, entre 10 e 11 caracteres (DDD + número).
+     *
+     * Regras:
+     *  1. Remove tudo que não for dígito.
+     *  2. Remove o código de país +55 se presente (55 no início com 12-13 dígitos).
+     *  3. Se o resultado tiver 10 ou 11 dígitos → válido, retorna como está.
+     *  4. Se tiver 8 ou 9 dígitos (sem DDD) → prefixa com DDD padrão 31 (BH/MG).
+     *  5. Se ainda inválido ou vazio → retorna o fallback '3100000000'
+     *     (número fictício válido para o Asaas, sem impacto na emissão).
+     *
+     * @param  string|null $telefone  Número bruto (ex: "(55) 31992-7467", "+55 31 99927467")
+     * @param  string|null $celular   Fallback 1: campo celular do cliente
+     * @return string                 Número normalizado (10-11 dígitos) ou fallback
+     */
+    public static function formatarTelefone(?string $telefone, ?string $celular = null): string
+    {
+        // Tenta primeiro o telefone, depois o celular como fallback
+        $candidatos = array_filter([$telefone, $celular], fn($v) => $v !== null && trim($v) !== '');
+
+        foreach ($candidatos as $raw) {
+            $digits = preg_replace('/\D/', '', (string)$raw);
+
+            // Remove código de país 55 se o número tiver 12 ou 13 dígitos
+            if (strlen($digits) === 12 && str_starts_with($digits, '55')) {
+                $digits = substr($digits, 2); // 10 dígitos
+            } elseif (strlen($digits) === 13 && str_starts_with($digits, '55')) {
+                $digits = substr($digits, 2); // 11 dígitos
+            }
+
+            // Número sem DDD (8 ou 9 dígitos) → prefixa com DDD 31
+            if (strlen($digits) === 8 || strlen($digits) === 9) {
+                $digits = '31' . $digits;
+            }
+
+            // Válido para o Asaas: 10 ou 11 dígitos
+            if (strlen($digits) >= 10 && strlen($digits) <= 11) {
+                return $digits;
+            }
+        }
+
+        // Fallback: número fictício válido (DDD 31 + número genérico)
+        return '3100000000';
+    }
+
+    /**
      * Mapeia status Asaas para status interno do ERP.
      * Valores válidos no ENUM contas_receber.status: aberta | recebida | cancelada
      */

@@ -524,15 +524,18 @@ class ContasReceberController extends Controller
             $dadosCliente = [
                 'name'               => $cliente->razao_social ?? $cliente->nome ?? '',
                 'email'              => $cliente->email ?? '',
-                'phone'              => $cliente->telefone ?? '',
+                'phone'              => AsaasService::formatarTelefone(
+                                           $cliente->telefone ?? null,
+                                           $cliente->celular  ?? null
+                                       ),
                 'cpfCnpj'            => $documento,
                 'address'            => $cliente->endereco ?? '',
-                'addressNumber'      => $cliente->numero ?? '',
+                'addressNumber'      => ($cliente->numero ?? '') ?: 'S/N',
                 'complement'         => $cliente->complemento ?? '',
                 'province'           => $cliente->bairro ?? '',
-                'postalCode'         => $cliente->cep ?? '',
+                'postalCode'         => preg_replace('/\D/', '', (string)($cliente->cep ?? '')),
                 'city'               => $cliente->cidade ?? '',
-                'state'              => $cliente->estado ?? '',
+                'state'              => strtoupper(trim((string)($cliente->estado ?? ''))),
                 'notificationDisabled' => false,
             ];
             $asaasCliente = $this->getAsaasService()->criarCliente($dadosCliente);
@@ -844,7 +847,10 @@ class ContasReceberController extends Controller
             $clienteData = [
                 'name'    => $cliente->razao_social ?: ($cliente->nome_fantasia ?? $cliente->nome ?? ''),
                 'email'   => $cliente->email ?? '',
-                'phone'   => $cliente->telefone ?? $cliente->celular ?? '',
+                'phone'   => AsaasService::formatarTelefone(
+                                $cliente->telefone ?? null,
+                                $cliente->celular  ?? null
+                            ),
                 'cpfCnpj' => $documento,
             ];
 
