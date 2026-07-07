@@ -426,7 +426,14 @@ class ManutencaoController extends Controller
         ]);
 
         if (!$trocaId) {
-            $this->jsonError('Falha ao adicionar item de troca.');
+            $this->logger->error('[ManutencaoController::addTroca] addTroca retornou false', [
+                'os_id'     => $id,
+                'usuario_id'=> $uid,
+                'descricao' => $d['descricao'] ?? '',
+                'preco'     => $preco,
+                'qty'       => $qty,
+            ]);
+            $this->jsonError('Falha ao salvar item. Verifique os logs do servidor (error.log) para detalhes.');
         }
 
         $this->_sincronizarPropostaDaOS($id, (int)$os->usuario_id);

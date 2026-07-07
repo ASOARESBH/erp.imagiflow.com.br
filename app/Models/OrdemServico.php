@@ -300,6 +300,7 @@ class OrdemServico
 
     public function addTroca(int $osId, array $d): int|false
     {
+        // ── 1. INSERT do item ────────────────────────────────────────────────
         try {
             $stmt = $this->pdo->prepare(
                 "INSERT INTO manut_os_trocas
@@ -322,13 +323,29 @@ class OrdemServico
                 ':data_proxima_troca'=> $d['data_proxima_troca']  ?? null,
                 ':observacoes'       => $d['observacoes']         ?? null,
             ]);
-            // Recalcular valor_pecas da OS
-            $this->recalcularValores($osId);
-            return (int) $this->pdo->lastInsertId();
+            $newId = (int) $this->pdo->lastInsertId();
         } catch (\Throwable $e) {
-            $this->logger->error('[OrdemServico::addTroca] ' . $e->getMessage());
+            $this->logger->error('[OrdemServico::addTroca] Falha no INSERT: ' . $e->getMessage(), [
+                'os_id'   => $osId,
+                'descricao'=> $d['descricao'] ?? '',
+                'sql_code' => $e->getCode(),
+            ]);
             return false;
         }
+
+        // ── 2. Recalcular totais (separado para não mascarar erro do INSERT) ─
+        try {
+            $this->recalcularValores($osId);
+        } catch (\Throwable $e) {
+            // Logar mas NÃO falhar — o item foi inserido com sucesso
+            $this->logger->error('[OrdemServico::addTroca] Falha ao recalcular valores: ' . $e->getMessage(), [
+                'os_id'    => $osId,
+                'troca_id' => $newId,
+                'sql_code' => $e->getCode(),
+            ]);
+        }
+
+        return $newId;
     }
 
     public function deleteTroca(int $trocaId, int $osId): bool

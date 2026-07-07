@@ -501,15 +501,30 @@ document.getElementById('btnSalvarTroca').addEventListener('click', function() {
   this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
 
   fetch('/manutencao/ordens/' + osId + '/troca/add', { method: 'POST', body: fd })
-    .then(r => r.json())
-    .then(d => {
+    .then(function(r) {
+      if (!r.ok && r.status !== 200) {
+        return r.text().then(function(txt) {
+          throw new Error('HTTP ' + r.status + ': ' + txt.substring(0, 200));
+        });
+      }
+      return r.json();
+    })
+    .then(function(d) {
       if (d.success) {
         location.reload();
       } else {
-        alert(d.error || 'Erro ao salvar item.');
-        this.disabled = false;
-        this.innerHTML = '<i class="fas fa-save me-1"></i>Salvar Item';
+        var msg = d.error || 'Erro ao salvar item.';
+        console.error('[addTroca] Erro do servidor:', d);
+        alert(msg);
+        document.getElementById('btnSalvarTroca').disabled = false;
+        document.getElementById('btnSalvarTroca').innerHTML = '<i class="fas fa-save me-1"></i>Salvar Item';
       }
+    })
+    .catch(function(err) {
+      console.error('[addTroca] Falha na requisição:', err);
+      alert('Erro de comunicação com o servidor: ' + err.message);
+      document.getElementById('btnSalvarTroca').disabled = false;
+      document.getElementById('btnSalvarTroca').innerHTML = '<i class="fas fa-save me-1"></i>Salvar Item';
     });
 });
 
