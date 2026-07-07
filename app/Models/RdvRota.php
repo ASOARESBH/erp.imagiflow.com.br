@@ -119,9 +119,10 @@ class RdvRota
     {
         $stmt = $this->pdo->prepare(
             "SELECT rc.*,
-                    c.razao_social AS cliente_nome, c.cnpj_cpf AS cliente_doc,
+                    COALESCE(c.nome_fantasia, c.razao_social) AS cliente_nome,
+                    c.cpf_cnpj AS cliente_doc,
                     c.cidade AS cliente_cidade, c.estado AS cliente_estado,
-                    l.nome AS lead_nome, l.empresa AS lead_empresa,
+                    l.nome_lead AS lead_nome, l.razao_social AS lead_empresa,
                     o.titulo AS oportunidade_titulo
              FROM rdv_rota_clientes rc
              LEFT JOIN clientes c ON c.id = rc.cliente_id

@@ -839,9 +839,17 @@ class RdvController extends Controller
     {
         try {
             $pdo  = \App\Core\Database::getInstance();
-            $stmt = $pdo->query("SELECT id, razao_social AS nome, cidade, estado FROM clientes WHERE ativo = 1 ORDER BY razao_social ASC LIMIT 500");
+            $uid  = $this->uid();
+            $stmt = $pdo->prepare(
+                "SELECT id, COALESCE(nome_fantasia, razao_social) AS nome, cidade, estado
+                 FROM clientes
+                 WHERE usuario_id = ? AND status != 'inativo'
+                 ORDER BY razao_social ASC LIMIT 500"
+            );
+            $stmt->execute([$uid]);
             return $stmt->fetchAll(\PDO::FETCH_OBJ);
         } catch (\Throwable $e) {
+            $this->logger->error('[RdvController::_getClientes] ' . $e->getMessage());
             return [];
         }
     }
@@ -850,9 +858,17 @@ class RdvController extends Controller
     {
         try {
             $pdo  = \App\Core\Database::getInstance();
-            $stmt = $pdo->query("SELECT id, nome, empresa, cidade FROM crm_leads ORDER BY nome ASC LIMIT 500");
+            $uid  = $this->uid();
+            $stmt = $pdo->prepare(
+                "SELECT id, nome_lead AS nome, razao_social AS empresa, cidade
+                 FROM crm_leads
+                 WHERE usuario_id = ?
+                 ORDER BY nome_lead ASC LIMIT 500"
+            );
+            $stmt->execute([$uid]);
             return $stmt->fetchAll(\PDO::FETCH_OBJ);
         } catch (\Throwable $e) {
+            $this->logger->error('[RdvController::_getLeads] ' . $e->getMessage());
             return [];
         }
     }
