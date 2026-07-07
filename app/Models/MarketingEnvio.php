@@ -28,8 +28,10 @@ class MarketingEnvio
             $params[':status'] = $filtros['status'];
         }
         if (!empty($filtros['q'])) {
-            $where[]      = '(e.destinatario_nome LIKE :q OR e.destinatario_email LIKE :q)';
-            $params[':q'] = '%' . $filtros['q'] . '%';
+            $where[]       = '(e.destinatario_nome LIKE :q1 OR e.destinatario_email LIKE :q2)';
+            $like          = '%' . $filtros['q'] . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
         }
 
         $sql = "SELECT e.* FROM {$this->table} e

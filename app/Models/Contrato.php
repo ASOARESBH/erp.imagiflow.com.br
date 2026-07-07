@@ -36,8 +36,12 @@ class Contrato extends Model
             $params[':status'] = $filtros['status'];
         }
         if (!empty($filtros['q'])) {
-            $where[] = '(c.nome LIKE :q OR c.numero LIKE :q OR m.nome LIKE :q OR cl.razao_social LIKE :q)';
-            $params[':q'] = '%' . $filtros['q'] . '%';
+            $where[] = '(c.nome LIKE :q1 OR c.numero LIKE :q2 OR m.nome LIKE :q3 OR cl.razao_social LIKE :q4)';
+            $like = '%' . $filtros['q'] . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
+            $params[':q4'] = $like;
         }
 
         $sql = "SELECT c.*,

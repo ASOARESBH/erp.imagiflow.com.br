@@ -72,8 +72,11 @@ class DdaBoleto extends Model
         // Filtro de pesquisa (beneficiário ou CPF/CNPJ)
         $q = trim($filtros['pesquisa'] ?? '');
         if ($q !== '') {
-            $where[]    = '(d.beneficiario_nome LIKE :q OR d.beneficiario_cpf_cnpj LIKE :q OR d.descricao LIKE :q)';
-            $params[':q'] = '%' . $q . '%';
+            $where[]       = '(d.beneficiario_nome LIKE :q1 OR d.beneficiario_cpf_cnpj LIKE :q2 OR d.descricao LIKE :q3)';
+            $like          = '%' . $q . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
         }
 
         // Filtro de vencimento

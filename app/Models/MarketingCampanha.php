@@ -32,8 +32,10 @@ class MarketingCampanha
             $params[':status'] = $filtros['status'];
         }
         if (!empty($filtros['q'])) {
-            $where[]      = '(c.nome LIKE :q OR c.descricao LIKE :q)';
-            $params[':q'] = '%' . $filtros['q'] . '%';
+            $where[]       = '(c.nome LIKE :q1 OR c.descricao LIKE :q2)';
+            $like          = '%' . $filtros['q'] . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
         }
 
         $sql = "SELECT c.*,

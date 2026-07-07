@@ -35,8 +35,10 @@ class ContaPagar extends Model
 
         $q = trim($filtros['pesquisa'] ?? '');
         if ($q !== '') {
-            $where[] = '(cp.descricao LIKE :q OR f.nome LIKE :q)';
-            $params[':q'] = '%' . $q . '%';
+            $where[] = '(cp.descricao LIKE :q1 OR f.nome LIKE :q2)';
+            $like = '%' . $q . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
         }
 
         $sql = "SELECT cp.*, f.nome AS fornecedor_nome, pc.codigo AS plano_codigo

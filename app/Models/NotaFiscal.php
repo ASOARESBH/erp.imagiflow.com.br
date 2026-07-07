@@ -39,8 +39,11 @@ class NotaFiscal extends Model
 
             $q = trim($filtros['pesquisa'] ?? '');
             if ($q !== '') {
-                $where[] = '(nf.numero_nf LIKE :q OR nf.serie LIKE :q OR c.razao_social LIKE :q)';
-                $params[':q'] = '%' . $q . '%';
+                $where[] = '(nf.numero_nf LIKE :q1 OR nf.serie LIKE :q2 OR c.razao_social LIKE :q3)';
+                $like = '%' . $q . '%';
+                $params[':q1'] = $like;
+                $params[':q2'] = $like;
+                $params[':q3'] = $like;
             }
 
             $sql = "SELECT nf.*, c.razao_social AS cliente_nome

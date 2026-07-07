@@ -190,8 +190,12 @@ class OrdemServico
             $params[':tipo'] = $filtros['tipo'];
         }
         if (!empty($filtros['q'])) {
-            $where[]      = '(o.numero LIKE :q OR o.cliente_nome LIKE :q OR o.produto_nome LIKE :q OR o.numero_serie LIKE :q)';
-            $params[':q'] = '%' . $filtros['q'] . '%';
+            $where[]       = '(o.numero LIKE :q1 OR o.cliente_nome LIKE :q2 OR o.produto_nome LIKE :q3 OR o.numero_serie LIKE :q4)';
+            $like          = '%' . $filtros['q'] . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
+            $params[':q4'] = $like;
         }
         if (!empty($filtros['data_de'])) {
             $where[]           = 'o.data_abertura >= :data_de';

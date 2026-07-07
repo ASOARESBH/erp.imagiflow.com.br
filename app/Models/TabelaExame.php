@@ -22,8 +22,10 @@ class TabelaExame extends Model
 
         $q = trim((string) ($filtros['pesquisa'] ?? ''));
         if ($q !== '') {
-            $where[] = '(nome_exame LIKE :q OR modalidade LIKE :q)';
-            $params[':q'] = '%' . $q . '%';
+            $where[] = '(nome_exame LIKE :q1 OR modalidade LIKE :q2)';
+            $like = '%' . $q . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
         }
 
         $sql = "SELECT *

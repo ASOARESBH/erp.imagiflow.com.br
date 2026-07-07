@@ -107,8 +107,10 @@ class ContaReceber extends Model
 
         $q = trim($filtros['pesquisa'] ?? '');
         if ($q !== '') {
-            $where[] = '(cr.descricao LIKE :q OR c.razao_social LIKE :q)';
-            $params[':q'] = '%' . $q . '%';
+            $where[] = '(cr.descricao LIKE :q1 OR c.razao_social LIKE :q2)';
+            $like = '%' . $q . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
         }
 
         $sql = "SELECT cr.*, c.razao_social AS cliente_nome, pc.codigo AS plano_codigo

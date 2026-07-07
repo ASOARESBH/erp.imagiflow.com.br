@@ -35,8 +35,10 @@ class PlanoConta extends Model
 
         $q = trim($filtros['pesquisa'] ?? '');
         if ($q !== '') {
-            $where[] = '(codigo LIKE :q OR nome LIKE :q)';
-            $params[':q'] = '%' . $q . '%';
+            $where[] = '(codigo LIKE :q1 OR nome LIKE :q2)';
+            $like = '%' . $q . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
         }
 
         $sql = "SELECT * FROM {$this->table} WHERE " . implode(' AND ', $where) . " ORDER BY codigo ASC";

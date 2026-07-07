@@ -23,8 +23,11 @@ class Especialidade extends Model
 
         $q = trim((string) ($filtros['pesquisa'] ?? ''));
         if ($q !== '') {
-            $where[] = '(especialidade LIKE :q OR subespecialidade LIKE :q OR rqe LIKE :q)';
-            $params[':q'] = '%' . $q . '%';
+            $where[] = '(especialidade LIKE :q1 OR subespecialidade LIKE :q2 OR rqe LIKE :q3)';
+            $like = '%' . $q . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
         }
 
         $sql = "SELECT *

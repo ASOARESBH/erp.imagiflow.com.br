@@ -206,8 +206,11 @@ class PedidoCompra extends Model
             $params[':status'] = $filtros['status'];
         }
         if (!empty($filtros['q'])) {
-            $where[] = "(p.numero LIKE :q OR p.fornecedor_nome LIKE :q OR p.nfe_numero LIKE :q)";
-            $params[':q'] = '%' . $filtros['q'] . '%';
+            $where[] = "(p.numero LIKE :q1 OR p.fornecedor_nome LIKE :q2 OR p.nfe_numero LIKE :q3)";
+            $like = '%' . $filtros['q'] . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
         }
         if (!empty($filtros['data_inicio'])) {
             $where[] = "p.data_pedido >= :di";

@@ -246,8 +246,10 @@ class PedidoVenda extends Model
                 $params[':status'] = $filtros['status'];
             }
             if (!empty($filtros['q'])) {
-                $where[] = "(p.numero LIKE :q OR p.cliente_nome LIKE :q)";
-                $params[':q'] = '%' . $filtros['q'] . '%';
+                $where[] = "(p.numero LIKE :q1 OR p.cliente_nome LIKE :q2)";
+                $like = '%' . $filtros['q'] . '%';
+                $params[':q1'] = $like;
+                $params[':q2'] = $like;
             }
             if (!empty($filtros['data_inicio'])) {
                 $where[] = "p.data_pedido >= :di";

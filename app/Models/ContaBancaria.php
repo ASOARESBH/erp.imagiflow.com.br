@@ -61,8 +61,11 @@ class ContaBancaria extends Model
 
         $q = trim($filtros['pesquisa'] ?? '');
         if ($q !== '') {
-            $where[]      = '(cb.nome LIKE :q OR cb.banco_nome LIKE :q OR cb.conta LIKE :q)';
-            $params[':q'] = '%' . $q . '%';
+            $where[]       = '(cb.nome LIKE :q1 OR cb.banco_nome LIKE :q2 OR cb.conta LIKE :q3)';
+            $like          = '%' . $q . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
         }
 
         $sql = "SELECT cb.*

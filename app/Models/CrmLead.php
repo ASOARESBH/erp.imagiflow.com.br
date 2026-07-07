@@ -89,8 +89,12 @@ class CrmLead extends Model
             $params[':origem'] = $filtros['origem'];
         }
         if (!empty($filtros['q'])) {
-            $where[]      = '(l.nome_lead LIKE :q OR l.email LIKE :q OR l.cnpj LIKE :q OR l.cidade LIKE :q)';
-            $params[':q'] = '%' . $filtros['q'] . '%';
+            $where[]       = '(l.nome_lead LIKE :q1 OR l.email LIKE :q2 OR l.cnpj LIKE :q3 OR l.cidade LIKE :q4)';
+            $like          = '%' . $filtros['q'] . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
+            $params[':q4'] = $like;
         }
 
         $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';

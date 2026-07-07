@@ -76,8 +76,11 @@ class CrmOportunidade extends Model
             $params[':status'] = $filtros['status'];
         }
         if (!empty($filtros['q'])) {
-            $where[]      = '(o.titulo_oportunidade LIKE :q OR l.nome_lead LIKE :q OR c.razao_social LIKE :q)';
-            $params[':q'] = '%' . $filtros['q'] . '%';
+            $where[]       = '(o.titulo_oportunidade LIKE :q1 OR l.nome_lead LIKE :q2 OR c.razao_social LIKE :q3)';
+            $like          = '%' . $filtros['q'] . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
         }
 
         $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';

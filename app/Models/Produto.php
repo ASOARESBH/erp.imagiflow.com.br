@@ -68,8 +68,13 @@ class Produto extends Model
         $params = [':uid' => $usuarioId];
 
         if (!empty($filtros['q'])) {
-            $where[] = "(p.nome LIKE :q OR p.codigo LIKE :q OR p.marca LIKE :q OR p.modelo LIKE :q OR p.fabricante_nome LIKE :q)";
-            $params[':q'] = '%' . $filtros['q'] . '%';
+            $where[] = "(p.nome LIKE :q1 OR p.codigo LIKE :q2 OR p.marca LIKE :q3 OR p.modelo LIKE :q4 OR p.fabricante_nome LIKE :q5)";
+            $like = '%' . $filtros['q'] . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
+            $params[':q4'] = $like;
+            $params[':q5'] = $like;
         }
         if (!empty($filtros['tipo'])) {
             $where[] = "p.tipo = :tipo";

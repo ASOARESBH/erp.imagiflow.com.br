@@ -59,8 +59,11 @@ class Fornecedor extends Model
 
         $q = trim($filtros['pesquisa'] ?? '');
         if ($q !== '') {
-            $where[]    = '(nome LIKE :q OR documento LIKE :q OR email LIKE :q)';
-            $params[':q'] = '%' . $q . '%';
+            $where[]       = '(nome LIKE :q1 OR documento LIKE :q2 OR email LIKE :q3)';
+            $like          = '%' . $q . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
         }
 
         $sql  = "SELECT * FROM {$this->table} WHERE " . implode(' AND ', $where) . " ORDER BY nome ASC";

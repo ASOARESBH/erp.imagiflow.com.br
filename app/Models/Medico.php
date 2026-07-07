@@ -39,8 +39,12 @@ class Medico extends Model
 
         $q = trim((string) ($filtros['pesquisa'] ?? ''));
         if ($q !== '') {
-            $where[] = '(m.nome LIKE :q OR m.crm LIKE :q OR m.cpf LIKE :q OR e.especialidade LIKE :q)';
-            $params[':q'] = '%' . $q . '%';
+            $where[] = '(m.nome LIKE :q1 OR m.crm LIKE :q2 OR m.cpf LIKE :q3 OR e.especialidade LIKE :q4)';
+            $like = '%' . $q . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
+            $params[':q4'] = $like;
         }
 
         $sql = "SELECT m.*, e.especialidade AS especialidade_nome, e.subespecialidade AS especialidade_subespecialidade

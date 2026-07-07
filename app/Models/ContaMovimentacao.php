@@ -62,8 +62,11 @@ class ContaMovimentacao extends Model
         // Pesquisa textual
         $q = trim($filtros['pesquisa'] ?? '');
         if ($q !== '') {
-            $where[]      = '(m.descricao LIKE :q OR m.descricao_original LIKE :q OR m.categoria LIKE :q)';
-            $params[':q'] = '%' . $q . '%';
+            $where[]       = '(m.descricao LIKE :q1 OR m.descricao_original LIKE :q2 OR m.categoria LIKE :q3)';
+            $like          = '%' . $q . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
         }
 
         $whereStr = implode(' AND ', $where);

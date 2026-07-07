@@ -177,8 +177,12 @@ class MovimentacaoEstoque extends Model
             $params[':df'] = $filtros['data_fim'];
         }
         if (!empty($filtros['q'])) {
-            $where[] = "(p.nome LIKE :q OR p.codigo LIKE :q OR m.nfe_numero LIKE :q OR m.nfe_emitente_nome LIKE :q)";
-            $params[':q'] = '%' . $filtros['q'] . '%';
+            $where[] = "(p.nome LIKE :q1 OR p.codigo LIKE :q2 OR m.nfe_numero LIKE :q3 OR m.nfe_emitente_nome LIKE :q4)";
+            $like = '%' . $filtros['q'] . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
+            $params[':q4'] = $like;
         }
 
         $limit  = (int)($filtros['limit'] ?? 100);
