@@ -638,4 +638,34 @@ Router::group(["middleware" => ["Auth"]], function () {
     Router::post("/api/notificacoes/marcar-lida/{id}",  "NotificacoesController@marcarLida");
     Router::post("/api/notificacoes/marcar-todas-lidas","NotificacoesController@marcarTodasLidas");
     Router::post("/api/notificacoes/gerar",             "NotificacoesController@gerar");
+
+    // ============================================================
+    // RDV — Registro de Despesas de Viagem
+    // ============================================================
+    // Viagens
+    Router::get("/rdv/viagens",                                   "RdvController@index");
+    Router::get("/rdv/viagens/create",                            "RdvController@create");
+    Router::post("/rdv/viagens/store",                            "RdvController@store");
+    Router::get("/rdv/viagens/{id}",                              "RdvController@show");
+    Router::get("/rdv/viagens/{id}/edit",                         "RdvController@edit");
+    Router::post("/rdv/viagens/{id}/update",                      "RdvController@update");
+    Router::post("/rdv/viagens/{id}/status",                      "RdvController@mudarStatus");
+    Router::post("/rdv/viagens/{id}/aprovar",                     "RdvController@aprovar");
+    Router::post("/rdv/viagens/{id}/gerar-conta-pagar",           "RdvController@gerarContaPagar");
+    // Despesas
+    Router::post("/rdv/viagens/{id}/despesas/add",                "RdvController@addDespesa");
+    Router::post("/rdv/viagens/{id}/despesas/{did}/edit",         "RdvController@editDespesa");
+    Router::post("/rdv/viagens/{id}/despesas/{did}/delete",       "RdvController@deleteDespesa");
+    // OCR
+    Router::post("/rdv/viagens/{id}/ocr",                        "RdvController@processarOcr");
+    // Rotas comerciais
+    Router::get("/rdv/rotas",                                     "RdvController@rotasIndex");
+    Router::get("/rdv/rotas/create",                              "RdvController@rotasCreate");
+    Router::post("/rdv/rotas/store",                              "RdvController@rotasStore");
+    Router::get("/rdv/rotas/{id}",                                "RdvController@rotasShow");
+    Router::get("/rdv/rotas/{id}/edit",                           "RdvController@rotasEdit");
+    Router::post("/rdv/rotas/{id}/update",                        "RdvController@rotasUpdate");
+    Router::post("/rdv/rotas/{id}/delete",                        "RdvController@rotasDelete");
+    Router::post("/rdv/rotas/{id}/clientes/add",                  "RdvController@rotasAddCliente");
+    Router::post("/rdv/rotas/{id}/clientes/{cid}/remove",         "RdvController@rotasRemoveCliente");
 });

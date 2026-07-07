@@ -689,6 +689,20 @@ if ($_ec) {
             </ul>
           </li>
 
+          <div class="nav-label">RDV</div>
+          <li class="nav-item has-submenu <?php echo strpos($_SERVER['REQUEST_URI'], '/rdv') !== false ? 'open active' : ''; ?>">
+            <a href="/rdv/viagens" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="RDV — Despesas de Viagem">
+              <i class="fas fa-route"></i>
+              <span class="link-text">RDV</span>
+            </a>
+            <ul class="submenu">
+              <li><a href="/rdv/viagens"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/rdv/viagens') !== false ? 'active' : ''; ?>"><i class="fas fa-plane-departure me-1"></i> VIAGENS</a></li>
+              <li><a href="/rdv/rotas"
+                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/rdv/rotas') !== false) ? 'active' : ''; ?>"><i class="fas fa-map-marked-alt me-1"></i> ROTAS</a></li>
+            </ul>
+          </li>
+
           <div class="nav-label">Configurações</div>
           <li
             class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false) ? 'open active' : ''; ?>">
