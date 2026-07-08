@@ -123,7 +123,7 @@ class RdvRota
                     c.cpf_cnpj AS cliente_doc,
                     c.cidade AS cliente_cidade, c.estado AS cliente_estado,
                     l.nome_lead AS lead_nome, l.razao_social AS lead_empresa,
-                    o.titulo AS oportunidade_titulo
+                    o.titulo_oportunidade AS oportunidade_titulo
              FROM rdv_rota_clientes rc
              LEFT JOIN clientes c ON c.id = rc.cliente_id
              LEFT JOIN crm_leads l ON l.id = rc.lead_id
