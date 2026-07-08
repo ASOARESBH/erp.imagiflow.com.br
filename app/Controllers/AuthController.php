@@ -9,6 +9,7 @@ use App\Core\Audit\AuditLogger;
 use App\Models\User;
 use App\Models\PasswordResetToken;
 use App\Models\PortalCliente;
+use App\Services\TwoFactorService;
 
 /**
  * AuthController — Autenticação unificada para usuários do ERP e clientes do portal.
@@ -68,7 +69,37 @@ class AuthController extends Controller
         $user      = $userModel->findByEmail($email);
 
         if ($user) {
-            if (Auth::login($email, $password)) {
+            $senhaCorreta = Auth::verifyPassword($password, $user->password);
+
+            // ----------------------------------------------------------
+            // 1a. Senha correta + 2FA habilitado: NÃO cria sessão definitiva
+            //     ainda. Gera e envia o código, e aguarda verificação.
+            // ----------------------------------------------------------
+            if ($senhaCorreta && !empty($user->two_factor_enabled)) {
+                session_regenerate_id(true);
+                $_SESSION['2fa_pending_user_id'] = (int) $user->id;
+                $_SESSION['2fa_pending_started'] = time();
+
+                $twoFactorService = new TwoFactorService();
+                $emailEnviado = $twoFactorService->generateAndSendCode($user, $ip, $userAgent);
+
+                $logger->auth('2FA — código enviado após senha correta', [
+                    'user_id'       => $user->id,
+                    'email'         => $email,
+                    'ip'            => $ip,
+                    'email_enviado' => $emailEnviado,
+                ]);
+                AuditLogger::log('2fa_code_sent', [
+                    'user_id' => $user->id,
+                    'email'   => $email,
+                    'ip'      => $ip,
+                ]);
+
+                header('Location: /2fa/verify');
+                exit();
+            }
+
+            if ($senhaCorreta && Auth::login($email, $password)) {
                 $logger->auth('Login ERP bem-sucedido', [
                     'user_id' => $_SESSION['user_id'],
                     'email'   => $email,
@@ -467,5 +498,172 @@ class AuthController extends Controller
         AuditLogger::log('password_reset_failed', ['reason' => 'update_failed', 'user_id' => $record->user_id]);
         header('Location: /reset-password/' . $token . '?error=1');
         exit();
+    }
+
+    // =========================================================
+    // AUTENTICAÇÃO EM DOIS FATORES (2FA) — verificação de código por e-mail
+    // =========================================================
+
+    /**
+     * Tela de verificação do código de 2FA. Só é acessível enquanto houver
+     * um login "pendente" (senha já validada, código ainda não). O usuário
+     * NÃO está autenticado neste momento — Auth::check() continua false.
+     */
+    public function showTwoFactorForm(): void
+    {
+        if (Auth::check()) {
+            header('Location: /dashboard');
+            exit();
+        }
+
+        $pendingUserId = $_SESSION['2fa_pending_user_id'] ?? null;
+        if (!$pendingUserId) {
+            header('Location: /login');
+            exit();
+        }
+
+        $userModel = new User();
+        $user      = $userModel->findById((int) $pendingUserId);
+        if (!$user) {
+            unset($_SESSION['2fa_pending_user_id'], $_SESSION['2fa_pending_started']);
+            header('Location: /login');
+            exit();
+        }
+
+        $twoFactorService = new TwoFactorService();
+        $title            = 'Verificação em Dois Fatores';
+        $emailMascarado   = self::maskEmail($user->email);
+        $bloqueado        = $twoFactorService->isLocked($user);
+        $segundosBloqueio = $bloqueado ? $twoFactorService->secondsUntilUnlock($user) : 0;
+        $segundosReenvio  = $bloqueado ? 0 : $twoFactorService->secondsUntilResend($user);
+
+        require dirname(__DIR__) . '/Views/auth/verify_2fa.php';
+    }
+
+    /**
+     * Valida o código de 2FA (AJAX). Só cria a sessão definitiva aqui —
+     * nunca antes. O user_id nunca é lido do POST, apenas da sessão pendente,
+     * para impedir que um código válido de outro usuário seja usado.
+     */
+    public function verifyTwoFactor(): void
+    {
+        header('Content-Type: application/json');
+
+        $pendingUserId = $_SESSION['2fa_pending_user_id'] ?? null;
+        if (!$pendingUserId) {
+            echo json_encode(['success' => false, 'error' => 'sessao_expirada', 'message' => 'Sessão de verificação expirada. Faça login novamente.']);
+            exit();
+        }
+
+        $codigo = trim($_POST['codigo'] ?? '');
+        if (!preg_match('/^\d{4}$/', $codigo)) {
+            echo json_encode(['success' => false, 'error' => 'codigo_invalido', 'message' => 'Informe os 4 dígitos do código.']);
+            exit();
+        }
+
+        $userModel = new User();
+        $user      = $userModel->findById((int) $pendingUserId);
+        if (!$user) {
+            unset($_SESSION['2fa_pending_user_id'], $_SESSION['2fa_pending_started']);
+            echo json_encode(['success' => false, 'error' => 'sessao_expirada', 'message' => 'Sessão de verificação expirada. Faça login novamente.']);
+            exit();
+        }
+
+        $ip        = $_SERVER['REMOTE_ADDR']     ?? 'unknown';
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
+
+        $twoFactorService = new TwoFactorService();
+        $result           = $twoFactorService->verifyCode($user, $codigo, $ip, $userAgent);
+
+        if ($result['success']) {
+            unset($_SESSION['2fa_pending_user_id'], $_SESSION['2fa_pending_started']);
+            Auth::loginAsUser($user);
+            AuditLogger::log('2fa_verify_success', ['user_id' => $user->id, 'ip' => $ip]);
+            echo json_encode(['success' => true, 'redirect' => '/dashboard']);
+            exit();
+        }
+
+        AuditLogger::log('2fa_verify_failed', ['user_id' => $user->id, 'ip' => $ip, 'motivo' => $result['reason']]);
+
+        $mensagens = [
+            'locked'          => 'Muitas tentativas incorretas. Conta temporariamente bloqueada — aguarde alguns minutos.',
+            'expired'         => 'Código expirado. Solicite um novo código.',
+            'no_pending_code' => 'Nenhum código pendente. Solicite um novo código.',
+            'invalid_code'    => 'Código inválido.' . (isset($result['attempts_left']) ? ' Tentativas restantes: ' . $result['attempts_left'] . '.' : ''),
+        ];
+
+        echo json_encode([
+            'success' => false,
+            'error'   => $result['reason'],
+            'message' => $mensagens[$result['reason']] ?? 'Código inválido.',
+        ]);
+        exit();
+    }
+
+    /**
+     * Reenvia um novo código de 2FA (AJAX), respeitando o cooldown de 60s.
+     * Gera um token exclusivo e invalida imediatamente o anterior
+     * (User::saveTwoFactorCode zera tentativas e sobrescreve o hash).
+     */
+    public function resendTwoFactor(): void
+    {
+        header('Content-Type: application/json');
+
+        $pendingUserId = $_SESSION['2fa_pending_user_id'] ?? null;
+        if (!$pendingUserId) {
+            echo json_encode(['success' => false, 'error' => 'sessao_expirada', 'message' => 'Sessão de verificação expirada. Faça login novamente.']);
+            exit();
+        }
+
+        $userModel = new User();
+        $user      = $userModel->findById((int) $pendingUserId);
+        if (!$user) {
+            unset($_SESSION['2fa_pending_user_id'], $_SESSION['2fa_pending_started']);
+            echo json_encode(['success' => false, 'error' => 'sessao_expirada', 'message' => 'Sessão de verificação expirada. Faça login novamente.']);
+            exit();
+        }
+
+        $twoFactorService = new TwoFactorService();
+
+        if ($twoFactorService->isLocked($user)) {
+            echo json_encode(['success' => false, 'error' => 'locked', 'message' => 'Conta temporariamente bloqueada. Aguarde alguns minutos.']);
+            exit();
+        }
+
+        if (!$twoFactorService->canResend($user)) {
+            echo json_encode([
+                'success'      => false,
+                'error'        => 'cooldown',
+                'seconds_left' => $twoFactorService->secondsUntilResend($user),
+                'message'      => 'Aguarde para solicitar um novo código.',
+            ]);
+            exit();
+        }
+
+        $ip        = $_SERVER['REMOTE_ADDR']     ?? 'unknown';
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
+
+        $sent = $twoFactorService->generateAndSendCode($user, $ip, $userAgent);
+        AuditLogger::log('2fa_code_resent', ['user_id' => $user->id, 'ip' => $ip, 'email_enviado' => $sent]);
+
+        if ($sent) {
+            echo json_encode(['success' => true, 'message' => 'Código enviado com sucesso.']);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'smtp_failed', 'message' => 'Não foi possível enviar o código. Tente novamente.']);
+        }
+        exit();
+    }
+
+    /**
+     * Mascara o e-mail para exibição na tela de verificação (ex.: and***@empresa.com.br).
+     */
+    private static function maskEmail(string $email): string
+    {
+        if (!str_contains($email, '@')) {
+            return $email;
+        }
+        [$user, $domain] = explode('@', $email, 2);
+        $visible = mb_substr($user, 0, 3);
+        return $visible . str_repeat('*', max(3, mb_strlen($user) - 3)) . '@' . $domain;
     }
 }

@@ -132,6 +132,72 @@ class Mail
     }
 
     /**
+     * Envia e-mail com o código de segurança do 2FA (login em duas etapas).
+     * Usa a mesma estratégia de resolução SMTP de sendPasswordResetLink()
+     * (via buildService()). Nunca logar o código em texto puro.
+     */
+    public static function sendTwoFactorCode(string $toEmail, string $toName, string $code, string $ip = '', int $usuarioId = 0): bool
+    {
+        $subject = 'Código de Segurança - INLAUDO ERP';
+        $primeiroNome = trim(explode(' ', trim($toName))[0] ?? $toName) ?: 'usuário';
+        $dataHora = date('d/m/Y H:i');
+        $ipExibicao = $ip !== '' ? $ip : 'não disponível';
+
+        $bodyHtml = MailService::buildEmailHtml(
+            'Código de Segurança',
+            "<p style='margin:0 0 12px;'>Olá, " . htmlspecialchars($primeiroNome) . ".</p>"
+            . "<p style='margin:0 0 20px;'>Recebemos uma tentativa de acesso à sua conta no <strong>ERP InLaudo</strong>.</p>"
+            . "<p style='text-align:center;margin:24px 0;'>"
+            . "<span style='display:inline-block;background:#f4f6f9;color:#1a56db;font-size:32px;font-weight:700;letter-spacing:10px;padding:16px 28px;border-radius:8px;'>{$code}</span>"
+            . "</p>"
+            . "<p style='margin:0 0 8px;'>Este código expira em <strong>5 minutos</strong>.</p>"
+            . "<p style='color:#9ca3af;font-size:13px;margin:16px 0 0;'>IP de origem: " . htmlspecialchars($ipExibicao) . "<br>Data/hora da tentativa: {$dataHora}</p>"
+            . "<p style='color:#9ca3af;font-size:13px;margin:16px 0 0;'>Caso você não tenha solicitado este acesso, ignore esta mensagem.</p>"
+        );
+
+        $bodyText = "Olá, {$primeiroNome}.\n\n"
+            . "Recebemos uma tentativa de acesso à sua conta.\n\n"
+            . "Seu código de verificação é: {$code}\n\n"
+            . "Este código expira em 5 minutos.\n\n"
+            . "IP de origem: {$ipExibicao}\n"
+            . "Data/hora da tentativa: {$dataHora}\n\n"
+            . "Caso você não tenha solicitado este acesso, ignore esta mensagem.\n\n"
+            . "Equipe INLAUDO ERP.";
+
+        $service = self::buildService($usuarioId);
+
+        if ($service) {
+            try {
+                return $service->send($toEmail, $subject, $bodyHtml, true);
+            } catch (\Throwable $eHtml) {
+                error_log('[Mail::sendTwoFactorCode] Falha HTML, tentando texto puro: ' . $eHtml->getMessage());
+                try {
+                    return $service->send($toEmail, $subject, $bodyText, false);
+                } catch (\Throwable $eText) {
+                    error_log('[Mail::sendTwoFactorCode] Falha texto puro: ' . $eText->getMessage());
+                }
+            }
+        }
+
+        // ─── Último recurso: mail() nativa do PHP ─────────────────────────
+        error_log('[Mail::sendTwoFactorCode] Nenhuma integração SMTP disponível. Usando mail() nativa para: ' . $toEmail);
+
+        $headers = implode("\r\n", [
+            'MIME-Version: 1.0',
+            'Content-Type: text/html; charset=UTF-8',
+            'From: noreply@inlaudo.com.br',
+        ]);
+
+        $result = @mail($toEmail, $subject, $bodyHtml, $headers);
+
+        if (!$result) {
+            error_log('[Mail::sendTwoFactorCode] mail() nativa falhou para: ' . $toEmail);
+        }
+
+        return $result;
+    }
+
+    /**
      * Constrói um MailService a partir da integração de e-mail de um usuário,
      * com fallback para qualquer integração ativa no sistema.
      * Útil para outros métodos de envio que precisam do mesmo padrão de resolução.

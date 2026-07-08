@@ -132,6 +132,81 @@ class User extends Model
         }
     }
 
+    // =========================================================
+    // AUTENTICAÇÃO EM DOIS FATORES (2FA)
+    // =========================================================
+
+    /**
+     * Habilita/desabilita o 2FA para o usuário.
+     */
+    public function setTwoFactorEnabled(int $id, bool $enabled): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE {$this->table} SET two_factor_enabled = :enabled, updated_at = NOW() WHERE id = :id"
+        );
+        return $stmt->execute([':enabled' => $enabled ? 1 : 0, ':id' => $id]);
+    }
+
+    /**
+     * Salva um novo código de 2FA (já com hash — nunca texto puro) e reinicia
+     * tentativas/bloqueio. Também registra o horário de envio (cooldown de reenvio).
+     */
+    public function saveTwoFactorCode(int $id, string $codeHash, string $expiresAt): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE {$this->table}
+             SET two_factor_code = :code,
+                 two_factor_expiration = :exp,
+                 two_factor_attempts = 0,
+                 two_factor_validated = 0,
+                 two_factor_last_sent = NOW(),
+                 two_factor_locked_until = NULL
+             WHERE id = :id"
+        );
+        return $stmt->execute([':code' => $codeHash, ':exp' => $expiresAt, ':id' => $id]);
+    }
+
+    /**
+     * Incrementa o contador de tentativas incorretas e retorna o novo total.
+     */
+    public function incrementTwoFactorAttempts(int $id): int
+    {
+        $this->pdo->prepare(
+            "UPDATE {$this->table} SET two_factor_attempts = two_factor_attempts + 1 WHERE id = :id"
+        )->execute([':id' => $id]);
+
+        $row = $this->findById($id);
+        return (int) ($row->two_factor_attempts ?? 0);
+    }
+
+    /**
+     * Bloqueia temporariamente a verificação de 2FA (após exceder tentativas).
+     */
+    public function lockTwoFactor(int $id, string $lockedUntil): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE {$this->table} SET two_factor_locked_until = :until WHERE id = :id"
+        );
+        return $stmt->execute([':until' => $lockedUntil, ':id' => $id]);
+    }
+
+    /**
+     * Marca o código como validado e o invalida para reuso (nunca reutilizável).
+     */
+    public function markTwoFactorValidated(int $id): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE {$this->table}
+             SET two_factor_validated = 1,
+                 two_factor_code = NULL,
+                 two_factor_expiration = NULL,
+                 two_factor_attempts = 0,
+                 two_factor_locked_until = NULL
+             WHERE id = :id"
+        );
+        return $stmt->execute([':id' => $id]);
+    }
+
     /**
      * Retorna todos os usuários do sistema
      */

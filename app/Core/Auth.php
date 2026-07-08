@@ -39,21 +39,31 @@ class Auth
         $user = $userModel->findByEmail($email);
 
         if ($user && self::verifyPassword($password, $user->password)) {
-            // SUCESSO
-            self::regenerateSession();
-            $_SESSION['user_id'] = $user->id;
-            $_SESSION['user_name'] = $user->name;
-            $_SESSION['user_email'] = $user->email;
-            $_SESSION['user_role'] = $user->role ?? 'user'; // Buscar role real do banco
-            $_SESSION['login_time'] = time();
-
-            AuditLogger::log('login_success', ['user_id' => $user->id, 'email' => $email, 'role' => $_SESSION['user_role']]);
-
+            self::loginAsUser($user);
             return true;
         }
 
         AuditLogger::log('login_failed', ['email' => $email]);
         return false;
+    }
+
+    /**
+     * Cria a sessão definitiva de um usuário já autenticado (senha OU,
+     * quando o 2FA está habilitado, senha + código de verificação).
+     *
+     * Nunca chamar sem antes validar as credenciais/código — este método
+     * não faz nenhuma verificação, apenas materializa a sessão.
+     */
+    public static function loginAsUser(object $user): void
+    {
+        self::regenerateSession();
+        $_SESSION['user_id'] = $user->id;
+        $_SESSION['user_name'] = $user->name;
+        $_SESSION['user_email'] = $user->email;
+        $_SESSION['user_role'] = $user->role ?? 'user';
+        $_SESSION['login_time'] = time();
+
+        AuditLogger::log('login_success', ['user_id' => $user->id, 'email' => $user->email, 'role' => $_SESSION['user_role']]);
     }
 
     /**

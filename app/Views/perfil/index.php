@@ -239,6 +239,42 @@ $initials = strtoupper(substr($usuario->name, 0, 1) . (strpos($usuario->name, ' 
         <button type="submit" form="formSenha" class="btn btn-warning text-white"><i class="fas fa-lock me-1"></i> Alterar Senha</button>
       </div>
     </div>
+
+    <div class="prf-card mt-3">
+      <div class="prf-card-section">
+        <h2 class="prf-section-title"><i class="fas fa-shield-alt text-primary"></i> Autenticação em Dois Fatores (2FA)</h2>
+        <p class="text-muted small mb-3">
+          Proteja sua conta adicionando uma segunda etapa de autenticação.<br>
+          Sempre que efetuar login será necessário informar um código enviado para seu e-mail.
+        </p>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="chk2fa" role="switch" <?php echo !empty($usuario->two_factor_enabled) ? 'checked' : ''; ?>>
+          <label class="form-check-label" for="chk2fa" id="lbl2fa">
+            <?php echo !empty($usuario->two_factor_enabled) ? 'Habilitado' : 'Desabilitado'; ?>
+          </label>
+        </div>
+        <div id="alert2faPerfil" class="mt-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmação de ativação/desativação do 2FA -->
+  <div class="modal fade" id="modalConfirm2fa" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fas fa-shield-alt me-2"></i>Autenticação em Dois Fatores</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p id="confirm2faText" class="mb-0"></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btnConfirmar2fa">Confirmar</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="tab-permissoes" style="display:<?php echo $activeTab === 'permissoes' ? 'block' : 'none'; ?>">
@@ -598,6 +634,70 @@ document.addEventListener('DOMContentLoaded', function() {
   if (error && errorMsgs[error])        showAlert(errorMsgs[error], 'error');
   if (success && successMsgs[success])  showAlert(successMsgs[success], 'success');
 });
+
+// ============================================================
+// Autenticação em Dois Fatores (2FA)
+// ============================================================
+(function () {
+  const chk2fa = document.getElementById('chk2fa');
+  if (!chk2fa) return;
+
+  const lbl2fa       = document.getElementById('lbl2fa');
+  const confirmText  = document.getElementById('confirm2faText');
+  const modalEl      = document.getElementById('modalConfirm2fa');
+  const btnConfirmar = document.getElementById('btnConfirmar2fa');
+  const alertBox     = document.getElementById('alert2faPerfil');
+  let pendingState    = null;
+
+  function showAlert2fa(msg, type) {
+    const div = document.createElement('div');
+    div.className = 'alert alert-' + (type === 'error' ? 'danger' : 'success') + ' alert-dismissible fade show mb-0';
+    div.innerHTML = '<i class="fas fa-' + (type === 'error' ? 'exclamation-triangle' : 'check-circle') + ' me-2"></i>' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+    alertBox.innerHTML = '';
+    alertBox.appendChild(div);
+    setTimeout(() => div.remove(), 5000);
+  }
+
+  chk2fa.addEventListener('change', function () {
+    pendingState = this.checked;
+    // Reverte visualmente até a confirmação
+    this.checked = !pendingState;
+    confirmText.textContent = pendingState
+      ? 'Deseja realmente ativar a autenticação em dois fatores?'
+      : 'Deseja realmente desativar a autenticação em dois fatores?';
+    new bootstrap.Modal(modalEl).show();
+  });
+
+  btnConfirmar.addEventListener('click', async function () {
+    if (pendingState === null) return;
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Salvando...';
+
+    try {
+      const fd = new FormData();
+      fd.append('enabled', pendingState ? '1' : '0');
+      const resp = await fetch('/perfil/2fa/toggle', { method: 'POST', body: fd });
+      const data = await resp.json();
+
+      bootstrap.Modal.getInstance(modalEl)?.hide();
+
+      if (data.success) {
+        chk2fa.checked = data.enabled;
+        lbl2fa.textContent = data.enabled ? 'Habilitado' : 'Desabilitado';
+        showAlert2fa(data.enabled ? 'Autenticação em dois fatores ativada.' : 'Autenticação em dois fatores desativada.', 'success');
+      } else {
+        showAlert2fa('Erro ao salvar configuração. Tente novamente.', 'error');
+      }
+    } catch (e) {
+      bootstrap.Modal.getInstance(modalEl)?.hide();
+      showAlert2fa('Erro de comunicação: ' + e.message, 'error');
+    } finally {
+      this.disabled = false;
+      this.innerHTML = 'Confirmar';
+      pendingState = null;
+    }
+  });
+})();
 </script>
 
 <?php require_once dirname(__DIR__) . '/layout/erp_footer.php'; ?>

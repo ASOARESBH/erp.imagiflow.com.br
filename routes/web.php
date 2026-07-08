@@ -12,6 +12,11 @@ Router::post("/forgot-password", "AuthController@forgotPassword");
 Router::get("/reset-password/{token}", "AuthController@showResetPasswordForm");
 Router::post("/reset-password/{token}", "AuthController@resetPassword");
 
+// Autenticação em Dois Fatores (2FA) — só acessível com login pendente (senha já validada)
+Router::get("/2fa/verify", "AuthController@showTwoFactorForm");
+Router::post("/2fa/verify", "AuthController@verifyTwoFactor");
+Router::post("/2fa/resend", "AuthController@resendTwoFactor");
+
 // Webhooks Públicos
 Router::post("/api/webhooks/asaas", "IntegracaoController@webhook");
 Router::get("/api/webhooks/asaas/ping", "IntegracaoController@webhookPing");
@@ -531,6 +536,7 @@ Router::group(["middleware" => ["Auth"]], function () {
         Router::get("/perfil", "PerfilController@index");
         Router::post("/perfil/update", "PerfilController@update");
         Router::post("/perfil/change-password", "PerfilController@changePassword");
+        Router::post("/perfil/2fa/toggle", "PerfilController@toggleTwoFactor");
         // Layout de Exames (Padronização de Importação)
         Router::post("/perfil/layout-exame/store", "PerfilController@layoutExameStore");
         Router::get("/perfil/layout-exame/delete/{id}", "PerfilController@layoutExameDelete");

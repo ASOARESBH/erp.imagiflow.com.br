@@ -9,6 +9,7 @@ use App\Core\Audit\AuditLogger;
 use App\Models\User;
 use App\Models\LayoutExame;
 use App\Models\EmpresaConfig;
+use App\Services\SecurityLogService;
 
 class PerfilController extends Controller
 {
@@ -184,6 +185,33 @@ class PerfilController extends Controller
                 'error'   => $e->getMessage(),
             ]);
             header("Location: /perfil?tab=seguranca&error=exception");
+        }
+        exit();
+    }
+
+    // ---------------------------------------------------------------
+    // POST /perfil/2fa/toggle — habilita/desabilita a autenticação em dois fatores
+    // ---------------------------------------------------------------
+    public function toggleTwoFactor(): void
+    {
+        header('Content-Type: application/json');
+
+        if (!Auth::check()) {
+            echo json_encode(['success' => false, 'error' => 'unauthorized']);
+            exit();
+        }
+
+        $usuarioId = (int) Auth::user()->id;
+        $enabled   = ($_POST['enabled'] ?? '') === '1';
+
+        $ok = $this->userModel->setTwoFactorEnabled($usuarioId, $enabled);
+
+        if ($ok) {
+            AuditLogger::log($enabled ? '2fa_enabled' : '2fa_disabled', ['user_id' => $usuarioId]);
+            (new SecurityLogService())->log($enabled ? 'enabled' : 'disabled', $usuarioId, Auth::user()->email ?? null);
+            echo json_encode(['success' => true, 'enabled' => $enabled]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'update_failed']);
         }
         exit();
     }
