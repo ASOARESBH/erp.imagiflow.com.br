@@ -743,6 +743,44 @@ if ($_ec) {
               </li>
             </ul>
           </li>
+          <?php if (\App\Core\Auth::can('view_hub_ia')): ?>
+          <li
+            class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/hub-ia') !== false) ? 'open active' : ''; ?>">
+            <a href="/hub-ia" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="HUB I.A">
+              <i class="fas fa-brain"></i>
+              <span class="link-text">HUB I.A</span>
+            </a>
+            <ul class="submenu">
+              <li><a href="/hub-ia"
+                  class="nav-link <?php echo $_SERVER['REQUEST_URI'] === '/hub-ia' ? 'active' : ''; ?>">DASHBOARD</a>
+              </li>
+              <li><a href="/hub-ia/conectores"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/conectores') !== false ? 'active' : ''; ?>">CONECTORES</a>
+              </li>
+              <li><a href="/hub-ia/agentes"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/agentes') !== false ? 'active' : ''; ?>">ROBÔS IA</a>
+              </li>
+              <li><a href="/hub-ia/prompts"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/prompts') !== false ? 'active' : ''; ?>">PROMPTS</a>
+              </li>
+              <li><a href="/hub-ia/conhecimento"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/conhecimento') !== false ? 'active' : ''; ?>">BASE DE CONHECIMENTO</a>
+              </li>
+              <li><a href="/hub-ia/banco"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/banco') !== false ? 'active' : ''; ?>">BANCO DE DADOS</a>
+              </li>
+              <li><a href="/hub-ia/whatsapp"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/whatsapp') !== false ? 'active' : ''; ?>">WHATSAPP</a>
+              </li>
+              <li><a href="/hub-ia/chat"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/chat') !== false ? 'active' : ''; ?>">CHAT (EVA)</a>
+              </li>
+              <li><a href="/hub-ia/relatorios"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/relatorios') !== false ? 'active' : ''; ?>">RELATÓRIOS</a>
+              </li>
+            </ul>
+          </li>
+          <?php endif; ?>
         </ul>
       </nav>
 

@@ -409,6 +409,44 @@ Router::group(["middleware" => ["Auth"]], function () {
         Router::get("/integracao/whatsapp/logs/export",   "IntegracaoWhatsappController@exportLogs");
     });
 
+    // ===== HUB I.A =====
+    // Gate de leitura no grupo (view_hub_ia); ações de escrita são checadas
+    // individualmente com manage_hub_ia dentro de cada controller (defesa em profundidade).
+    Router::group(["middleware" => ["Permission:view_hub_ia"]], function () {
+        Router::get("/hub-ia",             "HubIaController@index");
+        Router::get("/hub-ia/relatorios",  "HubIaController@relatorios");
+
+        Router::get("/hub-ia/conectores",              "HubIaConectoresController@index");
+        Router::post("/hub-ia/conectores/store",       "HubIaConectoresController@store");
+        Router::post("/hub-ia/conectores/{id}/update", "HubIaConectoresController@update");
+        Router::post("/hub-ia/conectores/{id}/delete", "HubIaConectoresController@delete");
+        Router::post("/hub-ia/conectores/{id}/testar", "HubIaConectoresController@testar");
+
+        Router::get("/hub-ia/prompts",              "HubIaPromptsController@index");
+        Router::post("/hub-ia/prompts/store",       "HubIaPromptsController@store");
+        Router::post("/hub-ia/prompts/{id}/update", "HubIaPromptsController@update");
+        Router::post("/hub-ia/prompts/{id}/delete", "HubIaPromptsController@delete");
+
+        Router::get("/hub-ia/agentes",              "HubIaAgentesController@index");
+        Router::post("/hub-ia/agentes/store",       "HubIaAgentesController@store");
+        Router::post("/hub-ia/agentes/{id}/update", "HubIaAgentesController@update");
+        Router::post("/hub-ia/agentes/{id}/delete", "HubIaAgentesController@delete");
+
+        Router::get("/hub-ia/chat",         "HubIaChatController@index");
+        Router::post("/hub-ia/chat/enviar", "HubIaChatController@enviar");
+
+        Router::get("/hub-ia/conhecimento",              "HubIaConhecimentoController@index");
+        Router::post("/hub-ia/conhecimento/upload",      "HubIaConhecimentoController@upload");
+        Router::post("/hub-ia/conhecimento/{id}/delete", "HubIaConhecimentoController@delete");
+
+        Router::get("/hub-ia/banco",                "HubIaBancoController@index");
+        Router::post("/hub-ia/banco/salvar",        "HubIaBancoController@salvar");
+        Router::post("/hub-ia/banco/testar-consulta", "HubIaBancoController@testarConsulta");
+
+        Router::get("/hub-ia/whatsapp",         "HubIaWhatsappController@index");
+        Router::post("/hub-ia/whatsapp/salvar", "HubIaWhatsappController@salvar");
+    });
+
     // ===== Módulo Estoque =====
     Router::group(["middleware" => ["Permission:view_crm"]], function () {
         // Listagem e visualização

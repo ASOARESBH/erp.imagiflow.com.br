@@ -46,6 +46,10 @@ class Permission implements PermissionProviderInterface
             'view_integracoes',
             'manage_integracoes',
 
+            // HUB I.A
+            'view_hub_ia',
+            'manage_hub_ia',
+
             // CRM
             'view_crm',
             'manage_leads',
@@ -111,6 +115,10 @@ class Permission implements PermissionProviderInterface
 
             'view_integracoes',
             'manage_integracoes',
+
+            // HUB I.A
+            'view_hub_ia',
+            'manage_hub_ia',
 
             // CRM
             'view_crm',
@@ -204,6 +212,7 @@ class Permission implements PermissionProviderInterface
             'view_faturamento',
             'view_notas_fiscais',
             'view_integracoes',
+            'view_hub_ia',
 
             // CRM — leitura pode visualizar o funil
             'view_crm',
