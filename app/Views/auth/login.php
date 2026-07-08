@@ -96,8 +96,10 @@ if (is_dir($uploadLogoDir)) {
 
 <script>
 function toggleLoginSenha() {
-    var input = document.getElementById('loginPassword');
+    // O Form::input gera id="password" (igual ao name), ignorando o atributo id passado
+    var input = document.getElementById('password');
     var icon  = document.getElementById('loginEyeIcon');
+    if (!input || !icon) return;
     if (input.type === 'password') {
         input.type = 'text';
         icon.className = 'fa fa-eye-slash';
@@ -105,6 +107,8 @@ function toggleLoginSenha() {
         input.type = 'password';
         icon.className = 'fa fa-eye';
     }
+    // Mantém o foco no campo após o clique
+    input.focus();
 }
 </script>
 
