@@ -9,6 +9,7 @@ use App\Models\RdvRota;
 use App\Models\RdvDespesa;
 use App\Models\RdvCategoria;
 use App\Models\RdvHistorico;
+use App\Models\RdvOcrLog;
 use App\Models\ContaPagar;
 use App\Models\User;
 
@@ -19,6 +20,7 @@ class RdvController extends Controller
     private RdvDespesa  $despesaModel;
     private RdvCategoria $categoriaModel;
     private RdvHistorico $historicoModel;
+    private RdvOcrLog   $ocrLogModel;
     private ContaPagar  $contaPagarModel;
     private User        $userModel;
     private Logger      $logger;
@@ -30,6 +32,7 @@ class RdvController extends Controller
         $this->despesaModel   = new RdvDespesa();
         $this->categoriaModel = new RdvCategoria();
         $this->historicoModel = new RdvHistorico();
+        $this->ocrLogModel    = new RdvOcrLog();
         $this->contaPagarModel = new ContaPagar();
         $this->userModel      = new User();
         $this->logger         = new Logger();
@@ -331,10 +334,20 @@ class RdvController extends Controller
             $this->jsonErr('Descrição e valor são obrigatórios.');
         }
 
-        // Processar upload do comprovante
+        // Processar comprovante: reaproveita upload já feito durante o fluxo de
+        // OCR (arquivo_path) ou salva um novo arquivo enviado agora.
         $arquivoPath = null;
-        if (!empty($_FILES['arquivo']['tmp_name'])) {
+        $arquivoPathPost = trim($_POST['arquivo_path'] ?? '');
+        if ($arquivoPathPost && preg_match('#^/uploads/rdv/' . $id . '/[A-Za-z0-9_.]+\.(jpg|jpeg|png|gif|webp|pdf)$#i', $arquivoPathPost)) {
+            $arquivoPath = $arquivoPathPost;
+        } elseif (!empty($_FILES['arquivo']['tmp_name'])) {
             $arquivoPath = $this->_salvarComprovante($_FILES['arquivo'], $id);
+        }
+
+        $ocrJson   = $_POST['ocr_json']   ?? null;
+        $ocrStatus = $_POST['ocr_status'] ?? null;
+        if ($ocrStatus && !in_array($ocrStatus, ['pendente', 'processando', 'concluido', 'erro'], true)) {
+            $ocrStatus = null;
         }
 
         // Validar período
@@ -368,6 +381,8 @@ class RdvController extends Controller
             'cidade'             => $_POST['cidade']            ?? null,
             'hora_documento'     => $_POST['hora_documento']    ?? null,
             'arquivo'            => $arquivoPath,
+            'ocr_json'           => $ocrJson,
+            'ocr_status'         => $ocrStatus,
             'fora_periodo'       => $foraPeriodo,
             'log_fora_periodo'   => $logFora,
             'tipo'               => $_POST['tipo']              ?? 'simples',
@@ -563,8 +578,36 @@ class RdvController extends Controller
     }
 
     // =========================================================================
-    // OCR — Processar comprovante via OpenAI Vision (AJAX)
+    // OCR — Upload rápido do comprovante (sem processar OCR)
     // =========================================================================
+    // Chamado imediatamente ao selecionar o arquivo, em paralelo ao OCR
+    // client-side (Tesseract.js), para garantir que o comprovante fique salvo
+    // e possa ser anexado à despesa mesmo que todo o pipeline de OCR falhe.
+    public function uploadComprovante(int $id): void
+    {
+        $viagem = $this->viagemModel->findById($id);
+        if (!$viagem) {
+            $this->jsonErr('Viagem não encontrada.');
+        }
+        if (empty($_FILES['arquivo']['tmp_name'])) {
+            $this->jsonErr('Nenhum arquivo enviado.');
+        }
+
+        $arquivoPath = $this->_salvarComprovante($_FILES['arquivo'], $id);
+        if (!$arquivoPath) {
+            $this->jsonErr('Erro ao salvar arquivo. Extensões permitidas: jpg, jpeg, png, gif, webp, pdf.');
+        }
+
+        $this->jsonOk(['arquivo' => $arquivoPath]);
+    }
+
+    // =========================================================================
+    // OCR — Pipeline de fallback server-side (AJAX)
+    // =========================================================================
+    // Executado pelo frontend somente quando o OCR client-side (Tesseract.js)
+    // não obtém confiança/campos suficientes. Tenta, em ordem configurável
+    // (RDV_OCR_ENGINES), os motores disponíveis — só retorna erro ao chamador
+    // quando TODOS os motores (cliente + servidor) falharem.
     public function processarOcr(int $id): void
     {
         $viagem = $this->viagemModel->findById($id);
@@ -572,21 +615,117 @@ class RdvController extends Controller
             $this->jsonErr('Viagem não encontrada.');
         }
 
-        if (empty($_FILES['arquivo']['tmp_name'])) {
+        // Resolve o arquivo: reaproveita upload já feito (arquivo_path) ou
+        // salva um novo (compatibilidade com chamada direta em um único passo).
+        $arquivoPath = trim($_POST['arquivo_path'] ?? '');
+        if ($arquivoPath) {
+            if (!preg_match('#^/uploads/rdv/' . $id . '/[A-Za-z0-9_.]+\.(jpg|jpeg|png|gif|webp|pdf)$#i', $arquivoPath)) {
+                $this->jsonErr('Caminho de arquivo inválido.');
+            }
+        } elseif (!empty($_FILES['arquivo']['tmp_name'])) {
+            $arquivoPath = $this->_salvarComprovante($_FILES['arquivo'], $id);
+            if (!$arquivoPath) {
+                $this->jsonErr('Erro ao salvar arquivo.');
+            }
+        } else {
             $this->jsonErr('Nenhum arquivo enviado.');
         }
 
-        $arquivoPath = $this->_salvarComprovante($_FILES['arquivo'], $id);
-        if (!$arquivoPath) {
-            $this->jsonErr('Erro ao salvar arquivo.');
+        $fullPath = __DIR__ . '/../../public' . $arquivoPath;
+        if (!file_exists($fullPath)) {
+            $this->jsonErr('Arquivo não encontrado no servidor.');
+        }
+        $mimeType = mime_content_type($fullPath) ?: 'application/octet-stream';
+
+        // Tentativas já realizadas no cliente (ex.: Tesseract.js)
+        $tentativas = [];
+        $decoded = json_decode($_POST['tentativas_cliente'] ?? '', true);
+        if (is_array($decoded)) {
+            foreach ($decoded as $t) {
+                $tentativas[] = [
+                    'engine'    => $t['engine']    ?? 'desconhecido',
+                    'sucesso'   => !empty($t['sucesso']),
+                    'confianca' => $t['confianca'] ?? null,
+                    'tempo_ms'  => $t['tempo_ms']  ?? null,
+                    'erro'      => $t['erro']      ?? null,
+                    'origem'    => 'cliente',
+                ];
+            }
         }
 
-        // Tentar OCR via OpenAI Vision
-        $ocrResult = $this->_executarOcr($arquivoPath);
+        $ocrFinal = null;
+
+        // Se o cliente já obteve resultado satisfatório (Tesseract.js), não
+        // repete o processamento no servidor — apenas registra o log.
+        $pularEngines = !empty($_POST['pular_engines']);
+        if (!$pularEngines) {
+            $ordem = array_filter(array_map('trim', explode(',', getenv('RDV_OCR_ENGINES') ?: 'ocrspace,openai')));
+            foreach ($ordem as $engine) {
+                $resultado = match ($engine) {
+                    'ocrspace' => $this->_executarOcrSpace($fullPath, $mimeType),
+                    'openai'   => $this->_executarOcrOpenAI($fullPath),
+                    default    => null,
+                };
+                if (!$resultado) {
+                    continue;
+                }
+
+                $tentativas[] = [
+                    'engine'    => $resultado['engine'],
+                    'sucesso'   => $resultado['sucesso'],
+                    'confianca' => $resultado['confianca'] ?? null,
+                    'tempo_ms'  => $resultado['tempo_ms']  ?? null,
+                    'erro'      => $resultado['erro']      ?? null,
+                    'origem'    => 'servidor',
+                ];
+
+                if ($resultado['sucesso']) {
+                    $ocrFinal = $resultado;
+                    break;
+                }
+            }
+        }
+
+        // Se o cliente pediu para pular os motores do servidor porque já teve
+        // sucesso (Tesseract.js), usa o resultado enviado por ele como final.
+        if (!$ocrFinal && $pularEngines) {
+            $ocrCliente = json_decode($_POST['ocr_cliente'] ?? '', true);
+            if (is_array($ocrCliente)) {
+                $ocrFinal = $ocrCliente;
+            }
+        }
+
+        // ETAPA 15 — Logs: registra todas as tentativas (cliente + servidor)
+        foreach ($tentativas as $t) {
+            try {
+                $this->ocrLogModel->registrar([
+                    'viagem_id'  => $id,
+                    'usuario_id' => $this->uid(),
+                    'arquivo'    => $arquivoPath,
+                    'engine'     => $t['engine'],
+                    'sucesso'    => $t['sucesso'] ? 1 : 0,
+                    'confianca'  => $t['confianca'],
+                    'tempo_ms'   => $t['tempo_ms'],
+                    'erro'       => $t['erro'],
+                ]);
+            } catch (\Throwable $e) {
+                $this->logger->error('[RdvController::processarOcr] Falha ao registrar log de OCR: ' . $e->getMessage());
+            }
+        }
+
+        if (!$ocrFinal) {
+            $motivos = array_map(fn ($t) => "{$t['engine']}: " . ($t['erro'] ?: 'falhou'), $tentativas);
+            $this->jsonOk([
+                'arquivo'    => $arquivoPath,
+                'ocr'        => ['erro' => 'Todos os mecanismos de OCR falharam. ' . implode(' | ', $motivos)],
+                'tentativas' => $tentativas,
+            ]);
+        }
 
         $this->jsonOk([
             'arquivo'    => $arquivoPath,
-            'ocr'        => $ocrResult,
+            'ocr'        => $ocrFinal,
+            'tentativas' => $tentativas,
         ]);
     }
 
@@ -616,22 +755,86 @@ class RdvController extends Controller
         return '/uploads/rdv/' . $viagemId . '/' . $filename;
     }
 
-    private function _executarOcr(string $arquivoPath): array
+    // ─── Motor 1 (fallback servidor): OCR.space — gratuito, requer chave grátis ─
+    // Obtenha uma chave gratuita (25.000 requisições/mês) em https://ocr.space/ocrapi/freekey
+    private function _executarOcrSpace(string $fullPath, string $mimeType): array
     {
+        $t0 = microtime(true);
+        $apiKey = getenv('OCR_SPACE_API_KEY');
+        if (!$apiKey) {
+            return ['engine' => 'ocrspace', 'sucesso' => false, 'erro' => 'OCR_SPACE_API_KEY não configurada.', 'tempo_ms' => 0];
+        }
+
         try {
-            $fullPath = __DIR__ . '/../../public' . $arquivoPath;
-            if (!file_exists($fullPath)) {
-                return ['erro' => 'Arquivo não encontrado para OCR.'];
+            $ch = curl_init('https://apipro1.ocr.space/parse/image');
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => [
+                    'apikey'    => $apiKey,
+                    'file'      => new \CURLFile($fullPath, $mimeType, basename($fullPath)),
+                    'language'  => 'por',
+                    'OCREngine' => '2',
+                    'scale'     => 'true',
+                    'isTable'   => 'false',
+                ],
+                CURLOPT_TIMEOUT => 30,
+            ]);
+            $resp    = curl_exec($ch);
+            $curlErr = curl_error($ch);
+            curl_close($ch);
+            $tempoMs = (int) round((microtime(true) - $t0) * 1000);
+
+            if ($curlErr) {
+                return ['engine' => 'ocrspace', 'sucesso' => false, 'erro' => "Erro de conexão: {$curlErr}", 'tempo_ms' => $tempoMs];
             }
 
-            $apiKey  = getenv('OPENAI_API_KEY');
-            $apiBase = getenv('OPENAI_API_BASE') ?: 'https://api.openai.com/v1';
-
-            if (!$apiKey) {
-                return ['erro' => 'API de OCR não configurada.'];
+            $data = json_decode((string) $resp, true);
+            if (!$data || !empty($data['IsErroredOnProcessing'])) {
+                $msgRaw = $data['ErrorMessage'] ?? null;
+                $msg = is_array($msgRaw) ? implode('; ', $msgRaw) : ($msgRaw ?: 'Resposta inválida do OCR.space.');
+                return ['engine' => 'ocrspace', 'sucesso' => false, 'erro' => $msg, 'tempo_ms' => $tempoMs];
             }
 
-            // Converter para base64
+            $texto = trim($data['ParsedResults'][0]['ParsedText'] ?? '');
+            if ($texto === '') {
+                return ['engine' => 'ocrspace', 'sucesso' => false, 'erro' => 'Nenhum texto reconhecido.', 'tempo_ms' => $tempoMs];
+            }
+
+            // OCR.space (engine 2) não expõe confiança numérica na resposta —
+            // estimamos heuristicamente pelo volume de texto reconhecido.
+            $confianca = min(90, 40 + strlen(preg_replace('/\s+/', '', $texto)) * 0.3);
+
+            $campos = $this->_extrairCamposTexto($texto);
+            if (empty($campos['valor']) && empty($campos['data'])) {
+                return ['engine' => 'ocrspace', 'sucesso' => false, 'erro' => 'Nenhum campo relevante (data/valor) identificado no texto.', 'tempo_ms' => $tempoMs, 'texto' => $texto];
+            }
+
+            return array_merge($campos, [
+                'engine'    => 'ocrspace',
+                'sucesso'   => true,
+                'texto'     => $texto,
+                'confianca' => round($confianca, 1),
+                'tempo_ms'  => $tempoMs,
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('[RdvController::_executarOcrSpace] ' . $e->getMessage());
+            return ['engine' => 'ocrspace', 'sucesso' => false, 'erro' => $e->getMessage(), 'tempo_ms' => (int) round((microtime(true) - $t0) * 1000)];
+        }
+    }
+
+    // ─── Motor 2 (fallback servidor, opcional/pago): OpenAI Vision ──────────────
+    private function _executarOcrOpenAI(string $fullPath): array
+    {
+        $t0 = microtime(true);
+        $apiKey  = getenv('OPENAI_API_KEY');
+        $apiBase = getenv('OPENAI_API_BASE') ?: 'https://api.openai.com/v1';
+
+        if (!$apiKey) {
+            return ['engine' => 'openai', 'sucesso' => false, 'erro' => 'OPENAI_API_KEY não configurada.', 'tempo_ms' => 0];
+        }
+
+        try {
             $imageData = base64_encode(file_get_contents($fullPath));
             $mimeType  = mime_content_type($fullPath) ?: 'image/jpeg';
 
@@ -642,7 +845,7 @@ class RdvController extends Controller
                     'content' => [
                         [
                             'type' => 'text',
-                            'text' => 'Analise este comprovante/nota fiscal e extraia em JSON: data (YYYY-MM-DD), hora (HH:MM), valor (número decimal), fornecedor (nome), cnpj (apenas números), cidade, forma_pagamento (Dinheiro/PIX/Cartão Crédito/Cartão Débito/Transferência), categoria_sugerida (Alimentação/Combustível/Hospedagem/Uber/Táxi/Pedágio/Passagem Aérea/Estacionamento/Outros). Retorne APENAS o JSON, sem explicações.',
+                            'text' => 'Analise este comprovante/nota fiscal e extraia em JSON: data (YYYY-MM-DD), hora (HH:MM), valor (número decimal), fornecedor (nome), cnpj (apenas números), cpf (apenas números, se houver), cidade, forma_pagamento (Dinheiro/PIX/Cartão Crédito/Cartão Débito/Transferência/Boleto), categoria_sugerida (Alimentação/Combustível/Hospedagem/Uber/Táxi/Pedágio/Passagem Aérea/Estacionamento/Outros), numero_documento, chave_nfce (44 dígitos, se houver), bandeira_cartao (Visa/Mastercard/Elo/Amex, se houver). Retorne APENAS o JSON, sem explicações.',
                         ],
                         [
                             'type'      => 'image_url',
@@ -661,24 +864,141 @@ class RdvController extends Controller
                     'Content-Type: application/json',
                     "Authorization: Bearer {$apiKey}",
                 ],
-                CURLOPT_POSTFIELDS     => json_encode($payload),
-                CURLOPT_TIMEOUT        => 30,
+                CURLOPT_POSTFIELDS => json_encode($payload),
+                CURLOPT_TIMEOUT    => 30,
             ]);
-            $resp = curl_exec($ch);
+            $resp    = curl_exec($ch);
+            $curlErr = curl_error($ch);
             curl_close($ch);
+            $tempoMs = (int) round((microtime(true) - $t0) * 1000);
 
-            $data = json_decode($resp, true);
+            if ($curlErr) {
+                return ['engine' => 'openai', 'sucesso' => false, 'erro' => "Erro de conexão: {$curlErr}", 'tempo_ms' => $tempoMs];
+            }
+
+            $data = json_decode((string) $resp, true);
             $text = $data['choices'][0]['message']['content'] ?? '';
 
-            // Extrair JSON do texto
             preg_match('/\{.*\}/s', $text, $matches);
-            $ocrData = $matches ? json_decode($matches[0], true) : [];
+            $ocrData = $matches ? json_decode($matches[0], true) : null;
 
-            return $ocrData ?: ['erro' => 'Não foi possível extrair dados do comprovante.'];
+            if (!is_array($ocrData)) {
+                $errMsg = $data['error']['message'] ?? 'Não foi possível extrair JSON da resposta do modelo.';
+                return ['engine' => 'openai', 'sucesso' => false, 'erro' => $errMsg, 'tempo_ms' => $tempoMs];
+            }
+
+            $temCampos = !empty($ocrData['valor']) || !empty($ocrData['data']) || !empty($ocrData['fornecedor']);
+            if (!$temCampos) {
+                return ['engine' => 'openai', 'sucesso' => false, 'erro' => 'Nenhum campo relevante identificado pelo modelo.', 'tempo_ms' => $tempoMs];
+            }
+
+            return array_merge($ocrData, [
+                'engine'    => 'openai',
+                'sucesso'   => true,
+                'confianca' => 88.0, // OpenAI não retorna confiança numérica — valor nominal para modelo Vision
+                'tempo_ms'  => $tempoMs,
+            ]);
         } catch (\Throwable $e) {
-            $this->logger->error('[RdvController::_executarOcr] ' . $e->getMessage());
-            return ['erro' => 'Erro ao processar OCR: ' . $e->getMessage()];
+            $this->logger->error('[RdvController::_executarOcrOpenAI] ' . $e->getMessage());
+            return ['engine' => 'openai', 'sucesso' => false, 'erro' => $e->getMessage(), 'tempo_ms' => (int) round((microtime(true) - $t0) * 1000)];
         }
+    }
+
+    // ─── Extração inteligente de campos a partir de texto bruto (OCR.space) ────
+    private function _extrairCamposTexto(string $texto): array
+    {
+        $campos = [
+            'data' => null, 'hora' => null, 'valor' => null, 'fornecedor' => null,
+            'cnpj' => null, 'cpf' => null, 'cidade' => null, 'forma_pagamento' => null,
+            'categoria_sugerida' => null, 'numero_documento' => null,
+            'chave_nfce' => null, 'bandeira_cartao' => null,
+        ];
+
+        if (preg_match('/(\d{2})[\/\-.](\d{2})[\/\-.](\d{2,4})/', $texto, $m)) {
+            $ano = strlen($m[3]) === 2 ? '20' . $m[3] : $m[3];
+            if (checkdate((int) $m[2], (int) $m[1], (int) $ano)) {
+                $campos['data'] = sprintf('%04d-%02d-%02d', (int) $ano, (int) $m[2], (int) $m[1]);
+            }
+        }
+
+        if (preg_match('/(\d{1,2}):(\d{2})(?::\d{2})?/', $texto, $m)) {
+            $campos['hora'] = sprintf('%02d:%02d', (int) $m[1], (int) $m[2]);
+        }
+
+        if (preg_match('/total[^\d]{0,20}(\d{1,3}(?:\.\d{3})*,\d{2})/i', $texto, $m)) {
+            $campos['valor'] = (float) str_replace(['.', ','], ['', '.'], $m[1]);
+        } elseif (preg_match('/R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2})/', $texto, $m)) {
+            $campos['valor'] = (float) str_replace(['.', ','], ['', '.'], $m[1]);
+        }
+
+        if (preg_match('/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/', $texto, $m)) {
+            $campos['cnpj'] = preg_replace('/\D/', '', $m[0]);
+        }
+
+        if (preg_match('/(?<!\d)\d{3}\.?\d{3}\.?\d{3}-?\d{2}(?!\d)/', $texto, $m)) {
+            $cpfDigits = preg_replace('/\D/', '', $m[0]);
+            if ($cpfDigits !== $campos['cnpj']) {
+                $campos['cpf'] = $cpfDigits;
+            }
+        }
+
+        if (preg_match('/(?:\d[\s.]?){44}/', $texto, $m)) {
+            $chave = preg_replace('/\D/', '', $m[0]);
+            if (strlen($chave) === 44) {
+                $campos['chave_nfce'] = $chave;
+            }
+        }
+
+        // Casamento por palavra inteira (\b) — evita falsos positivos como
+        // "ELO" dentro de "BELO Horizonte" ao usar apenas str_contains().
+        $matchPalavra = static fn (string $texto, string $palavra): bool =>
+            (bool) preg_match('/\b' . preg_quote($palavra, '/') . '\b/u', $texto);
+
+        $textoUp = mb_strtoupper($texto);
+        $formaMap = [
+            'PIX' => 'PIX', 'DINHEIRO' => 'Dinheiro', 'CRÉDITO' => 'Cartão Crédito', 'CREDITO' => 'Cartão Crédito',
+            'DÉBITO' => 'Cartão Débito', 'DEBITO' => 'Cartão Débito', 'TRANSFERÊNCIA' => 'Transferência',
+            'TRANSFERENCIA' => 'Transferência', 'BOLETO' => 'Boleto',
+        ];
+        foreach ($formaMap as $k => $v) {
+            if ($matchPalavra($textoUp, $k)) { $campos['forma_pagamento'] = $v; break; }
+        }
+
+        foreach (['VISA', 'MASTERCARD', 'ELO', 'AMEX', 'HIPERCARD', 'DINERS'] as $bandeira) {
+            if ($matchPalavra($textoUp, $bandeira)) { $campos['bandeira_cartao'] = ucfirst(strtolower($bandeira)); break; }
+        }
+
+        $catMap = [
+            'HOTEL' => 'Hospedagem', 'POUSADA' => 'Hospedagem', 'HOSTEL' => 'Hospedagem', 'UBER' => 'Uber', '99' => '99',
+            'CABIFY' => 'Uber', 'IFOOD' => 'Alimentação', 'RESTAURANTE' => 'Alimentação', 'LANCHONETE' => 'Alimentação',
+            'PADARIA' => 'Alimentação', 'PIZZARIA' => 'Alimentação', 'CHURRASCARIA' => 'Alimentação', 'POSTO' => 'Combustível',
+            'SHELL' => 'Combustível', 'PETROBRAS' => 'Combustível', 'IPIRANGA' => 'Combustível', 'PEDAGIO' => 'Pedágio',
+            'PEDÁGIO' => 'Pedágio', 'AUTOPASS' => 'Pedágio', 'AZUL' => 'Passagem Aérea', 'LATAM' => 'Passagem Aérea',
+            'GOL' => 'Passagem Aérea', 'AVIANCA' => 'Passagem Aérea', 'PARK' => 'Estacionamento', 'ESTACIONAMENTO' => 'Estacionamento',
+            'FARMACIA' => 'Farmácia', 'FARMÁCIA' => 'Farmácia', 'DROGARIA' => 'Farmácia', 'LAVANDERIA' => 'Lavanderia',
+            'TAXI' => 'Táxi', 'TÁXI' => 'Táxi',
+        ];
+        foreach ($catMap as $k => $v) {
+            if ($matchPalavra($textoUp, $k)) { $campos['categoria_sugerida'] = $v; break; }
+        }
+
+        if (preg_match('/n[ºo°.]?\s*(?:documento|cupom|nf-?e)?\s*[:\-]?\s*(\d{3,12})/i', $texto, $m)) {
+            $campos['numero_documento'] = $m[1];
+        }
+
+        foreach (preg_split('/\r\n|\r|\n/', $texto) as $linha) {
+            $linha = trim($linha);
+            if (mb_strlen($linha) >= 4 && preg_match('/[A-Za-zÀ-ú]{3,}/', $linha) && !preg_match('/^\d+$/', $linha)) {
+                $campos['fornecedor'] = mb_substr($linha, 0, 100);
+                break;
+            }
+        }
+
+        if (preg_match('/([A-ZÀ-Ú][a-zà-ú]+(?:\s[A-ZÀ-Ú][a-zà-ú]+)*)\s*[\/\-]\s*([A-Z]{2})\b/u', $texto, $m)) {
+            $campos['cidade'] = trim($m[1]);
+        }
+
+        return $campos;
     }
 
     private function _getFormas(): array

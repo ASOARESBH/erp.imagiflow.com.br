@@ -458,10 +458,15 @@ $totalDespesas = array_sum(array_column($despesas, 'valor'));
           <div class="d-flex gap-2">
             <input type="file" class="form-control" id="inputArquivo" name="arquivo" accept="image/*,application/pdf" capture="environment">
           </div>
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="chkOcrDebug">
+            <label class="form-check-label" for="chkOcrDebug" style="font-size:.75rem">Modo Debug (mostrar detalhes técnicos do OCR)</label>
+          </div>
           <div id="ocrStatus" class="mt-2" style="display:none">
-            <div class="spinner-border spinner-border-sm text-primary me-2"></div> Processando OCR...
+            <ul class="list-unstyled mb-0" id="ocrSteps" style="font-size:.75rem"></ul>
           </div>
           <div id="ocrResultado" class="mt-2 p-2 bg-light rounded" style="display:none;font-size:.8rem"></div>
+          <div id="ocrDebugPanel" class="mt-2 p-2 border rounded" style="display:none;font-size:.72rem;background:#0f172a;color:#e2e8f0;max-height:400px;overflow:auto"></div>
         </div>
 
         <div id="blocoFormDespesa">
@@ -540,19 +545,31 @@ $totalDespesas = array_sum(array_column($despesas, 'valor'));
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
+<script src="/assets/js/rdv-ocr.js"></script>
 <script>
 const VIAGEM_ID     = <?= $viagem->id ?>;
 const PERIODO_INI   = '<?= $viagem->periodo_inicio ?>';
 const PERIODO_FIM   = '<?= $viagem->periodo_fim ?>';
 let   aceitarForaPeriodo = false;
 let   arquivoSalvo       = null;
+let   ocrResultadoAtual  = null; // { success, fields, meta, tentativas, texto, debugImagens }
 
 // Abrir modal
 document.querySelectorAll('#btnAddDespesa, #btnAddDespesa2').forEach(b => {
   b && b.addEventListener('click', () => {
     aceitarForaPeriodo = false;
     arquivoSalvo = null;
+    ocrResultadoAtual = null;
     document.getElementById('alertaForaPeriodo').style.display = 'none';
+    document.getElementById('ocrResultado').style.display = 'none';
+    document.getElementById('ocrDebugPanel').style.display = 'none';
     new bootstrap.Modal(document.getElementById('modalDespesa')).show();
   });
 });
@@ -564,70 +581,136 @@ document.querySelectorAll('input[name="tipoDespesa"]').forEach(r => {
   });
 });
 
-// Upload e OCR
+// ─── UX de progresso multi-etapa (ETAPA 14) ────────────────────────────────
+let ocrStepsEl = null;
+function ocrStepsReset() {
+  ocrStepsEl = document.getElementById('ocrSteps');
+  ocrStepsEl.innerHTML = '';
+}
+function ocrStepStart(msg) {
+  if (!ocrStepsEl) ocrStepsEl = document.getElementById('ocrSteps');
+  const prevIcon = ocrStepsEl.querySelector('li:last-child i');
+  if (prevIcon) prevIcon.className = 'fas fa-check text-success me-1';
+  const li = document.createElement('li');
+  li.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i> ' + msg;
+  ocrStepsEl.appendChild(li);
+}
+function ocrStepsFinish(ok) {
+  const lastIcon = ocrStepsEl && ocrStepsEl.querySelector('li:last-child i');
+  if (lastIcon) lastIcon.className = ok ? 'fas fa-check text-success me-1' : 'fas fa-times text-danger me-1';
+}
+
+// ─── Modo Debug (ETAPA 16) ──────────────────────────────────────────────────
+function renderOcrDebug(r) {
+  const panel = document.getElementById('ocrDebugPanel');
+  const tentativasHtml = (r.tentativas || []).map(t =>
+    `<div>• <strong>${t.engine}</strong> (${t.origem || 'cliente'}) — ${t.sucesso ? 'OK' : 'falhou'}` +
+    (t.confianca != null ? ` — ${Number(t.confianca).toFixed(0)}%` : '') +
+    (t.tempo_ms != null ? ` — ${t.tempo_ms}ms` : '') +
+    (t.erro ? ` — <em>${t.erro}</em>` : '') + `</div>`
+  ).join('') || '<div class="text-muted">Nenhuma tentativa registrada.</div>';
+
+  let imgsHtml = '';
+  if (r.debugImagens) {
+    imgsHtml = `<div class="d-flex gap-2 my-2 flex-wrap">
+      <div><div>Original</div><img src="${r.debugImagens.original}" style="max-width:160px;border:1px solid #334155"></div>
+      <div><div>Pré-processada</div><img src="${r.debugImagens.processada}" style="max-width:160px;border:1px solid #334155"></div>
+    </div>`;
+  }
+
+  panel.innerHTML =
+    `<strong>Tentativas:</strong>${tentativasHtml}` +
+    imgsHtml +
+    `<div class="mt-2"><strong>Campos extraídos:</strong><br><code style="white-space:pre-wrap;color:#7dd3fc">${JSON.stringify(r.fields || {}, null, 2)}</code></div>` +
+    (r.texto ? `<div class="mt-2"><strong>Texto bruto reconhecido:</strong><br><code style="white-space:pre-wrap;color:#a3e635">${(r.texto || '').substring(0, 2000)}</code></div>` : '');
+  panel.style.display = 'block';
+}
+
+// ─── Upload + Pipeline de OCR com fallback automático (ETAPAS 3-14) ────────
 document.getElementById('inputArquivo').addEventListener('change', async function() {
   if (!this.files.length) return;
   const file = this.files[0];
-  arquivoSalvo = file;
+  arquivoSalvo = null;
+  ocrResultadoAtual = null;
 
-  // Tentar OCR
   document.getElementById('ocrStatus').style.display = 'block';
   document.getElementById('ocrResultado').style.display = 'none';
+  document.getElementById('ocrDebugPanel').style.display = 'none';
+  ocrStepsReset();
+  ocrStepStart('Iniciando...');
 
-  const fd = new FormData();
-  fd.append('arquivo', file);
+  const resultado = await RdvOcr.run(file, {
+    viagemId: VIAGEM_ID,
+    onProgress: (msg) => ocrStepStart(msg),
+  });
 
-  try {
-    const resp = await fetch(`/rdv/viagens/${VIAGEM_ID}/ocr`, { method: 'POST', body: fd });
-    const data = await resp.json();
-    document.getElementById('ocrStatus').style.display = 'none';
+  ocrStepsFinish(resultado.success);
+  document.getElementById('ocrResultado').style.display = 'block';
 
-    if (data.success && data.ocr && !data.ocr.erro) {
-      const ocr = data.ocr;
-      arquivoSalvo = data.arquivo;
+  arquivoSalvo = resultado.arquivo || null;
+  ocrResultadoAtual = resultado;
 
-      // Preencher campos
-      if (ocr.valor)       document.getElementById('dValor').value    = parseFloat(ocr.valor).toFixed(2).replace('.',',');
-      if (ocr.data)        document.getElementById('dData').value     = ocr.data;
-      if (ocr.hora)        document.getElementById('dHora').value     = ocr.hora;
-      if (ocr.fornecedor)  document.getElementById('dFornecedor').value = ocr.fornecedor;
-      if (ocr.cnpj)        document.getElementById('dCnpj').value     = ocr.cnpj;
-      if (ocr.cidade)      document.getElementById('dCidade').value   = ocr.cidade;
+  if (resultado.success && resultado.fields) {
+    const ocr = resultado.fields;
 
-      // Preencher descrição automática
-      if (ocr.fornecedor && !document.getElementById('dDescricao').value) {
-        document.getElementById('dDescricao').value = ocr.fornecedor;
-      }
-
-      // Categoria sugerida
-      if (ocr.categoria_sugerida) {
-        const sel = document.getElementById('dCategoria');
-        for (let i = 0; i < sel.options.length; i++) {
-          if (sel.options[i].text.toLowerCase().includes(ocr.categoria_sugerida.toLowerCase())) {
-            sel.selectedIndex = i; break;
-          }
-        }
-      }
-
-      // Forma de pagamento
-      if (ocr.forma_pagamento) {
-        const sel = document.getElementById('dForma');
-        for (let i = 0; i < sel.options.length; i++) {
-          if (sel.options[i].text.toLowerCase().includes(ocr.forma_pagamento.toLowerCase())) {
-            sel.selectedIndex = i; break;
-          }
-        }
-      }
-
-      document.getElementById('ocrResultado').style.display = 'block';
-      document.getElementById('ocrResultado').innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> OCR concluído! Campos preenchidos automaticamente.';
-    } else {
-      document.getElementById('ocrResultado').style.display = 'block';
-      document.getElementById('ocrResultado').innerHTML = '<i class="fas fa-exclamation-circle text-warning me-1"></i> OCR não conseguiu extrair dados. Preencha manualmente.';
+    if (ocr.valor)       document.getElementById('dValor').value    = parseFloat(ocr.valor).toFixed(2).replace('.',',');
+    if (ocr.data) {
+      document.getElementById('dData').value = ocr.data;
+      document.getElementById('dData').dispatchEvent(new Event('change'));
     }
-  } catch (e) {
-    document.getElementById('ocrStatus').style.display = 'none';
-    console.error('Erro OCR:', e);
+    if (ocr.hora)        document.getElementById('dHora').value     = ocr.hora;
+    if (ocr.fornecedor)  document.getElementById('dFornecedor').value = ocr.fornecedor;
+    if (ocr.cnpj)        document.getElementById('dCnpj').value     = ocr.cnpj;
+    if (ocr.cidade)      document.getElementById('dCidade').value   = ocr.cidade;
+    if (ocr.numero_documento) document.getElementById('dNumDoc').value = ocr.numero_documento;
+
+    // Preencher descrição automática
+    if (ocr.fornecedor && !document.getElementById('dDescricao').value) {
+      document.getElementById('dDescricao').value = ocr.fornecedor;
+    }
+
+    // Categoria sugerida
+    if (ocr.categoria_sugerida) {
+      const sel = document.getElementById('dCategoria');
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].text.toLowerCase().includes(ocr.categoria_sugerida.toLowerCase())) {
+          sel.selectedIndex = i; break;
+        }
+      }
+    }
+
+    // Forma de pagamento
+    if (ocr.forma_pagamento) {
+      const sel = document.getElementById('dForma');
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].text.toLowerCase().includes(ocr.forma_pagamento.toLowerCase())) {
+          sel.selectedIndex = i; break;
+        }
+      }
+    }
+
+    const meta = resultado.meta || {};
+    document.getElementById('ocrResultado').innerHTML =
+      `<i class="fas fa-check-circle text-success me-1"></i> OCR concluído com <strong>${meta.engine || '—'}</strong>` +
+      (meta.confianca != null ? ` — confiança ${Number(meta.confianca).toFixed(0)}%` : '') +
+      (meta.tempo_ms != null ? ` — ${(meta.tempo_ms / 1000).toFixed(1)}s` : '') +
+      `. Campos preenchidos automaticamente — revise antes de salvar.`;
+  } else {
+    document.getElementById('ocrResultado').innerHTML =
+      '<i class="fas fa-exclamation-circle text-warning me-1"></i> OCR não conseguiu extrair dados automaticamente (' +
+      (resultado.erro || 'todos os mecanismos falharam') + '). Preencha manualmente.';
+  }
+
+  if (document.getElementById('chkOcrDebug').checked) {
+    renderOcrDebug(resultado);
+  }
+});
+
+document.getElementById('chkOcrDebug').addEventListener('change', function() {
+  if (this.checked && ocrResultadoAtual) {
+    renderOcrDebug(ocrResultadoAtual);
+  } else {
+    document.getElementById('ocrDebugPanel').style.display = 'none';
   }
 });
 
@@ -686,10 +769,23 @@ document.getElementById('btnSalvarDespesa').addEventListener('click', async func
   fd.append('cidade',             document.getElementById('dCidade').value);
   fd.append('tipo',               document.querySelector('input[name="tipoDespesa"]:checked').value);
 
-  // Arquivo (se simples e não processado via OCR)
-  const inputArq = document.getElementById('inputArquivo');
-  if (inputArq.files.length && !arquivoSalvo) {
-    fd.append('arquivo', inputArq.files[0]);
+  // Comprovante: reaproveita o upload já feito durante o fluxo de OCR
+  // (arquivoSalvo é o caminho retornado pelo servidor); senão, envia o
+  // arquivo bruto selecionado (fluxo "Completa", sem OCR).
+  if (arquivoSalvo) {
+    fd.append('arquivo_path', arquivoSalvo);
+  } else {
+    const inputArq = document.getElementById('inputArquivo');
+    if (inputArq.files.length) fd.append('arquivo', inputArq.files[0]);
+  }
+
+  if (ocrResultadoAtual) {
+    fd.append('ocr_json', JSON.stringify({
+      fields: ocrResultadoAtual.fields,
+      meta: ocrResultadoAtual.meta,
+      tentativas: ocrResultadoAtual.tentativas,
+    }));
+    fd.append('ocr_status', ocrResultadoAtual.success ? 'concluido' : 'erro');
   }
 
   try {

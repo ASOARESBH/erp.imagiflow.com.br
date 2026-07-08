@@ -657,6 +657,7 @@ Router::group(["middleware" => ["Auth"]], function () {
     Router::post("/rdv/viagens/{id}/despesas/{did}/edit",         "RdvController@editDespesa");
     Router::post("/rdv/viagens/{id}/despesas/{did}/delete",       "RdvController@deleteDespesa");
     // OCR
+    Router::post("/rdv/viagens/{id}/upload-comprovante",         "RdvController@uploadComprovante");
     Router::post("/rdv/viagens/{id}/ocr",                        "RdvController@processarOcr");
     // Rotas comerciais
     Router::get("/rdv/rotas",                                     "RdvController@rotasIndex");
