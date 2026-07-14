@@ -713,4 +713,15 @@ Router::group(["middleware" => ["Auth"]], function () {
     Router::post("/rdv/rotas/{id}/delete",                        "RdvController@rotasDelete");
     Router::post("/rdv/rotas/{id}/clientes/add",                  "RdvController@rotasAddCliente");
     Router::post("/rdv/rotas/{id}/clientes/{cid}/remove",         "RdvController@rotasRemoveCliente");
+
+    // ── Manual do Sistema (Wiki) ──────────────────────────────────────────────
+    Router::get("/manual",                                        "ManualController@index");
+    Router::get("/manual/buscar",                                 "ManualController@buscar");
+    Router::get("/manual/admin",                                  "ManualController@admin");
+    Router::get("/manual/artigo/novo",                            "ManualController@novoArtigo");
+    Router::post("/manual/artigo/salvar",                         "ManualController@salvarArtigo");
+    Router::get("/manual/artigo/{slug}/editar",                   "ManualController@editarArtigo");
+    Router::post("/manual/artigo/{id}/deletar",                   "ManualController@deletarArtigo");
+    Router::get("/manual/artigo/{slug}",                          "ManualController@artigo");
+    Router::get("/manual/categoria/{slug}",                       "ManualController@categoria");
 });

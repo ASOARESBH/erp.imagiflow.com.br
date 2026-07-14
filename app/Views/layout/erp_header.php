@@ -901,6 +901,11 @@ if ($_ec) {
                 </a>
               </li>
               <li>
+                <a class="dropdown-item dropdown-item-user" href="/manual">
+                  <i class="fas fa-book-open"></i> Manual do Sistema
+                </a>
+              </li>
+              <li>
                 <hr class="dropdown-divider">
               </li>
               <li>
