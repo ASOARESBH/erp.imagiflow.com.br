@@ -563,6 +563,15 @@ Router::group(["middleware" => ["Auth"]], function () {
         Router::post("/crm/propostas/{id}/status",             "CrmPropostasController@atualizarStatus");
     });
 
+    // CRM — Relatórios
+    Router::group(["middleware" => ["Permission:view_crm"]], function () {
+        Router::get("/crm/relatorios",               "CrmRelatoriosController@index");
+        Router::get("/crm/relatorios/leads",         "CrmRelatoriosController@leads");
+        Router::get("/crm/relatorios/oportunidades", "CrmRelatoriosController@oportunidades");
+        Router::get("/crm/relatorios/interacoes",    "CrmRelatoriosController@interacoes");
+        Router::get("/crm/relatorios/exportar",      "CrmRelatoriosController@exportar");
+    });
+
     // Logging de Erros do Frontend
     Router::post("/api/log/error", "LogController@saveClientError");
 

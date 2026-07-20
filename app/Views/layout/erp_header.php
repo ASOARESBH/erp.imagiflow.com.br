@@ -658,6 +658,8 @@ if ($_ec) {
                   class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/crm/oportunidades') !== false ? 'active' : ''; ?>"><i class="fas fa-chart-line me-1"></i> OPORTUNIDADES</a></li>
               <li><a href="/crm/propostas"
                   class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/crm/propostas') !== false ? 'active' : ''; ?>"><i class="fas fa-file-contract me-1"></i> PROPOSTAS</a></li>
+              <li><a href="/crm/relatorios"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/crm/relatorios') !== false ? 'active' : ''; ?>"><i class="fas fa-chart-bar me-1"></i> RELATÓRIOS</a></li>
             </ul>
           </li>
 
