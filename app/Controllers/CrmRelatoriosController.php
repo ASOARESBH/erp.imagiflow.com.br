@@ -15,20 +15,20 @@ use App\Models\User;
  * CrmRelatoriosController — Relatórios analíticos do CRM.
  *
  * Rotas:
- *   GET  /crm/relatorios              → index()       Dashboard geral
- *   GET  /crm/relatorios/leads        → leads()       Relatório de Leads
+ *   GET  /crm/relatorios              → index()          Dashboard geral
+ *   GET  /crm/relatorios/leads        → leads()          Relatório de Leads
  *   GET  /crm/relatorios/oportunidades → oportunidades() Relatório de Oportunidades
- *   GET  /crm/relatorios/interacoes   → interacoes()  Relatório de Interações
- *   GET  /crm/relatorios/exportar     → exportar()    Exportação CSV
+ *   GET  /crm/relatorios/interacoes   → interacoes()     Relatório de Interações
+ *   GET  /crm/relatorios/exportar     → exportar()       Exportação CSV
  */
 class CrmRelatoriosController extends Controller
 {
-    private CrmRelatorio   $relatorioModel;
-    private CrmLead        $leadModel;
+    private CrmRelatorio    $relatorioModel;
+    private CrmLead         $leadModel;
     private CrmOportunidade $opModel;
-    private CrmInteracao   $interacaoModel;
-    private User           $userModel;
-    private Logger         $logger;
+    private CrmInteracao    $interacaoModel;
+    private User            $userModel;
+    private Logger          $logger;
 
     public function __construct()
     {
@@ -55,10 +55,6 @@ class CrmRelatoriosController extends Controller
         return in_array(strtolower($role), ['admin', 'superadmin'], true);
     }
 
-    /**
-     * Monta os filtros a partir dos parâmetros GET,
-     * respeitando a restrição de usuário para não-admins.
-     */
     private function getFiltros(array $extra = []): array
     {
         $uid     = $this->usuarioId();
@@ -69,7 +65,6 @@ class CrmRelatoriosController extends Controller
             'data_fim'    => $_GET['data_fim']    ?? date('Y-m-d'),
         ];
 
-        // Admin pode filtrar por qualquer usuário; 0 = todos
         if ($isAdmin) {
             $filtroUid = (int) ($_GET['usuario_id'] ?? 0);
             if ($filtroUid > 0) {
@@ -103,7 +98,9 @@ class CrmRelatoriosController extends Controller
         $this->logger->info('[CRM] Relatórios — dashboard acessado', ['usuario_id' => $uid]);
 
         View::render('crm/relatorios/index', [
+            '_layout'           => 'erp',
             'title'             => 'Relatórios CRM',
+            'breadcrumb'        => ['CRM' => '/crm/funil', 'Relatórios'],
             'isAdmin'           => $isAdmin,
             'filtros'           => $filtros,
             'usuariosAtivos'    => $usuariosAtivos,
@@ -131,10 +128,10 @@ class CrmRelatoriosController extends Controller
             'segmento'    => $_GET['segmento']    ?? '',
         ]);
 
-        $leads           = $this->relatorioModel->listarLeads($filtros);
-        $kpis            = $this->relatorioModel->kpisLeads($filtros);
-        $evolucao        = $this->relatorioModel->evolucaoMensalLeads($filtros);
-        $usuariosAtivos  = $isAdmin ? $this->relatorioModel->findUsuariosAtivos() : [];
+        $leads          = $this->relatorioModel->listarLeads($filtros);
+        $kpis           = $this->relatorioModel->kpisLeads($filtros);
+        $evolucao       = $this->relatorioModel->evolucaoMensalLeads($filtros);
+        $usuariosAtivos = $isAdmin ? $this->relatorioModel->findUsuariosAtivos() : [];
 
         $this->logger->info('[CRM] Relatório de Leads acessado', [
             'usuario_id' => $uid,
@@ -143,7 +140,9 @@ class CrmRelatoriosController extends Controller
         ]);
 
         View::render('crm/relatorios/leads', [
+            '_layout'        => 'erp',
             'title'          => 'Relatório de Leads',
+            'breadcrumb'     => ['CRM' => '/crm/funil', 'Relatórios' => '/crm/relatorios', 'Leads'],
             'isAdmin'        => $isAdmin,
             'filtros'        => $filtros,
             'leads'          => $leads,
@@ -166,10 +165,10 @@ class CrmRelatoriosController extends Controller
         $isAdmin = $this->isAdmin();
 
         $filtros = $this->getFiltros([
-            'etapa_funil'          => $_GET['etapa_funil']          ?? '',
-            'status_oportunidade'  => $_GET['status_oportunidade']  ?? '',
-            'tipo_contrato'        => $_GET['tipo_contrato']        ?? '',
-            'modalidade'           => $_GET['modalidade']           ?? '',
+            'etapa_funil'         => $_GET['etapa_funil']         ?? '',
+            'status_oportunidade' => $_GET['status_oportunidade'] ?? '',
+            'tipo_contrato'       => $_GET['tipo_contrato']       ?? '',
+            'modalidade'          => $_GET['modalidade']          ?? '',
         ]);
 
         $oportunidades  = $this->relatorioModel->listarOportunidades($filtros);
@@ -185,7 +184,9 @@ class CrmRelatoriosController extends Controller
         ]);
 
         View::render('crm/relatorios/oportunidades', [
+            '_layout'        => 'erp',
             'title'          => 'Relatório de Oportunidades',
+            'breadcrumb'     => ['CRM' => '/crm/funil', 'Relatórios' => '/crm/relatorios', 'Oportunidades'],
             'isAdmin'        => $isAdmin,
             'filtros'        => $filtros,
             'oportunidades'  => $oportunidades,
@@ -225,7 +226,9 @@ class CrmRelatoriosController extends Controller
         ]);
 
         View::render('crm/relatorios/interacoes', [
+            '_layout'        => 'erp',
             'title'          => 'Relatório de Interações',
+            'breadcrumb'     => ['CRM' => '/crm/funil', 'Relatórios' => '/crm/relatorios', 'Interações'],
             'isAdmin'        => $isAdmin,
             'filtros'        => $filtros,
             'interacoes'     => $interacoes,
@@ -236,7 +239,7 @@ class CrmRelatoriosController extends Controller
     }
 
     // ---------------------------------------------------------------
-    // GET /crm/relatorios/exportar?tipo=leads|oportunidades|interacoes
+    // GET /crm/relatorios/exportar
     // ---------------------------------------------------------------
 
     public function exportar(): void
@@ -322,13 +325,11 @@ class CrmRelatoriosController extends Controller
             'total'      => count($rows),
         ]);
 
-        // Enviar CSV
         header('Content-Type: text/csv; charset=UTF-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Cache-Control: no-cache, no-store, must-revalidate');
 
         $output = fopen('php://output', 'w');
-        // BOM UTF-8 para Excel
         fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
         fputcsv($output, $headers, ';');
         foreach ($csvRows as $row) {

@@ -1,6 +1,5 @@
 <?php
-use App\Core\View;
-
+// Variáveis injetadas pelo controller
 $isAdmin        = $isAdmin        ?? false;
 $filtros        = $filtros        ?? [];
 $usuariosAtivos = $usuariosAtivos ?? [];
@@ -11,58 +10,48 @@ $rankingResp    = $rankingResp    ?? [];
 $evolLeads      = $evolLeads      ?? [];
 $evolOps        = $evolOps        ?? [];
 
-// Helpers de formatação
-function fmtMoeda(float $v): string {
+function relFmtMoeda(float $v): string {
     return 'R$ ' . number_format($v, 2, ',', '.');
 }
-function fmtMes(string $ym): string {
+function relFmtMes(string $ym): string {
     [$y, $m] = explode('-', $ym);
     $meses = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     return ($meses[(int)$m] ?? $m) . '/' . substr($y, 2);
 }
 ?>
 <style>
-.rel-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1.5rem}
-.rel-tabs{display:flex;gap:.5rem;flex-wrap:wrap}
-.rel-tabs a{padding:.45rem 1rem;border-radius:.5rem;font-size:.8125rem;font-weight:600;text-decoration:none;background:#f1f5f9;color:#475569;transition:.15s}
-.rel-tabs a.active,.rel-tabs a:hover{background:#3b82f6;color:#fff}
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem}
-.kpi-card{background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:1.1rem 1.25rem;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.kpi-card .kpi-val{font-size:1.6rem;font-weight:700;line-height:1.1;color:#1e293b}
-.kpi-card .kpi-lbl{font-size:.75rem;color:#64748b;margin-top:2px}
-.kpi-card .kpi-icon{float:right;width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem}
-.section-card{background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:1.5rem}
-.section-title{font-size:.875rem;font-weight:700;color:#1e293b;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
-.filter-bar{background:#f8fafc;border:1px solid #e2e8f0;border-radius:.75rem;padding:1rem 1.25rem;margin-bottom:1.5rem}
-.filter-bar .form-label{font-size:.75rem;font-weight:600;color:#475569;margin-bottom:.25rem}
-.filter-bar .form-control,.filter-bar .form-select{font-size:.8125rem;height:34px;padding:.3rem .6rem}
-.table-rel th{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc}
-.table-rel td{font-size:.8125rem;vertical-align:middle}
-.badge-etapa{font-size:.65rem;padding:.25em .6em;border-radius:20px;font-weight:700}
-.badge-aberta{background:#dbeafe;color:#1d4ed8}
-.badge-ganha{background:#d1fae5;color:#065f46}
-.badge-perdida{background:#fee2e2;color:#991b1b}
-.rank-num{width:28px;height:28px;border-radius:50%;background:#f1f5f9;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#475569}
+.rel-nav-pills{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.rel-nav-pills a{padding:.4rem .9rem;border-radius:.4rem;font-size:.8rem;font-weight:600;text-decoration:none;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;transition:.15s}
+.rel-nav-pills a.active{background:#0d6efd;color:#fff;border-color:#0d6efd}
+.rel-nav-pills a:hover:not(.active){background:#e2e8f0;color:#1e293b}
+.rel-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:.875rem;margin-bottom:1.25rem}
+.rel-kpi{background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.rel-kpi-icon{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.rel-kpi-val{font-size:1.4rem;font-weight:700;line-height:1.1;color:#1e293b}
+.rel-kpi-lbl{font-size:.72rem;color:#64748b;margin-top:1px}
+.rel-section{background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:1.1rem 1.25rem;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:1.25rem}
+.rel-section-title{font-size:.8125rem;font-weight:700;color:#374151;margin-bottom:.875rem;display:flex;align-items:center;gap:.4rem;border-bottom:1px solid #f1f5f9;padding-bottom:.5rem}
+.rel-filter-bar{background:#f8fafc;border:1px solid #e2e8f0;border-radius:.75rem;padding:.875rem 1.1rem;margin-bottom:1.25rem}
+.rel-filter-bar .form-label{font-size:.72rem;font-weight:600;color:#475569;margin-bottom:.2rem}
+.rel-filter-bar .form-control,.rel-filter-bar .form-select{font-size:.8rem;height:32px;padding:.25rem .55rem}
+.rel-table th{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc;padding:.5rem .75rem}
+.rel-table td{font-size:.8rem;vertical-align:middle;padding:.5rem .75rem}
+.rank-pos{width:24px;height:24px;border-radius:50%;background:#f1f5f9;display:inline-flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#475569}
+.section-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:1.25rem 0 .5rem}
 </style>
 
 <div class="container-fluid">
 
-  <!-- Header + Tabs -->
-  <div class="rel-header">
-    <div>
-      <h5 class="mb-0 fw-bold"><i class="fas fa-chart-bar text-primary me-2"></i>Relatórios CRM</h5>
-      <small class="text-muted">Análise de Leads, Oportunidades e Interações</small>
-    </div>
-    <div class="rel-tabs">
-      <a href="/crm/relatorios" class="active"><i class="fas fa-tachometer-alt me-1"></i>Dashboard</a>
-      <a href="/crm/relatorios/leads"><i class="fas fa-user-plus me-1"></i>Leads</a>
-      <a href="/crm/relatorios/oportunidades"><i class="fas fa-chart-line me-1"></i>Oportunidades</a>
-      <a href="/crm/relatorios/interacoes"><i class="fas fa-comments me-1"></i>Interações</a>
-    </div>
+  <!-- Navegação entre relatórios -->
+  <div class="rel-nav-pills">
+    <a href="/crm/relatorios" class="active"><i class="fas fa-tachometer-alt me-1"></i>Dashboard</a>
+    <a href="/crm/relatorios/leads"><i class="fas fa-user-plus me-1"></i>Leads</a>
+    <a href="/crm/relatorios/oportunidades"><i class="fas fa-chart-line me-1"></i>Oportunidades</a>
+    <a href="/crm/relatorios/interacoes"><i class="fas fa-comments me-1"></i>Interações</a>
   </div>
 
   <!-- Filtros -->
-  <div class="filter-bar">
+  <div class="rel-filter-bar">
     <form method="GET" action="/crm/relatorios" class="row g-2 align-items-end">
       <?php if ($isAdmin && !empty($usuariosAtivos)): ?>
       <div class="col-auto">
@@ -93,93 +82,80 @@ function fmtMes(string $ym): string {
   </div>
 
   <!-- KPIs Leads -->
-  <div class="section-title"><i class="fas fa-user-plus text-info"></i> Leads</div>
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-icon" style="background:#e0f2fe;color:#0284c7"><i class="fas fa-users"></i></div>
-      <div class="kpi-val"><?php echo $kpisLeads['total'] ?? 0; ?></div>
-      <div class="kpi-lbl">Total de Leads</div>
+  <div class="section-label"><i class="fas fa-user-plus me-1"></i>Leads</div>
+  <div class="rel-kpi-grid">
+    <div class="rel-kpi">
+      <div class="rel-kpi-icon" style="background:#e0f2fe;color:#0284c7"><i class="fas fa-users"></i></div>
+      <div><div class="rel-kpi-val"><?php echo $kpisLeads['total'] ?? 0; ?></div><div class="rel-kpi-lbl">Total de Leads</div></div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-icon" style="background:#d1fae5;color:#059669"><i class="fas fa-check-circle"></i></div>
-      <div class="kpi-val"><?php echo $kpisLeads['porStatus']['qualificado'] ?? 0; ?></div>
-      <div class="kpi-lbl">Qualificados</div>
+    <div class="rel-kpi">
+      <div class="rel-kpi-icon" style="background:#d1fae5;color:#059669"><i class="fas fa-check-circle"></i></div>
+      <div><div class="rel-kpi-val"><?php echo $kpisLeads['porStatus']['qualificado'] ?? 0; ?></div><div class="rel-kpi-lbl">Qualificados</div></div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-icon" style="background:#fef9c3;color:#ca8a04"><i class="fas fa-phone"></i></div>
-      <div class="kpi-val"><?php echo $kpisLeads['porStatus']['contatado'] ?? 0; ?></div>
-      <div class="kpi-lbl">Contatados</div>
+    <div class="rel-kpi">
+      <div class="rel-kpi-icon" style="background:#fef9c3;color:#ca8a04"><i class="fas fa-phone"></i></div>
+      <div><div class="rel-kpi-val"><?php echo $kpisLeads['porStatus']['contatado'] ?? 0; ?></div><div class="rel-kpi-lbl">Contatados</div></div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-icon" style="background:#fee2e2;color:#dc2626"><i class="fas fa-clock"></i></div>
-      <div class="kpi-val"><?php echo $kpisLeads['vencidos'] ?? 0; ?></div>
-      <div class="kpi-lbl">Contato Vencido</div>
+    <div class="rel-kpi">
+      <div class="rel-kpi-icon" style="background:#fee2e2;color:#dc2626"><i class="fas fa-clock"></i></div>
+      <div><div class="rel-kpi-val"><?php echo $kpisLeads['vencidos'] ?? 0; ?></div><div class="rel-kpi-lbl">Contato Vencido</div></div>
     </div>
   </div>
 
   <!-- KPIs Oportunidades -->
-  <div class="section-title"><i class="fas fa-chart-line text-success"></i> Oportunidades</div>
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-icon" style="background:#dbeafe;color:#1d4ed8"><i class="fas fa-folder-open"></i></div>
-      <div class="kpi-val"><?php echo $kpisOps['totalAberta'] ?? 0; ?></div>
-      <div class="kpi-lbl">Em Aberto</div>
+  <div class="section-label"><i class="fas fa-chart-line me-1"></i>Oportunidades</div>
+  <div class="rel-kpi-grid">
+    <div class="rel-kpi">
+      <div class="rel-kpi-icon" style="background:#dbeafe;color:#1d4ed8"><i class="fas fa-folder-open"></i></div>
+      <div><div class="rel-kpi-val"><?php echo $kpisOps['totalAberta'] ?? 0; ?></div><div class="rel-kpi-lbl">Em Aberto</div></div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-icon" style="background:#d1fae5;color:#059669"><i class="fas fa-trophy"></i></div>
-      <div class="kpi-val"><?php echo $kpisOps['totalGanha'] ?? 0; ?></div>
-      <div class="kpi-lbl">Ganhas</div>
+    <div class="rel-kpi">
+      <div class="rel-kpi-icon" style="background:#d1fae5;color:#059669"><i class="fas fa-trophy"></i></div>
+      <div><div class="rel-kpi-val"><?php echo $kpisOps['totalGanha'] ?? 0; ?></div><div class="rel-kpi-lbl">Ganhas</div></div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-icon" style="background:#e0f2fe;color:#0284c7"><i class="fas fa-dollar-sign"></i></div>
-      <div class="kpi-val" style="font-size:1.1rem"><?php echo fmtMoeda((float)($kpisOps['valorGanha'] ?? 0)); ?></div>
-      <div class="kpi-lbl">Valor Ganho</div>
+    <div class="rel-kpi">
+      <div class="rel-kpi-icon" style="background:#e0f2fe;color:#0284c7"><i class="fas fa-dollar-sign"></i></div>
+      <div><div class="rel-kpi-val" style="font-size:1rem"><?php echo relFmtMoeda((float)($kpisOps['valorGanha'] ?? 0)); ?></div><div class="rel-kpi-lbl">Valor Ganho</div></div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-icon" style="background:#fef9c3;color:#ca8a04"><i class="fas fa-percentage"></i></div>
-      <div class="kpi-val"><?php echo ($kpisOps['taxaConversao'] ?? 0); ?>%</div>
-      <div class="kpi-lbl">Taxa de Conversão</div>
+    <div class="rel-kpi">
+      <div class="rel-kpi-icon" style="background:#fef9c3;color:#ca8a04"><i class="fas fa-percentage"></i></div>
+      <div><div class="rel-kpi-val"><?php echo $kpisOps['taxaConversao'] ?? 0; ?>%</div><div class="rel-kpi-lbl">Taxa de Conversão</div></div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-icon" style="background:#f3e8ff;color:#7c3aed"><i class="fas fa-wallet"></i></div>
-      <div class="kpi-val" style="font-size:1.1rem"><?php echo fmtMoeda((float)($kpisOps['valorAberta'] ?? 0)); ?></div>
-      <div class="kpi-lbl">Pipeline Aberto</div>
+    <div class="rel-kpi">
+      <div class="rel-kpi-icon" style="background:#f3e8ff;color:#7c3aed"><i class="fas fa-wallet"></i></div>
+      <div><div class="rel-kpi-val" style="font-size:1rem"><?php echo relFmtMoeda((float)($kpisOps['valorAberta'] ?? 0)); ?></div><div class="rel-kpi-lbl">Pipeline Aberto</div></div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-icon" style="background:#fee2e2;color:#dc2626"><i class="fas fa-times-circle"></i></div>
-      <div class="kpi-val"><?php echo $kpisOps['totalPerdida'] ?? 0; ?></div>
-      <div class="kpi-lbl">Perdidas</div>
+    <div class="rel-kpi">
+      <div class="rel-kpi-icon" style="background:#fee2e2;color:#dc2626"><i class="fas fa-times-circle"></i></div>
+      <div><div class="rel-kpi-val"><?php echo $kpisOps['totalPerdida'] ?? 0; ?></div><div class="rel-kpi-lbl">Perdidas</div></div>
     </div>
   </div>
 
   <!-- KPIs Interações -->
-  <div class="section-title"><i class="fas fa-comments text-warning"></i> Interações</div>
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-icon" style="background:#fef9c3;color:#ca8a04"><i class="fas fa-comments"></i></div>
-      <div class="kpi-val"><?php echo $kpisInt['total'] ?? 0; ?></div>
-      <div class="kpi-lbl">Total de Interações</div>
+  <div class="section-label"><i class="fas fa-comments me-1"></i>Interações</div>
+  <div class="rel-kpi-grid">
+    <div class="rel-kpi">
+      <div class="rel-kpi-icon" style="background:#fef9c3;color:#ca8a04"><i class="fas fa-comments"></i></div>
+      <div><div class="rel-kpi-val"><?php echo $kpisInt['total'] ?? 0; ?></div><div class="rel-kpi-lbl">Total de Interações</div></div>
     </div>
-    <?php foreach (array_slice($kpisInt['porTipo'] ?? [], 0, 3) as $tipo): ?>
-    <div class="kpi-card">
-      <div class="kpi-val"><?php echo $tipo->total; ?></div>
-      <div class="kpi-lbl"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $tipo->tipo_interacao))); ?></div>
+    <?php foreach (array_slice($kpisInt['porTipo'] ?? [], 0, 4) as $tipo): ?>
+    <div class="rel-kpi">
+      <div><div class="rel-kpi-val"><?php echo $tipo->total; ?></div><div class="rel-kpi-lbl"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $tipo->tipo_interacao))); ?></div></div>
     </div>
     <?php endforeach; ?>
   </div>
 
-  <div class="row g-3">
-    <!-- Gráfico: Evolução de Leads -->
+  <!-- Gráficos -->
+  <div class="row g-3 mb-3">
     <div class="col-md-6">
-      <div class="section-card">
-        <div class="section-title"><i class="fas fa-chart-area text-info"></i> Evolução Mensal de Leads</div>
+      <div class="rel-section">
+        <div class="rel-section-title"><i class="fas fa-chart-area text-info"></i> Evolução Mensal de Leads</div>
         <canvas id="chartLeads" height="200"></canvas>
       </div>
     </div>
-    <!-- Gráfico: Evolução de Oportunidades -->
     <div class="col-md-6">
-      <div class="section-card">
-        <div class="section-title"><i class="fas fa-chart-bar text-success"></i> Evolução Mensal de Oportunidades</div>
+      <div class="rel-section">
+        <div class="rel-section-title"><i class="fas fa-chart-bar text-success"></i> Evolução Mensal de Oportunidades</div>
         <canvas id="chartOps" height="200"></canvas>
       </div>
     </div>
@@ -187,15 +163,14 @@ function fmtMes(string $ym): string {
 
   <!-- Ranking de Responsáveis -->
   <?php if (!empty($rankingResp)): ?>
-  <div class="section-card mt-3">
-    <div class="section-title"><i class="fas fa-medal text-warning"></i> Ranking de Responsáveis</div>
+  <div class="rel-section">
+    <div class="rel-section-title"><i class="fas fa-medal text-warning"></i> Ranking de Responsáveis</div>
     <div class="table-responsive">
-      <table class="table table-hover table-rel mb-0">
+      <table class="table table-hover rel-table mb-0">
         <thead>
           <tr>
-            <th>#</th>
-            <th>Responsável</th>
-            <th class="text-center">Total Ops</th>
+            <th>#</th><th>Responsável</th>
+            <th class="text-center">Total</th>
             <th class="text-center">Ganhas</th>
             <th class="text-center">Perdidas</th>
             <th class="text-center">Abertas</th>
@@ -206,23 +181,18 @@ function fmtMes(string $ym): string {
         </thead>
         <tbody>
           <?php foreach ($rankingResp as $i => $r): ?>
-          <?php
-            $fechadas = ($r->ganhas + $r->perdidas);
-            $conv = $fechadas > 0 ? round(($r->ganhas / $fechadas) * 100, 1) : 0;
-          ?>
+          <?php $fechadas = $r->ganhas + $r->perdidas; $conv = $fechadas > 0 ? round(($r->ganhas / $fechadas) * 100, 1) : 0; ?>
           <tr>
-            <td><span class="rank-num"><?php echo $i + 1; ?></span></td>
+            <td><span class="rank-pos"><?php echo $i + 1; ?></span></td>
             <td><strong><?php echo htmlspecialchars($r->responsavel ?? 'N/A'); ?></strong></td>
             <td class="text-center"><?php echo $r->total_oportunidades; ?></td>
             <td class="text-center"><span class="badge bg-success"><?php echo $r->ganhas; ?></span></td>
             <td class="text-center"><span class="badge bg-danger"><?php echo $r->perdidas; ?></span></td>
             <td class="text-center"><span class="badge bg-primary"><?php echo $r->abertas; ?></span></td>
-            <td class="text-end fw-bold text-success"><?php echo fmtMoeda((float)$r->valor_ganho); ?></td>
-            <td class="text-end text-primary"><?php echo fmtMoeda((float)$r->valor_pipeline); ?></td>
+            <td class="text-end fw-bold text-success"><?php echo relFmtMoeda((float)$r->valor_ganho); ?></td>
+            <td class="text-end text-primary"><?php echo relFmtMoeda((float)$r->valor_pipeline); ?></td>
             <td class="text-center">
-              <div class="progress" style="height:6px;min-width:60px">
-                <div class="progress-bar bg-success" style="width:<?php echo $conv; ?>%"></div>
-              </div>
+              <div class="progress" style="height:5px;min-width:50px"><div class="progress-bar bg-success" style="width:<?php echo $conv; ?>%"></div></div>
               <small class="text-muted"><?php echo $conv; ?>%</small>
             </td>
           </tr>
@@ -238,38 +208,37 @@ function fmtMes(string $ym): string {
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 (function() {
-  // Dados: Evolução de Leads
-  const leadsLabels = <?php echo json_encode(array_map(fn($r) => fmtMes($r->mes), $evolLeads)); ?>;
+  function fmtM(ym) {
+    const [y, m] = ym.split('-');
+    const ms = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    return (ms[parseInt(m)] || m) + '/' + y.slice(2);
+  }
+  const leadsLabels = <?php echo json_encode(array_map(fn($r) => relFmtMes($r->mes), $evolLeads)); ?>;
   const leadsData   = <?php echo json_encode(array_map(fn($r) => (int)$r->total, $evolLeads)); ?>;
+  const opsLabels   = <?php echo json_encode(array_map(fn($r) => relFmtMes($r->mes), $evolOps)); ?>;
+  const opsTotal    = <?php echo json_encode(array_map(fn($r) => (int)$r->total, $evolOps)); ?>;
+  const opsGanhas   = <?php echo json_encode(array_map(fn($r) => (int)$r->ganhas, $evolOps)); ?>;
+  const opsPerdidas = <?php echo json_encode(array_map(fn($r) => (int)$r->perdidas, $evolOps)); ?>;
 
-  // Dados: Evolução de Oportunidades
-  const opsLabels  = <?php echo json_encode(array_map(fn($r) => fmtMes($r->mes), $evolOps)); ?>;
-  const opsTotal   = <?php echo json_encode(array_map(fn($r) => (int)$r->total, $evolOps)); ?>;
-  const opsGanhas  = <?php echo json_encode(array_map(fn($r) => (int)$r->ganhas, $evolOps)); ?>;
-  const opsPerdidas= <?php echo json_encode(array_map(fn($r) => (int)$r->perdidas, $evolOps)); ?>;
+  const opts = { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } };
 
-  const defaults = { responsive: true, plugins: { legend: { position: 'bottom' } } };
-
-  new Chart(document.getElementById('chartLeads'), {
+  if (leadsLabels.length) new Chart(document.getElementById('chartLeads'), {
     type: 'bar',
-    data: {
-      labels: leadsLabels,
-      datasets: [{ label: 'Leads Criados', data: leadsData, backgroundColor: '#3b82f6', borderRadius: 4 }]
-    },
-    options: { ...defaults, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    data: { labels: leadsLabels, datasets: [{ label: 'Leads', data: leadsData, backgroundColor: '#3b82f6', borderRadius: 4 }] },
+    options: opts
   });
 
-  new Chart(document.getElementById('chartOps'), {
+  if (opsLabels.length) new Chart(document.getElementById('chartOps'), {
     type: 'bar',
     data: {
       labels: opsLabels,
       datasets: [
-        { label: 'Total', data: opsTotal, backgroundColor: '#94a3b8', borderRadius: 4 },
-        { label: 'Ganhas', data: opsGanhas, backgroundColor: '#22c55e', borderRadius: 4 },
-        { label: 'Perdidas', data: opsPerdidas, backgroundColor: '#ef4444', borderRadius: 4 },
+        { label: 'Total', data: opsTotal, backgroundColor: '#94a3b8', borderRadius: 3 },
+        { label: 'Ganhas', data: opsGanhas, backgroundColor: '#22c55e', borderRadius: 3 },
+        { label: 'Perdidas', data: opsPerdidas, backgroundColor: '#ef4444', borderRadius: 3 },
       ]
     },
-    options: { ...defaults, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    options: opts
   });
 })();
 </script>
