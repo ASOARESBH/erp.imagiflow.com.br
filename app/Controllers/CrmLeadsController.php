@@ -176,9 +176,13 @@ class CrmLeadsController extends Controller
         $marketingInteracoes = $this->marketingInteracaoModel->findByRelated('lead', $id);
         $marketingStats      = $this->marketingInteracaoModel->countEventosByRelated('lead', $id);
         View::render('crm/leads/form', [
-            'title'      => 'Editar Lead — ' . htmlspecialchars($lead->nome_lead),
-            '_layout'    => 'erp',
-            'breadcrumb' => ['CRM' => '/crm/funil', 'Leads' => '/crm/leads', 'Editar Lead'],
+            'title'             => 'Editar Lead — ' . htmlspecialchars($lead->nome_lead),
+            // A edição compõe o shell ERP na própria view. Isso mantém o
+            // componente Enterprise e evita depender do wrapper de output
+            // que não está sendo montado nas rotas CRM de edição em produção.
+            '_layout'           => 'none',
+            'manual_erp_layout' => true,
+            'breadcrumb'        => ['CRM' => '/crm/funil', 'Leads' => '/crm/leads', 'Editar Lead'],
             'lead'       => $lead,
             'isEdit'     => true,
             'interacoes'     => $interacoes,

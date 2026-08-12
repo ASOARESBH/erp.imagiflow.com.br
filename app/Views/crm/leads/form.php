@@ -21,6 +21,14 @@ $motivosTransferencia = $motivosTransferencia ?? [];
 $donomeAtual    = $donomeAtual    ?? ($_SESSION['user_name'] ?? 'Usuário');
 $marketingInteracoes = $marketingInteracoes ?? [];
 $marketingStats      = $marketingStats      ?? [];
+$manualErpLayout     = !empty($manual_erp_layout);
+
+// A edição de Lead usa os mesmos arquivos de layout já adotados pelo ERP.
+// O wrapper é incluído aqui apenas quando o controller sinaliza que o
+// renderer externo não está compondo o shell em produção.
+if ($manualErpLayout) {
+    require dirname(__DIR__, 2) . '/layout/erp_header.php';
+}
 
 // Botões de ação do header
 $headerActions = [
@@ -125,4 +133,8 @@ $formConfig = [
 
 $data = $formConfig;
 include_once __DIR__ . '/../../components/form/enterprise-form.php';
+
+if ($manualErpLayout) {
+    require dirname(__DIR__, 2) . '/layout/erp_footer.php';
+}
 ?>
