@@ -27,9 +27,11 @@ class View
             if (!defined('ERP_VIEW_RENDERING')) {
                 define('ERP_VIEW_RENDERING', true);
             }
-            ob_start();
-            require $viewFile;
-            $content = ob_get_clean();
+            // A view é capturada em escopo isolado. Assim, variáveis usadas
+            // por formulários, abas e componentes não conseguem sobrescrever
+            // o estado interno do renderer, como $layout ou os caminhos de
+            // cabeçalho e rodapé.
+            $content = self::captureView($viewFile, $data);
 
             // Algumas views legadas gerenciam explicitamente cabeçalho e
             // rodapé. Nelas, o conteúdo já é um documento completo e não
@@ -74,6 +76,22 @@ class View
             echo "Erro: View '{$view}' não encontrada no caminho: {$viewFile}";
             exit;
         }
+    }
+
+    /**
+     * Captura uma view em escopo próprio, preservando as variáveis internas
+     * de View::render() durante a composição do layout externo.
+     */
+    private static function captureView(string $viewFile, array $data): string
+    {
+        ob_start();
+
+        (static function (string $file, array $viewData): void {
+            extract($viewData, EXTR_SKIP);
+            require $file;
+        })($viewFile, $data);
+
+        return (string) ob_get_clean();
     }
 
     /**
