@@ -485,9 +485,8 @@ ALTER TABLE `tabela_exames_tags` ADD COLUMN `tenant_id` INT(11) UNSIGNED NOT NUL
 UPDATE `tabela_exames_tags` SET `tenant_id` = 1 WHERE `tenant_id` IS NULL;
 ALTER TABLE `tabela_exames_tags` ADD INDEX `idx_tabela_exames_tags_tenant_id` (`tenant_id`);
 
-ALTER TABLE `whatsapp_bot_logs` ADD COLUMN `tenant_id` INT(11) UNSIGNED NOT NULL DEFAULT 1 COMMENT 'Tenant proprietário do registro' AFTER `id`;
-UPDATE `whatsapp_bot_logs` SET `tenant_id` = 1 WHERE `tenant_id` IS NULL;
-ALTER TABLE `whatsapp_bot_logs` ADD INDEX `idx_whatsapp_bot_logs_tenant_id` (`tenant_id`);
+-- `whatsapp_bot_logs` já possui `tenant_id` e o índice `idx_wbl_tenant`
+-- desde a migration 2026-02-28_whatsapp_bot_integration.sql. Não reaplicar.
 
 -- ============================================================================
 -- VALIDAÇÃO

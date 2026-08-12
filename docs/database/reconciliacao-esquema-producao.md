@@ -32,6 +32,6 @@ Essas diferenças justificam o uso do baseline estrutural real antes da aplicaç
 
 ## Decisões aplicadas
 
-A fundação multitenant adiciona `tenant_id` a 106 tabelas de negócio/configuração e mantém 16 tabelas globais. Foram tratadas explicitamente três tabelas de sequência sem coluna `id` (`est_pedido_seq`, `manut_os_seq`, `produto_codigo_seq`) para que a migration não gere `AFTER id` inválido.
+A fundação multitenant isola 106 tabelas de negócio/configuração e mantém 16 tabelas globais. Ela adiciona `tenant_id` a 105 tabelas; a tabela `whatsapp_bot_logs` conserva a coluna e o índice de tenant já criados na migration histórica de 2026-02-28. Foram tratadas explicitamente três tabelas de sequência sem coluna `id` (`est_pedido_seq`, `manut_os_seq`, `produto_codigo_seq`) para que a migration não gere `AFTER id` inválido.
 
 Os arquivos de produção que precisam de continuidade de manutenção devem partir deste baseline e receber migrations incrementais posteriores. Nenhum dado real foi copiado para o projeto novo nesta etapa.
