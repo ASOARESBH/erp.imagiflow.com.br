@@ -4,14 +4,13 @@ namespace App\Core;
 
 use App\Core\Audit\AuditLogger;
 use App\Core\Permission;
+use App\Core\TenantContext;
+use LogicException;
 
 class Auth
 {
     /**
      * Gera um hash de senha seguro.
-     *
-     * @param string $password A senha em texto plano.
-     * @return string O hash da senha.
      */
     public static function hashPassword(string $password): string
     {
@@ -20,10 +19,6 @@ class Auth
 
     /**
      * Verifica se uma senha corresponde a um hash.
-     *
-     * @param string $password A senha em texto plano.
-     * @param string $hash O hash da senha armazenado.
-     * @return bool True se a senha for válida, false caso contrário.
      */
     public static function verifyPassword(string $password, string $hash): bool
     {
@@ -31,7 +26,7 @@ class Auth
     }
 
     /**
-     * Tenta realizar o login do usuário.
+     * Tenta realizar o login do usuário no tenant atual.
      */
     public static function login(string $email, string $password): bool
     {
@@ -43,27 +38,43 @@ class Auth
             return true;
         }
 
-        AuditLogger::log('login_failed', ['email' => $email]);
+        AuditLogger::log('login_failed', [
+            'email' => $email,
+            'tenant_id' => TenantContext::has() ? TenantContext::id() : null,
+        ]);
         return false;
     }
 
     /**
-     * Cria a sessão definitiva de um usuário já autenticado (senha OU,
-     * quando o 2FA está habilitado, senha + código de verificação).
+     * Materializa a sessão de um usuário já autenticado.
      *
-     * Nunca chamar sem antes validar as credenciais/código — este método
-     * não faz nenhuma verificação, apenas materializa a sessão.
+     * O model de usuário só retorna vínculo ativo com o tenant atual. A checagem
+     * adicional abaixo impede a criação de sessão caso esse contrato seja violado.
      */
     public static function loginAsUser(object $user): void
     {
+        $tenantId = TenantContext::id();
+        if ((int) ($user->tenant_id ?? 0) !== $tenantId) {
+            AuditLogger::log('login_tenant_mismatch', [
+                'user_id' => $user->id ?? null,
+                'tenant_id' => $tenantId,
+            ]);
+            throw new LogicException('O usuário não possui vínculo ativo com o tenant atual.');
+        }
+
         self::regenerateSession();
-        $_SESSION['user_id'] = $user->id;
+        $_SESSION['user_id'] = (int) $user->id;
         $_SESSION['user_name'] = $user->name;
         $_SESSION['user_email'] = $user->email;
-        $_SESSION['user_role'] = $user->role ?? 'user';
+        $_SESSION['user_role'] = $user->tenant_role ?? $user->role ?? 'user';
         $_SESSION['login_time'] = time();
 
-        AuditLogger::log('login_success', ['user_id' => $user->id, 'email' => $user->email, 'role' => $_SESSION['user_role']]);
+        AuditLogger::log('login_success', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'role' => $_SESSION['user_role'],
+            'tenant_id' => $tenantId,
+        ]);
     }
 
     /**
@@ -75,47 +86,51 @@ class Auth
     }
 
     /**
-     * Retorna os dados do usuário logado.
+     * Retorna os dados do usuário logado e o tenant da requisição atual.
      */
     public static function user(): ?object
     {
-        if (!self::check())
+        if (!self::check()) {
             return null;
+        }
 
         return (object) [
             'id' => $_SESSION['user_id'],
             'name' => $_SESSION['user_name'],
             'email' => $_SESSION['user_email'] ?? null,
-            'role' => $_SESSION['user_role']
+            'role' => $_SESSION['user_role'],
+            'tenant_id' => TenantContext::id(),
         ];
     }
 
     /**
-     * Finaliza a sessão do usuário.
+     * Finaliza a sessão do usuário e remove o contexto de tenant.
      */
     public static function logout(): void
     {
-        AuditLogger::log('logout');
+        AuditLogger::log('logout', [
+            'tenant_id' => TenantContext::has() ? TenantContext::id() : null,
+        ]);
+        TenantContext::clear();
         session_unset();
         session_destroy();
 
-        // Limpa cookie de sessão se existir
-        if (ini_get("session.use_cookies")) {
+        if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
             setcookie(
                 session_name(),
                 '',
                 time() - 42000,
-                $params["path"],
-                $params["domain"],
-                $params["secure"],
-                $params["httponly"]
+                $params['path'],
+                $params['domain'],
+                $params['secure'],
+                $params['httponly']
             );
         }
     }
 
     /**
-     * Regenera o ID da sessão para prevenir ataques de fixação de sessão.
+     * Regenera o ID da sessão para prevenir ataques de fixação.
      */
     private static function regenerateSession(): void
     {
@@ -123,7 +138,7 @@ class Auth
     }
 
     /**
-     * Verifica se o usuário autenticado tem permissão para uma ação.
+     * Verifica se o usuário autenticado tem uma permissão no papel do tenant.
      */
     public static function can(string $permission): bool
     {
@@ -135,11 +150,11 @@ class Auth
         $provider = new Permission();
         $permissions = $provider->getPermissionsForRole($role);
 
-        return in_array($permission, $permissions);
+        return in_array($permission, $permissions, true);
     }
 
     /**
-     * Verifica se o usuário tem um papel específico.
+     * Verifica se o usuário tem um papel específico no tenant atual.
      */
     public static function hasRole(string $role): bool
     {

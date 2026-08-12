@@ -1,7 +1,7 @@
 <?php
 use App\Core\Form;
 require_once dirname(__DIR__) . '/layout/public_header.php';
-$logoPath = '/assets/logo-inlaudo.png';
+$logoPath = '/assets/logo-imagiflow.jpeg';
 $uploadLogoDir = BASE_PATH . '/public/uploads/logo';
 if (is_dir($uploadLogoDir)) {
     $files = array_diff(scandir($uploadLogoDir), ['.', '..']);
@@ -12,8 +12,8 @@ if (is_dir($uploadLogoDir)) {
 }
 ?>
 <div class="login-card">
-    <img src="<?php echo htmlspecialchars($logoPath); ?>" alt="InLaudo" class="logo">
-    <h1>Acesso ao Sistema</h1>
+    <img src="<?php echo htmlspecialchars($logoPath); ?>" alt="Imagiflow" class="logo">
+    <h1>Imagiflow</h1>
 
     <?php if (!empty($_GET['reset']) && $_GET['reset'] === 'success'): ?>
         <div class="alert alert-success border-0 shadow-sm py-2 px-3 mb-3 rounded-3">
@@ -91,7 +91,7 @@ if (is_dir($uploadLogoDir)) {
         </a>
     </div>
 
-    <p class="login-footer">© <?php echo date('Y'); ?> InLaudo. Todos os direitos reservados.</p>
+    <p class="login-footer">© <?php echo date('Y'); ?> Imagiflow. Todos os direitos reservados.</p>
 </div>
 
 <script>

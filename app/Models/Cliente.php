@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Core\Model;
+use App\Core\TenantContext;
 use PDO;
 
 class Cliente extends Model
@@ -71,8 +72,8 @@ class Cliente extends Model
 
     public function findByUsuarioId(int $usuarioId, array $filtros = []): array
     {
-        $sql    = "SELECT * FROM {$this->table} WHERE usuario_id = ?";
-        $params = [$usuarioId];
+        $sql    = "SELECT * FROM {$this->table} WHERE usuario_id = ? AND tenant_id = ?";
+        $params = [$usuarioId, TenantContext::id()];
 
         if (!empty($filtros['status'])) {
             $sql     .= " AND status = ?";
@@ -103,31 +104,31 @@ class Cliente extends Model
 
     public function findById(int $id): object|false
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE id = ?");
-        $stmt->execute([$id]);
+        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE id = ? AND tenant_id = ?");
+        $stmt->execute([$id, TenantContext::id()]);
         return $stmt->fetch(PDO::FETCH_OBJ);
     }
 
     public function findByCpfCnpj(string $cpfCnpj): object|false
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE cpf_cnpj = ?");
-        $stmt->execute([$cpfCnpj]);
+        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE cpf_cnpj = ? AND tenant_id = ?");
+        $stmt->execute([$cpfCnpj, TenantContext::id()]);
         return $stmt->fetch(PDO::FETCH_OBJ);
     }
 
     public function findByCpfCnpjAndUsuarioId(string $cpfCnpj, int $usuarioId): object|false
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM {$this->table} WHERE cpf_cnpj = ? AND usuario_id = ?"
+            "SELECT * FROM {$this->table} WHERE cpf_cnpj = ? AND usuario_id = ? AND tenant_id = ?"
         );
-        $stmt->execute([$cpfCnpj, $usuarioId]);
+        $stmt->execute([$cpfCnpj, $usuarioId, TenantContext::id()]);
         return $stmt->fetch(PDO::FETCH_OBJ);
     }
 
     public function findByEmail(string $email): object|false
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE email = ?");
-        $stmt->execute([$email]);
+        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE email = ? AND tenant_id = ?");
+        $stmt->execute([$email, TenantContext::id()]);
         return $stmt->fetch(PDO::FETCH_OBJ);
     }
 
@@ -147,7 +148,7 @@ class Cliente extends Model
             'volume_exames_mes', 'equipamentos_possui', 'sistema_atual',
             'num_medicos', 'num_unidades', 'acreditacao',
             'responsavel_nome', 'responsavel_cargo', 'responsavel_email', 'responsavel_telefone',
-            'usuario_id', 'status', 'crm_lead_id',
+            'usuario_id', 'status', 'crm_lead_id', 'tenant_id',
         ];
 
         $cols  = implode(', ', $fields);
@@ -156,7 +157,7 @@ class Cliente extends Model
         $stmt  = $this->pdo->prepare($sql);
 
         foreach ($fields as $f) {
-            $val = $data[$f] ?? null;
+            $val = $f === 'tenant_id' ? TenantContext::id() : ($data[$f] ?? null);
             $stmt->bindValue(':' . $f, ($val === '') ? null : $val);
         }
 
@@ -179,7 +180,7 @@ class Cliente extends Model
         ];
 
         $sets   = [];
-        $params = [':id' => $id];
+        $params = [':id' => $id, ':tenant_id' => TenantContext::id()];
 
         foreach ($allowed as $f) {
             if (!array_key_exists($f, $data)) continue;
@@ -190,7 +191,7 @@ class Cliente extends Model
         if (empty($sets)) return false;
 
         $stmt = $this->pdo->prepare(
-            "UPDATE {$this->table} SET " . implode(', ', $sets) . " WHERE id = :id"
+            "UPDATE {$this->table} SET " . implode(', ', $sets) . " WHERE id = :id AND tenant_id = :tenant_id"
         );
         return $stmt->execute($params);
     }
@@ -198,15 +199,15 @@ class Cliente extends Model
     /** Soft delete — marca como inativo */
     public function delete(int $id): bool
     {
-        $stmt = $this->pdo->prepare("UPDATE {$this->table} SET status = 'inativo' WHERE id = ?");
-        return $stmt->execute([$id]);
+        $stmt = $this->pdo->prepare("UPDATE {$this->table} SET status = 'inativo' WHERE id = ? AND tenant_id = ?");
+        return $stmt->execute([$id, TenantContext::id()]);
     }
 
     /** Hard delete permanente */
     public function forceDelete(int $id): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM {$this->table} WHERE id = ?");
-        return $stmt->execute([$id]);
+        $stmt = $this->pdo->prepare("DELETE FROM {$this->table} WHERE id = ? AND tenant_id = ?");
+        return $stmt->execute([$id, TenantContext::id()]);
     }
 
     // ------------------------------------------------------------------
@@ -216,16 +217,16 @@ class Cliente extends Model
     public function countByUsuarioId(int $usuarioId): int
     {
         $stmt = $this->pdo->prepare(
-            "SELECT COUNT(*) AS total FROM {$this->table} WHERE usuario_id = ?"
+            "SELECT COUNT(*) AS total FROM {$this->table} WHERE usuario_id = ? AND tenant_id = ?"
         );
-        $stmt->execute([$usuarioId]);
+        $stmt->execute([$usuarioId, TenantContext::id()]);
         return (int) ($stmt->fetch(PDO::FETCH_OBJ)->total ?? 0);
     }
 
     public function cpfCnpjExists(string $cpfCnpj, ?int $excludeId = null): bool
     {
-        $sql    = "SELECT COUNT(*) AS total FROM {$this->table} WHERE cpf_cnpj = ?";
-        $params = [$cpfCnpj];
+        $sql    = "SELECT COUNT(*) AS total FROM {$this->table} WHERE cpf_cnpj = ? AND tenant_id = ?";
+        $params = [$cpfCnpj, TenantContext::id()];
         if ($excludeId !== null) {
             $sql     .= " AND id != ?";
             $params[] = $excludeId;
@@ -237,8 +238,8 @@ class Cliente extends Model
 
     public function emailExists(string $email, ?int $excludeId = null): bool
     {
-        $sql    = "SELECT COUNT(*) AS total FROM {$this->table} WHERE email = ?";
-        $params = [$email];
+        $sql    = "SELECT COUNT(*) AS total FROM {$this->table} WHERE email = ? AND tenant_id = ?";
+        $params = [$email, TenantContext::id()];
         if ($excludeId !== null) {
             $sql     .= " AND id != ?";
             $params[] = $excludeId;

@@ -148,6 +148,15 @@ session_start();
 
 /*
 |--------------------------------------------------------------------------
+| Contexto global de tenant
+|--------------------------------------------------------------------------
+| O tenant é resolvido exclusivamente pelo host antes de qualquer rota,
+| incluindo login, portal e APIs. O cliente nunca define tenant_id.
+*/
+(new \App\Middlewares\IdentifyTenantMiddleware())->handle();
+
+/*
+|--------------------------------------------------------------------------
 | CSRF Token
 |--------------------------------------------------------------------------
 */

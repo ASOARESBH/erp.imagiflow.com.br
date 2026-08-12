@@ -33,3 +33,8 @@ tmp_fix_nfse.py
 
 storage/uploads/empresa/*
 !storage/uploads/empresa/.gitkeep
+
+# Artefatos locais de auditoria de banco e dumps recebidos
+.analysis/
+*.sql.gz
+*.sql.gz.sha256

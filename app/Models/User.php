@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Core\Logger;
 use App\Core\Model;
+use App\Core\TenantContext;
 use PDO;
 
 class User extends Model
@@ -11,8 +13,19 @@ class User extends Model
 
     public function findById(int $id): object|false
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE id = ? LIMIT 1");
-        $stmt->execute([$id]);
+        $stmt = $this->pdo->prepare(
+            "SELECT u.*, ut.tenant_id, ut.role AS tenant_role
+             FROM {$this->table} u
+             INNER JOIN user_tenants ut ON ut.user_id = u.id
+             WHERE u.id = :id
+               AND ut.tenant_id = :tenant_id
+               AND ut.status = 'active'
+             LIMIT 1"
+        );
+        $stmt->execute([
+            ':id' => $id,
+            ':tenant_id' => TenantContext::id(),
+        ]);
         return $stmt->fetch();
     }
 
@@ -24,8 +37,19 @@ class User extends Model
      */
     public function findByEmail(string $email): object|false
     {
-        $stmt = $this->pdo->prepare("SELECT *, role FROM {$this->table} WHERE email = ?");
-        $stmt->execute([$email]);
+        $stmt = $this->pdo->prepare(
+            "SELECT u.*, ut.tenant_id, ut.role AS tenant_role
+             FROM {$this->table} u
+             INNER JOIN user_tenants ut ON ut.user_id = u.id
+             WHERE u.email = :email
+               AND ut.tenant_id = :tenant_id
+               AND ut.status = 'active'
+             LIMIT 1"
+        );
+        $stmt->execute([
+            ':email' => $email,
+            ':tenant_id' => TenantContext::id(),
+        ]);
         return $stmt->fetch();
     }
 
@@ -37,19 +61,48 @@ class User extends Model
      */
     public function create(array $data): string|false
     {
-        $sql = "INSERT INTO {$this->table} (name, email, password, role) VALUES (:name, :email, :password, :role)";
-        $stmt = $this->pdo->prepare($sql);
+        $tenantId = TenantContext::id();
+        $role = $data['role'] ?? 'user';
 
-        $stmt->bindValue(":name", $data["name"]);
-        $stmt->bindValue(":email", $data["email"]);
-        $stmt->bindValue(":password", $data["password"]); // A senha já deve estar com hash
-        $stmt->bindValue(":role", $data["role"] ?? "user");
+        try {
+            $this->pdo->beginTransaction();
 
-        if ($stmt->execute()) {
-            return $this->pdo->lastInsertId();
+            $stmt = $this->pdo->prepare(
+                "INSERT INTO {$this->table} (name, email, password, role)
+                 VALUES (:name, :email, :password, :role)"
+            );
+            $stmt->execute([
+                ':name' => $data['name'],
+                ':email' => $data['email'],
+                ':password' => $data['password'],
+                ':role' => $role,
+            ]);
+
+            $userId = (int) $this->pdo->lastInsertId();
+            $link = $this->pdo->prepare(
+                "INSERT INTO user_tenants (user_id, tenant_id, role, status, is_default)
+                 VALUES (:user_id, :tenant_id, :role, 'active', 1)"
+            );
+            $link->execute([
+                ':user_id' => $userId,
+                ':tenant_id' => $tenantId,
+                ':role' => $role,
+            ]);
+
+            $this->pdo->commit();
+            return (string) $userId;
+        } catch (\PDOException $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            (new Logger())->error('Falha ao criar usuário e vínculo de tenant', [
+                'tenant_id' => $tenantId,
+                'email' => $data['email'] ?? null,
+                'error' => $exception->getMessage(),
+            ]);
+            return false;
         }
-
-        return false;
     }
 
     /**
@@ -57,11 +110,20 @@ class User extends Model
      */
     public function updatePassword(int $userId, string $hashedPassword): bool
     {
-        $sql = "UPDATE {$this->table} SET password = :password, updated_at = NOW() WHERE id = :id";
+        $sql = "UPDATE {$this->table}
+                SET password = :password, updated_at = NOW()
+                WHERE id = :id
+                  AND EXISTS (
+                    SELECT 1 FROM user_tenants ut
+                    WHERE ut.user_id = {$this->table}.id
+                      AND ut.tenant_id = :tenant_id
+                      AND ut.status = 'active'
+                  )";
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([
             ':password' => $hashedPassword,
             ':id' => $userId,
+            ':tenant_id' => TenantContext::id(),
         ]);
     }
 
@@ -86,13 +148,20 @@ class User extends Model
                             role = :role,
                             status = :status,
                             updated_at = NOW()
-                        WHERE id = :id";
+                        WHERE id = :id
+                          AND EXISTS (
+                            SELECT 1 FROM user_tenants ut
+                            WHERE ut.user_id = {$this->table}.id
+                              AND ut.tenant_id = :tenant_id
+                              AND ut.status = 'active'
+                          )";
                 $params = [
                     ':name'   => $data['name'],
                     ':email'  => $data['email'],
                     ':role'   => $data['role'],
                     ':status' => $data['status'] ?? 'ativo',
                     ':id'     => $id,
+                    ':tenant_id' => TenantContext::id(),
                 ];
             } else {
                 // Coluna status não existe ainda — atualiza sem ela
@@ -101,33 +170,56 @@ class User extends Model
                             email = :email,
                             role = :role,
                             updated_at = NOW()
-                        WHERE id = :id";
+                        WHERE id = :id
+                          AND EXISTS (
+                            SELECT 1 FROM user_tenants ut
+                            WHERE ut.user_id = {$this->table}.id
+                              AND ut.tenant_id = :tenant_id
+                              AND ut.status = 'active'
+                          )";
                 $params = [
                     ':name'  => $data['name'],
                     ':email' => $data['email'],
                     ':role'  => $data['role'],
                     ':id'    => $id,
+                    ':tenant_id' => TenantContext::id(),
                 ];
 
-                // Tenta adicionar a coluna automaticamente
-                try {
-                    $this->pdo->exec("ALTER TABLE {$this->table} ADD COLUMN status ENUM('ativo','inativo') NOT NULL DEFAULT 'ativo' AFTER role");
-                } catch (\PDOException $alterEx) {
-                    // Ignora se já existir (race condition)
-                    error_log('[User::update] ALTER TABLE status: ' . $alterEx->getMessage());
-                }
             }
 
             $stmt = $this->pdo->prepare($sql);
             $result = $stmt->execute($params);
 
+            if ($result && array_key_exists('role', $data)) {
+                $roleStmt = $this->pdo->prepare(
+                    "UPDATE user_tenants
+                     SET role = :role, updated_at = NOW()
+                     WHERE user_id = :user_id
+                       AND tenant_id = :tenant_id
+                       AND status = 'active'"
+                );
+                $result = $roleStmt->execute([
+                    ':role' => $data['role'],
+                    ':user_id' => $id,
+                    ':tenant_id' => TenantContext::id(),
+                ]);
+            }
+
             if (!$result) {
-                error_log('[User::update] PDO execute failed for user_id=' . $id . ' | errorInfo=' . json_encode($stmt->errorInfo()));
+                (new Logger())->error('Falha ao atualizar usuário no tenant', [
+                    'user_id' => $id,
+                    'tenant_id' => TenantContext::id(),
+                    'error' => $stmt->errorInfo(),
+                ]);
             }
 
             return $result;
         } catch (\PDOException $e) {
-            error_log('[User::update] PDOException for user_id=' . $id . ': ' . $e->getMessage());
+            (new Logger())->error('Exceção ao atualizar usuário no tenant', [
+                'user_id' => $id,
+                'tenant_id' => TenantContext::id(),
+                'error' => $e->getMessage(),
+            ]);
             return false;
         }
     }
@@ -142,9 +234,21 @@ class User extends Model
     public function setTwoFactorEnabled(int $id, bool $enabled): bool
     {
         $stmt = $this->pdo->prepare(
-            "UPDATE {$this->table} SET two_factor_enabled = :enabled, updated_at = NOW() WHERE id = :id"
+            "UPDATE {$this->table}
+             SET two_factor_enabled = :enabled, updated_at = NOW()
+             WHERE id = :id
+               AND EXISTS (
+                 SELECT 1 FROM user_tenants ut
+                 WHERE ut.user_id = {$this->table}.id
+                   AND ut.tenant_id = :tenant_id
+                   AND ut.status = 'active'
+               )"
         );
-        return $stmt->execute([':enabled' => $enabled ? 1 : 0, ':id' => $id]);
+        return $stmt->execute([
+            ':enabled' => $enabled ? 1 : 0,
+            ':id' => $id,
+            ':tenant_id' => TenantContext::id(),
+        ]);
     }
 
     /**
@@ -161,9 +265,20 @@ class User extends Model
                  two_factor_validated = 0,
                  two_factor_last_sent = NOW(),
                  two_factor_locked_until = NULL
-             WHERE id = :id"
+             WHERE id = :id
+               AND EXISTS (
+                 SELECT 1 FROM user_tenants ut
+                 WHERE ut.user_id = {$this->table}.id
+                   AND ut.tenant_id = :tenant_id
+                   AND ut.status = 'active'
+               )"
         );
-        return $stmt->execute([':code' => $codeHash, ':exp' => $expiresAt, ':id' => $id]);
+        return $stmt->execute([
+            ':code' => $codeHash,
+            ':exp' => $expiresAt,
+            ':id' => $id,
+            ':tenant_id' => TenantContext::id(),
+        ]);
     }
 
     /**
@@ -172,8 +287,19 @@ class User extends Model
     public function incrementTwoFactorAttempts(int $id): int
     {
         $this->pdo->prepare(
-            "UPDATE {$this->table} SET two_factor_attempts = two_factor_attempts + 1 WHERE id = :id"
-        )->execute([':id' => $id]);
+            "UPDATE {$this->table}
+             SET two_factor_attempts = two_factor_attempts + 1
+             WHERE id = :id
+               AND EXISTS (
+                 SELECT 1 FROM user_tenants ut
+                 WHERE ut.user_id = {$this->table}.id
+                   AND ut.tenant_id = :tenant_id
+                   AND ut.status = 'active'
+               )"
+        )->execute([
+            ':id' => $id,
+            ':tenant_id' => TenantContext::id(),
+        ]);
 
         $row = $this->findById($id);
         return (int) ($row->two_factor_attempts ?? 0);
@@ -185,9 +311,21 @@ class User extends Model
     public function lockTwoFactor(int $id, string $lockedUntil): bool
     {
         $stmt = $this->pdo->prepare(
-            "UPDATE {$this->table} SET two_factor_locked_until = :until WHERE id = :id"
+            "UPDATE {$this->table}
+             SET two_factor_locked_until = :until
+             WHERE id = :id
+               AND EXISTS (
+                 SELECT 1 FROM user_tenants ut
+                 WHERE ut.user_id = {$this->table}.id
+                   AND ut.tenant_id = :tenant_id
+                   AND ut.status = 'active'
+               )"
         );
-        return $stmt->execute([':until' => $lockedUntil, ':id' => $id]);
+        return $stmt->execute([
+            ':until' => $lockedUntil,
+            ':id' => $id,
+            ':tenant_id' => TenantContext::id(),
+        ]);
     }
 
     /**
@@ -202,9 +340,18 @@ class User extends Model
                  two_factor_expiration = NULL,
                  two_factor_attempts = 0,
                  two_factor_locked_until = NULL
-             WHERE id = :id"
+             WHERE id = :id
+               AND EXISTS (
+                 SELECT 1 FROM user_tenants ut
+                 WHERE ut.user_id = {$this->table}.id
+                   AND ut.tenant_id = :tenant_id
+                   AND ut.status = 'active'
+               )"
         );
-        return $stmt->execute([':id' => $id]);
+        return $stmt->execute([
+            ':id' => $id,
+            ':tenant_id' => TenantContext::id(),
+        ]);
     }
 
     /**
@@ -212,8 +359,15 @@ class User extends Model
      */
     public function findAll(): array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} ORDER BY created_at DESC");
-        $stmt->execute();
+        $stmt = $this->pdo->prepare(
+            "SELECT u.*, ut.tenant_id, ut.role AS tenant_role
+             FROM {$this->table} u
+             INNER JOIN user_tenants ut ON ut.user_id = u.id
+             WHERE ut.tenant_id = :tenant_id
+               AND ut.status = 'active'
+             ORDER BY u.created_at DESC"
+        );
+        $stmt->execute([':tenant_id' => TenantContext::id()]);
         return $stmt->fetchAll() ?: [];
     }
 
@@ -228,9 +382,15 @@ class User extends Model
         $roles        = (array) $roles;
         $placeholders = implode(',', array_fill(0, count($roles), '?'));
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM {$this->table} WHERE role IN ({$placeholders}) ORDER BY name ASC"
+            "SELECT u.*, ut.tenant_id, ut.role AS tenant_role
+             FROM {$this->table} u
+             INNER JOIN user_tenants ut ON ut.user_id = u.id
+             WHERE ut.tenant_id = ?
+               AND ut.status = 'active'
+               AND ut.role IN ({$placeholders})
+             ORDER BY u.name ASC"
         );
-        $stmt->execute($roles);
+        $stmt->execute(array_merge([TenantContext::id()], $roles));
         return $stmt->fetchAll(PDO::FETCH_OBJ) ?: [];
     }
 }
