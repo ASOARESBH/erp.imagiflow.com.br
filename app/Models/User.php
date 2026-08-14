@@ -106,6 +106,30 @@ class User extends Model
     }
 
     /**
+     * Atualiza a preferência de idioma do usuário no tenant atual.
+     */
+    public function updateLocale(int $userId, string $locale): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE {$this->table}
+             SET locale = :locale, updated_at = NOW()
+             WHERE id = :id
+               AND EXISTS (
+                 SELECT 1 FROM user_tenants ut
+                 WHERE ut.user_id = {$this->table}.id
+                   AND ut.tenant_id = :tenant_id
+                   AND ut.status = 'active'
+               )"
+        );
+
+        return $stmt->execute([
+            ':locale' => $locale,
+            ':id' => $userId,
+            ':tenant_id' => TenantContext::id(),
+        ]);
+    }
+
+    /**
      * Atualiza a senha do usuário (hash seguro).
      */
     public function updatePassword(int $userId, string $hashedPassword): bool

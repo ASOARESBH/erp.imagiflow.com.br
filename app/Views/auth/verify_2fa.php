@@ -1,6 +1,6 @@
 <?php
 require_once dirname(__DIR__) . '/layout/public_header.php';
-$logoPath = '/assets/logo-inlaudo.png';
+$logoPath = '/assets/logo-erp-imaginiflow.png';
 $uploadLogoDir = BASE_PATH . '/public/uploads/logo';
 if (is_dir($uploadLogoDir)) {
     $files = array_diff(scandir($uploadLogoDir), ['.', '..']);
@@ -14,26 +14,25 @@ $segundosBloqueio = $segundosBloqueio ?? 0;
 $segundosReenvio  = $segundosReenvio  ?? 0;
 ?>
 <div class="login-card">
-    <img src="<?php echo htmlspecialchars($logoPath); ?>" alt="InLaudo" class="logo">
-    <h1><i class="fa fa-shield-alt" style="font-size:.85em;margin-right:.3rem;color:#00529B"></i>Verificação em Dois Fatores</h1>
+    <img src="<?php echo htmlspecialchars($logoPath); ?>" alt="ERP IMAGINIFLOW" class="logo">
+    <h1><i class="fa fa-shield-alt" style="font-size:.85em;margin-right:.3rem;color:#00529B"></i><?php echo htmlspecialchars(t('auth.two_factor_title')); ?></h1>
 
     <?php if ($bloqueado): ?>
         <div class="alert alert-danger border-0 shadow-sm py-2 px-3 mb-3 rounded-3">
-            Muitas tentativas incorretas. Sua verificação está temporariamente bloqueada.
-            Aguarde alguns minutos e tente novamente.
+            <?php echo htmlspecialchars(t('auth.two_factor_locked')); ?>
         </div>
-        <a href="/login" class="forgot-password">Voltar ao login</a>
+        <a href="/login" class="forgot-password"><?php echo htmlspecialchars(t('auth.back_to_login')); ?></a>
     <?php else: ?>
 
         <p style="color:#64748b;font-size:.9rem;margin-bottom:1.25rem">
-            Enviamos um código de segurança para:<br>
+            <?php echo htmlspecialchars(t('auth.security_code_sent')); ?><br>
             <strong><?php echo htmlspecialchars($emailMascarado); ?></strong>
         </p>
 
         <div id="alert2fa"></div>
 
         <form id="form2fa" onsubmit="return false;">
-            <label class="form-label">Código</label>
+            <label class="form-label"><?php echo htmlspecialchars(t('auth.code')); ?></label>
             <div class="codigo-2fa-wrap" id="codigoWrap">
                 <input type="text" inputmode="numeric" maxlength="1" class="codigo-digit" data-idx="0" autofocus>
                 <input type="text" inputmode="numeric" maxlength="1" class="codigo-digit" data-idx="1">
@@ -42,24 +41,24 @@ $segundosReenvio  = $segundosReenvio  ?? 0;
             </div>
 
             <button type="button" class="btn btn-primary w-100 mt-3" id="btnVerificar">
-                <span id="btnVerificarTexto">Verificar Código</span>
+                <span id="btnVerificarTexto"><?php echo htmlspecialchars(t('auth.verify_code')); ?></span>
             </button>
         </form>
 
         <div class="text-center mt-3" style="font-size:.85rem">
             <span id="cooldownWrap" style="color:#94a3b8;<?php echo $segundosReenvio <= 0 ? 'display:none' : ''; ?>">
-                Reenviar em: <strong id="cooldownTimer">00:<?php echo str_pad((string) $segundosReenvio, 2, '0', STR_PAD_LEFT); ?></strong>
+                <?php echo htmlspecialchars(t('auth.resend_in')); ?> <strong id="cooldownTimer">00:<?php echo str_pad((string) $segundosReenvio, 2, '0', STR_PAD_LEFT); ?></strong>
             </span>
             <button type="button" id="btnReenviar" class="btn btn-link p-0" style="font-size:.85rem;<?php echo $segundosReenvio > 0 ? 'display:none' : ''; ?>">
-                Reenviar Código
+                <?php echo htmlspecialchars(t('auth.resend_code')); ?>
             </button>
             <div id="reenviarStatus" style="margin-top:.5rem;color:#64748b"></div>
         </div>
 
-        <a href="/login" class="forgot-password">Cancelar e voltar ao login</a>
+        <a href="/login" class="forgot-password"><?php echo htmlspecialchars(t('auth.cancel_and_back')); ?></a>
     <?php endif; ?>
 
-    <p class="login-footer">© <?php echo date('Y'); ?> InLaudo. Todos os direitos reservados.</p>
+    <p class="login-footer">© <?php echo date('Y'); ?> <?php echo htmlspecialchars(t('common.app_name')); ?>. <?php echo htmlspecialchars(t('common.copyright')); ?></p>
 </div>
 
 <style>
@@ -71,6 +70,17 @@ $segundosReenvio  = $segundosReenvio  ?? 0;
 <?php if (!$bloqueado): ?>
 <script>
 (function () {
+    const I18N = <?php echo json_encode([
+        'enterCodeFour' => t('auth.enter_code_four'),
+        'verifying' => t('auth.verifying'),
+        'codeVerifiedRedirecting' => t('auth.code_verified_redirecting'),
+        'invalidCode' => t('auth.invalid_code'),
+        'communicationError' => t('auth.communication_error'),
+        'verifyCode' => t('auth.verify_code'),
+        'sendingCode' => t('auth.sending_code'),
+        'codeSent' => t('auth.code_sent'),
+        'codeSendFailed' => t('auth.code_send_failed'),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
     let segundosRestantes = <?php echo (int) $segundosReenvio; ?>;
     let cooldownInterval = null;
 
@@ -118,12 +128,12 @@ $segundosReenvio  = $segundosReenvio  ?? 0;
     async function verificarCodigo() {
         const codigo = codigoAtual();
         if (codigo.length !== 4) {
-            showAlert('Informe os 4 dígitos do código.', 'error');
+            showAlert(I18N.enterCodeFour, 'error');
             return;
         }
 
         btnVerificar.disabled = true;
-        btnVerificarTexto.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Verificando...';
+        btnVerificarTexto.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> ' + I18N.verifying;
 
         try {
             const fd = new FormData();
@@ -132,12 +142,12 @@ $segundosReenvio  = $segundosReenvio  ?? 0;
             const data = await resp.json();
 
             if (data.success) {
-                showAlert('Código verificado com sucesso! Redirecionando...', 'success');
+                showAlert(I18N.codeVerifiedRedirecting, 'success');
                 window.location.href = data.redirect || '/dashboard';
                 return;
             }
 
-            showAlert(data.message || 'Código inválido.', 'error');
+            showAlert(data.message || I18N.invalidCode, 'error');
             digitInputs.forEach(i => i.value = '');
             digitInputs[0].focus();
 
@@ -145,10 +155,10 @@ $segundosReenvio  = $segundosReenvio  ?? 0;
                 setTimeout(() => window.location.reload(), 1500);
             }
         } catch (e) {
-            showAlert('Erro de comunicação. Tente novamente.', 'error');
+            showAlert(I18N.communicationError, 'error');
         } finally {
             btnVerificar.disabled = false;
-            btnVerificarTexto.textContent = 'Verificar Código';
+            btnVerificarTexto.textContent = I18N.verifyCode;
         }
     }
 
@@ -179,14 +189,14 @@ $segundosReenvio  = $segundosReenvio  ?? 0;
 
     btnReenviar.addEventListener('click', async function () {
         btnReenviar.disabled = true;
-        reenviarStatus.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando código...';
+        reenviarStatus.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> ' + I18N.sendingCode;
 
         try {
             const resp = await fetch('/2fa/resend', { method: 'POST' });
             const data = await resp.json();
 
             if (data.success) {
-                reenviarStatus.textContent = 'Código enviado com sucesso.';
+                reenviarStatus.textContent = I18N.codeSent;
                 iniciarCooldown(60);
                 digitInputs.forEach(i => i.value = '');
                 digitInputs[0].focus();
@@ -197,10 +207,10 @@ $segundosReenvio  = $segundosReenvio  ?? 0;
                 showAlert(data.message, 'error');
                 reenviarStatus.textContent = '';
             } else {
-                reenviarStatus.textContent = data.message || 'Não foi possível enviar o código. Tente novamente.';
+                reenviarStatus.textContent = data.message || I18N.codeSendFailed;
             }
         } catch (e) {
-            reenviarStatus.textContent = 'Não foi possível enviar o código. Tente novamente.';
+            reenviarStatus.textContent = I18N.codeSendFailed;
         } finally {
             btnReenviar.disabled = false;
             setTimeout(() => { if (cooldownWrap.style.display === 'none') reenviarStatus.textContent = ''; }, 4000);

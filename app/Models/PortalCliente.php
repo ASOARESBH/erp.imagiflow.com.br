@@ -141,6 +141,24 @@ class PortalCliente extends Model
     }
 
     /**
+     * Atualiza a preferência de idioma do cliente autenticado no tenant atual.
+     */
+    public function updateLocale(int $id, string $locale): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE {$this->table}
+             SET locale = :locale, updated_at = NOW()
+             WHERE id = :id AND tenant_id = :tenant_id"
+        );
+
+        return $stmt->execute([
+            ':locale' => $locale,
+            ':id' => $id,
+            ':tenant_id' => TenantContext::id(),
+        ]);
+    }
+
+    /**
      * Cria um token de primeiro acesso ou reset de senha.
      * Retorna o token gerado.
      */

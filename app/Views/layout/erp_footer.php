@@ -60,6 +60,9 @@ foreach ($pageScripts as $script) {
   'use strict';
 
   const POLL_INTERVAL = 60000; // atualiza a cada 60 segundos
+  const I18N = {
+    noNotifications: <?php echo json_encode(t('common.no_notifications'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
+  };
   let notifAberto    = false;
 
   // Cores por tipo de notificação
@@ -126,7 +129,7 @@ foreach ($pageScripts as $script) {
         if (!lista) return;
 
         if (!data.notificacoes || data.notificacoes.length === 0) {
-          lista.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:.85rem;"><i class="far fa-bell-slash fa-2x mb-2 d-block"></i>Nenhuma notificação no momento</div>';
+          lista.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:.85rem;"><i class="far fa-bell-slash fa-2x mb-2 d-block"></i>' + escHtml(I18N.noNotifications) + '</div>';
           return;
         }
 

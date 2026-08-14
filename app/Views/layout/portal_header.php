@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="<?php echo htmlspecialchars(\App\Core\Lang::instance()->htmlLocale()); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1a56db">
-    <title><?php echo htmlspecialchars($title ?? 'Área do Cliente'); ?> | INLAUDO</title>
+    <title><?php echo htmlspecialchars($title ?? t('portal.title')); ?> | <?php echo htmlspecialchars(t('common.app_name')); ?></title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -13,7 +13,7 @@
 <body class="portal-body">
 
 <?php
-$portalNome  = $_SESSION['portal_cliente_nome']  ?? 'Cliente';
+$portalNome  = $_SESSION['portal_cliente_nome']  ?? t('common.user');
 $portalEmail = $_SESSION['portal_cliente_email'] ?? '';
 $currentUri  = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 ?>
@@ -22,7 +22,7 @@ $currentUri  = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 <nav class="portal-navbar">
     <div class="portal-navbar-brand">
         <?php
-        $logoPath = '/assets/logo-inlaudo.png';
+        $logoPath = '/assets/logo-erp-imaginiflow.png';
         $uploadLogoDir = BASE_PATH . '/public/uploads/logo';
         if (is_dir($uploadLogoDir)) {
             $files = array_diff(scandir($uploadLogoDir), ['.', '..']);
@@ -32,10 +32,11 @@ $currentUri  = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
             }
         }
         ?>
-        <img src="<?php echo htmlspecialchars($logoPath); ?>" alt="INLAUDO" class="portal-logo">
-        <span class="portal-brand-text">Área do Cliente</span>
+        <img src="<?php echo htmlspecialchars($logoPath); ?>" alt="ERP IMAGINIFLOW" class="portal-logo">
+        <span class="portal-brand-text"><?php echo htmlspecialchars(t('portal.title')); ?></span>
     </div>
     <div class="portal-navbar-actions">
+        <?php require dirname(__DIR__) . '/partials/language_selector.php'; ?>
         <div class="dropdown">
             <button class="portal-user-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                 <span class="portal-user-avatar">
@@ -53,7 +54,7 @@ $currentUri  = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
                 <li><hr class="dropdown-divider my-1"></li>
                 <li>
                     <a class="dropdown-item" href="/portal/perfil">
-                        <i class="fa fa-user-circle me-2 text-primary"></i> Meu Perfil
+                        <i class="fa fa-user-circle me-2 text-primary"></i> <?php echo htmlspecialchars(t('common.my_profile')); ?>
                     </a>
                 </li>
                 <li><hr class="dropdown-divider my-1"></li>
@@ -61,7 +62,7 @@ $currentUri  = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
                     <form action="/portal/logout" method="POST" class="m-0">
                         <?php echo \App\Core\View::csrfField(); ?>
                         <button type="submit" class="dropdown-item text-danger">
-                            <i class="fa fa-sign-out-alt me-2"></i> Sair
+                            <i class="fa fa-sign-out-alt me-2"></i> <?php echo htmlspecialchars(t('portal.logout')); ?>
                         </button>
                     </form>
                 </li>
@@ -78,47 +79,47 @@ $currentUri  = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         <nav class="portal-sidenav">
             <a href="/portal/dashboard" class="portal-nav-item <?php echo $currentUri === '/portal/dashboard' ? 'active' : ''; ?>">
                 <i class="fa fa-home"></i>
-                <span>Painel</span>
+                <span><?php echo htmlspecialchars(t('portal.dashboard')); ?></span>
             </a>
             <a href="/portal/contas-a-pagar" class="portal-nav-item <?php echo str_starts_with($currentUri, '/portal/contas-a-pagar') ? 'active' : ''; ?>">
                 <i class="fa fa-file-invoice-dollar"></i>
-                <span>Minhas Contas</span>
+                <span><?php echo htmlspecialchars(t('portal.my_accounts')); ?></span>
             </a>
             <a href="/portal/pagamentos/dashboard" class="portal-nav-item <?php echo str_starts_with($currentUri, '/portal/pagamentos') ? 'active' : ''; ?>">
                 <i class="fa fa-chart-pie"></i>
-                <span>Meu Financeiro</span>
+                <span><?php echo htmlspecialchars(t('portal.my_financial')); ?></span>
             </a>
             <a href="/portal/apuracoes" class="portal-nav-item <?php echo str_starts_with($currentUri, '/portal/apuracoes') ? 'active' : ''; ?>">
                 <i class="fa fa-chart-bar"></i>
-                <span>Apurações</span>
+                <span><?php echo htmlspecialchars(t('portal.settlements')); ?></span>
             </a>
             <div class="portal-nav-group">
                 <div class="portal-nav-group-label" onclick="toggleNavGroup(this)" style="cursor:pointer">
                     <i class="fa fa-handshake"></i>
-                    <span>Negociações</span>
+                    <span><?php echo htmlspecialchars(t('portal.negotiations')); ?></span>
                     <i class="fa fa-chevron-down portal-nav-arrow ms-auto"></i>
                 </div>
                 <div class="portal-nav-submenu <?php echo str_starts_with($currentUri, '/portal/negociacoes') ? 'open' : ''; ?>">
                     <a href="/portal/negociacoes/propostas" class="portal-nav-subitem <?php echo str_starts_with($currentUri, '/portal/negociacoes/propostas') ? 'active' : ''; ?>">
                         <i class="fa fa-file-contract"></i>
-                        <span>Propostas</span>
+                        <span><?php echo htmlspecialchars(t('portal.proposals')); ?></span>
                     </a>
                     <a href="/portal/negociacoes/pedidos-venda" class="portal-nav-subitem <?php echo str_starts_with($currentUri, '/portal/negociacoes/pedidos-venda') ? 'active' : ''; ?>">
                         <i class="fa fa-shopping-cart"></i>
-                        <span>Pedidos de Venda</span>
+                        <span><?php echo htmlspecialchars(t('portal.sales_orders')); ?></span>
                     </a>
                 </div>
             </div>
             <div class="portal-nav-group">
                 <div class="portal-nav-group-label">
                     <i class="fa fa-receipt"></i>
-                    <span>Faturamento</span>
+                    <span><?php echo htmlspecialchars(t('common.billing')); ?></span>
                     <i class="fa fa-chevron-down portal-nav-arrow ms-auto"></i>
                 </div>
                 <div class="portal-nav-submenu <?php echo str_starts_with($currentUri, '/portal/faturamento') ? 'open' : ''; ?>">
                     <a href="/portal/faturamento/notas-fiscais" class="portal-nav-subitem <?php echo str_starts_with($currentUri, '/portal/faturamento/notas-fiscais') ? 'active' : ''; ?>">
                         <i class="fa fa-file-alt"></i>
-                        <span>Minhas Notas Fiscais</span>
+                        <span><?php echo htmlspecialchars(t('portal.my_invoices')); ?></span>
                     </a>
                 </div>
             </div>

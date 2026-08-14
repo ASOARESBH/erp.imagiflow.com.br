@@ -6,6 +6,10 @@ use App\Core\Router;
 Router::get("/login", "AuthController@showLoginForm");
 Router::post("/login", "AuthController@login");
 
+// Troca de idioma: pública para funcionar no login e persistida no usuário autenticado.
+// A validação CSRF ocorre no LocaleController.
+Router::post("/idioma", "LocaleController@update");
+
 Router::get("/forgot-password", "AuthController@showForgotPasswordForm");
 Router::post("/forgot-password", "AuthController@forgotPassword");
 

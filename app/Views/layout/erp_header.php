@@ -23,12 +23,12 @@ if ($_ec) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="<?php echo htmlspecialchars(\App\Core\Lang::instance()->htmlLocale()); ?>">
 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <title>INLAUDO ERP</title>
+  <title><?php echo htmlspecialchars(t('common.app_name')); ?></title>
 
   <!-- FONTS & ICONS -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
@@ -516,130 +516,127 @@ if ($_ec) {
 
       <!-- CENTER: NAV -->
       <nav class="sidebar-nav">
-        <div class="nav-label">Geral</div>
+        <div class="nav-label"><?php echo htmlspecialchars(t('common.general')); ?></div>
         <ul class="nav-list">
           <li class="nav-item <?php echo strpos($_SERVER['REQUEST_URI'], 'dashboard') !== false ? 'active' : ''; ?>">
-            <a href="/dashboard" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
+            <a href="/dashboard" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.dashboard')); ?>">
               <i class="fas fa-chart-line"></i>
-              <span class="link-text">DASHBOARD</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.dashboard')); ?></span>
             </a>
           </li>
 
-          <div class="nav-label">Cadastros</div>
+          <div class="nav-label"><?php echo htmlspecialchars(t('common.registrations')); ?></div>
           <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/clientes') !== false || strpos($_SERVER['REQUEST_URI'], '/cnes') !== false) ? 'open active' : ''; ?>">
-            <a href="/clientes" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Clientes">
+            <a href="/clientes" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.clients')); ?>">
               <i class="fas fa-users"></i>
-              <span class="link-text">CLIENTES</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.clients')); ?></span>
             </a>
             <ul class="submenu">
               <li>
                 <a href="/clientes" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/clientes') !== false) ? 'active' : ''; ?>">
-                  <i class="fas fa-address-book me-2"></i> Todos os Clientes
+                  <i class="fas fa-address-book me-2"></i> <?php echo htmlspecialchars(t('common.all_clients')); ?>
                 </a>
               </li>
               <li>
                 <a href="/cnes" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/cnes') !== false) ? 'active' : ''; ?>">
-                  <i class="fas fa-hospital me-2"></i> CNES Global
+                  <i class="fas fa-hospital me-2"></i> <?php echo htmlspecialchars(t('common.global_cnes')); ?>
                 </a>
               </li>
             </ul>
           </li>
           <li class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], '/fornecedores') !== false || strpos($_SERVER['REQUEST_URI'], '/financeiro/fornecedores') !== false) ? 'active' : ''; ?>">
-            <a href="/fornecedores" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Fornecedores">
+            <a href="/fornecedores" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.suppliers')); ?>">
               <i class="fas fa-truck"></i>
-              <span class="link-text">FORNECEDORES</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.suppliers')); ?></span>
             </a>
           </li>
           <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/medicos') !== false || strpos($_SERVER['REQUEST_URI'], '/especialidades') !== false || strpos($_SERVER['REQUEST_URI'], '/escalas') !== false || strpos($_SERVER['REQUEST_URI'], '/exames-tabela') !== false) ? 'open active' : ''; ?>">
-            <a href="/medicos" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Corpo Clinico">
+            <a href="/medicos" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.clinical_staff')); ?>">
               <i class="fas fa-user-doctor"></i>
-              <span class="link-text">CORPO CLINICO</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.clinical_staff')); ?></span>
             </a>
             <ul class="submenu">
               <li><a href="/medicos"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/medicos') !== false ? 'active' : ''; ?>">MEDICOS</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/medicos') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.doctors')); ?></a></li>
               <li><a href="/especialidades"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/especialidades') !== false ? 'active' : ''; ?>">ESPECIALIDADES</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/especialidades') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.specialties')); ?></a></li>
               <li><a href="/escalas"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/escalas') !== false ? 'active' : ''; ?>">ESCALAS</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/escalas') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.schedules')); ?></a></li>
               <li><a href="/exames-tabela"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/exames-tabela') !== false ? 'active' : ''; ?>">SERVIÇOS / EXAMES</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/exames-tabela') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.services_exams')); ?></a></li>
             </ul>
           </li>
 
           <?php if (\App\Core\Auth::can('view_colaboradores')): ?>
           <li class="nav-item has-submenu <?php echo strpos($_SERVER['REQUEST_URI'], '/colaboradores') !== false ? 'open active' : ''; ?>">
-            <a href="/colaboradores" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Colaboradores">
+            <a href="/colaboradores" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.employees')); ?>">
               <i class="fas fa-users-gear"></i>
-              <span class="link-text">COLABORADORES</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.employees')); ?></span>
             </a>
             <ul class="submenu">
               <li><a href="/colaboradores"
-                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/colaboradores') !== false && strpos($_SERVER['REQUEST_URI'], '/colaboradores/create') === false) ? 'active' : ''; ?>">LISTAR</a></li>
+                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/colaboradores') !== false && strpos($_SERVER['REQUEST_URI'], '/colaboradores/create') === false) ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.list')); ?></a></li>
               <?php if (\App\Core\Auth::can('create_colaboradores')): ?>
               <li><a href="/colaboradores/create"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/colaboradores/create') !== false ? 'active' : ''; ?>">NOVO COLABORADOR</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/colaboradores/create') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.new_employee')); ?></a></li>
               <?php endif; ?>
             </ul>
           </li>
           <?php endif; ?>
 
-          <div class="nav-label">Operacional</div>
+          <div class="nav-label"><?php echo htmlspecialchars(t('common.operational')); ?></div>
           <li class="nav-item <?php echo strpos($_SERVER['REQUEST_URI'], '/contratos') !== false ? 'active' : ''; ?>">
-            <a href="/contratos" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Contratos">
+            <a href="/contratos" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.contracts')); ?>">
               <i class="fas fa-file-contract"></i>
-              <span class="link-text">CONTRATOS</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.contracts')); ?></span>
             </a>
           </li>
           <li class="nav-item has-submenu">
-            <a href="#" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Financeiro">
+            <a href="#" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.financial')); ?>">
               <i class="fas fa-wallet"></i>
-              <span class="link-text">FINANCEIRO</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.financial')); ?></span>
             </a>
             <ul class="submenu">
               <li><a href="/financeiro/pagar"
-                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/financeiro/pagar') !== false || strpos($_SERVER['REQUEST_URI'], '/financeiro/contas-a-pagar') !== false) ? 'active' : ''; ?>">CONTAS
-                  A PAGAR</a></li>
+                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/financeiro/pagar') !== false || strpos($_SERVER['REQUEST_URI'], '/financeiro/contas-a-pagar') !== false) ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.accounts_payable')); ?></a></li>
               <li><a href="/financeiro/receber"
-                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/financeiro/receber') !== false || strpos($_SERVER['REQUEST_URI'], '/financeiro/contas-a-receber') !== false) ? 'active' : ''; ?>">CONTAS
-                  A RECEBER</a></li>
+                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/financeiro/receber') !== false || strpos($_SERVER['REQUEST_URI'], '/financeiro/contas-a-receber') !== false) ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.accounts_receivable')); ?></a></li>
               <li><a href="/financeiro/plano-contas"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/financeiro/plano-contas') !== false ? 'active' : ''; ?>">PLANO
-                  DE CONTAS</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/financeiro/plano-contas') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.chart_of_accounts')); ?></a></li>
               <li><a href="/financeiro/contas"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/financeiro/contas') !== false ? 'active' : ''; ?>"><i class="fas fa-university me-1"></i> CONTAS</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/financeiro/contas') !== false ? 'active' : ''; ?>"><i class="fas fa-university me-1"></i> <?php echo htmlspecialchars(t('common.accounts')); ?></a></li>
             </ul>
           </li>
 
           <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/faturamento') !== false) ? 'open active' : ''; ?>">
-            <a href="#" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Faturamento">
+            <a href="#" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.billing')); ?>">
               <i class="fas fa-file-invoice"></i>
-              <span class="link-text">FATURAMENTO</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.billing')); ?></span>
             </a>
             <ul class="submenu">
               <li><a href="/faturamento/notas-fiscais"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/faturamento/notas-fiscais') !== false ? 'active' : ''; ?>">NOTAS FISCAIS</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/faturamento/notas-fiscais') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.invoices')); ?></a></li>
               <li><a href="/faturamento/apuracao-prestador"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/faturamento/apuracao-prestador') !== false ? 'active' : ''; ?>">APURAÇÃO PRESTADOR</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/faturamento/apuracao-prestador') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.provider_settlement')); ?></a></li>
               <li><a href="/faturamento/apuracao-cliente"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/faturamento/apuracao-cliente') !== false ? 'active' : ''; ?>">APURAÇÃO CLIENTE</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/faturamento/apuracao-cliente') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.client_settlement')); ?></a></li>
             </ul>
           </li>
 
           <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/estoque') !== false) ? 'open active' : ''; ?>">
-            <a href="#" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Estoque">
+            <a href="#" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.inventory')); ?>">
               <i class="fas fa-boxes"></i>
-              <span class="link-text">ESTOQUE</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.inventory')); ?></span>
             </a>
             <ul class="submenu">
               <li><a href="/estoque/produtos"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/estoque/produtos') !== false ? 'active' : ''; ?>"><i class="fas fa-box me-1"></i> PRODUTOS</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/estoque/produtos') !== false ? 'active' : ''; ?>"><i class="fas fa-box me-1"></i> <?php echo htmlspecialchars(t('common.products')); ?></a></li>
               <li><a href="/estoque/movimentacoes"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/estoque/movimentacoes') !== false ? 'active' : ''; ?>"><i class="fas fa-exchange-alt me-1"></i> MOVIMENTAÇÕES</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/estoque/movimentacoes') !== false ? 'active' : ''; ?>"><i class="fas fa-exchange-alt me-1"></i> <?php echo htmlspecialchars(t('common.movements')); ?></a></li>
               <li><a href="/estoque/compras"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/estoque/compras') !== false ? 'active' : ''; ?>"><i class="fas fa-shopping-cart me-1"></i> PEDIDOS DE COMPRA</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/estoque/compras') !== false ? 'active' : ''; ?>"><i class="fas fa-shopping-cart me-1"></i> <?php echo htmlspecialchars(t('common.purchase_orders')); ?></a></li>
               <li><a href="/estoque/vendas"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/estoque/vendas') !== false ? 'active' : ''; ?>"><i class="fas fa-store me-1"></i> PEDIDOS DE VENDA</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/estoque/vendas') !== false ? 'active' : ''; ?>"><i class="fas fa-store me-1"></i> <?php echo htmlspecialchars(t('common.sales_orders')); ?></a></li>
             </ul>
           </li>
 
@@ -663,17 +660,17 @@ if ($_ec) {
             </ul>
           </li>
 
-          <div class="nav-label">Marketing</div>
+          <div class="nav-label"><?php echo htmlspecialchars(t('common.marketing')); ?></div>
           <li class="nav-item has-submenu <?php echo strpos($_SERVER['REQUEST_URI'], '/marketing') !== false ? 'open active' : ''; ?>">
-            <a href="/marketing/campanhas" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Marketing">
+            <a href="/marketing/campanhas" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.marketing')); ?>">
               <i class="fas fa-bullhorn"></i>
-              <span class="link-text">MARKETING</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.marketing')); ?></span>
             </a>
             <ul class="submenu">
               <li><a href="/marketing/campanhas"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/marketing/campanhas') !== false ? 'active' : ''; ?>"><i class="fas fa-envelope-open-text me-1"></i> CAMPANHAS</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/marketing/campanhas') !== false ? 'active' : ''; ?>"><i class="fas fa-envelope-open-text me-1"></i> <?php echo htmlspecialchars(t('common.campaigns')); ?></a></li>
               <li><a href="/marketing/disparadores"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/marketing/disparadores') !== false ? 'active' : ''; ?>"><i class="fas fa-rocket me-1"></i> DISPARADORES</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/marketing/disparadores') !== false ? 'active' : ''; ?>"><i class="fas fa-rocket me-1"></i> <?php echo htmlspecialchars(t('common.triggers')); ?></a></li>
               <li><a href="/marketing/dashboard"
                   class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/marketing/dashboard') !== false ? 'active' : ''; ?>"><i class="fas fa-chart-bar me-1"></i> DASHBOARD</a></li>
             </ul>
@@ -693,42 +690,42 @@ if ($_ec) {
             </ul>
           </li>
 
-          <div class="nav-label">Manutenção</div>
+          <div class="nav-label"><?php echo htmlspecialchars(t('common.maintenance')); ?></div>
           <li class="nav-item has-submenu <?php echo strpos($_SERVER['REQUEST_URI'], '/manutencao') !== false ? 'open active' : ''; ?>">
-            <a href="/manutencao/ordens" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Manutenção">
+            <a href="/manutencao/ordens" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.maintenance')); ?>">
               <i class="fas fa-tools"></i>
-              <span class="link-text">MANUTENÇÃO</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.maintenance')); ?></span>
             </a>
             <ul class="submenu">
               <li><a href="/manutencao/ordens"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/manutencao/ordens') !== false ? 'active' : ''; ?>"><i class="fas fa-clipboard-list me-1"></i> ORDENS DE SERVIÇO</a></li>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/manutencao/ordens') !== false ? 'active' : ''; ?>"><i class="fas fa-clipboard-list me-1"></i> <?php echo htmlspecialchars(t('common.service_orders')); ?></a></li>
             </ul>
           </li>
 
-          <div class="nav-label">Configurações</div>
+          <div class="nav-label"><?php echo htmlspecialchars(t('common.settings')); ?></div>
           <li
             class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false) ? 'open active' : ''; ?>">
-            <a href="/configuracoes" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Configurações">
+            <a href="/configuracoes" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.settings')); ?>">
               <i class="fas fa-cog"></i>
-              <span class="link-text">CONFIGURAÇÕES</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.settings')); ?></span>
             </a>
             <ul class="submenu">
               <li><a href="/configuracoes?tab=geral"
-                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false && ($_GET['tab'] ?? 'geral') === 'geral') ? 'active' : ''; ?>">GERAL</a>
+                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false && ($_GET['tab'] ?? 'geral') === 'geral') ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.general')); ?></a>
               </li>
               <li><a href="/configuracoes?tab=financeiro"
-                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false && ($_GET['tab'] ?? '') === 'financeiro') ? 'active' : ''; ?>">FINANCEIRO</a>
+                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false && ($_GET['tab'] ?? '') === 'financeiro') ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.financial')); ?></a>
               </li>
               <li><a href="/configuracoes?tab=notas-fiscais"
-                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false && ($_GET['tab'] ?? '') === 'notas-fiscais') ? 'active' : ''; ?>">NOTA FISCAL</a>
+                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false && ($_GET['tab'] ?? '') === 'notas-fiscais') ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.invoice')); ?></a>
               </li>
             </ul>
           </li>
           <li
             class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/integracao') !== false) ? 'open active' : ''; ?>">
-            <a href="#" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Integração">
+            <a href="#" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.integration')); ?>">
               <i class="fas fa-plug"></i>
-              <span class="link-text">INTEGRAÇÃO</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.integration')); ?></span>
             </a>
             <ul class="submenu">
               <li><a href="/integracao/asaas"
@@ -738,7 +735,7 @@ if ($_ec) {
                   class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/integracao/cora') !== false ? 'active' : ''; ?>">CORA</a>
               </li>
               <li><a href="/integracao/email"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/integracao/email') !== false ? 'active' : ''; ?>">E-MAIL</a>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/integracao/email') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.email')); ?></a>
               </li>
               <li><a href="/integracao/whatsapp"
                   class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/integracao/whatsapp') !== false ? 'active' : ''; ?>">WHATSAPP</a>
@@ -748,37 +745,37 @@ if ($_ec) {
           <?php if (\App\Core\Auth::can('view_hub_ia')): ?>
           <li
             class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/hub-ia') !== false) ? 'open active' : ''; ?>">
-            <a href="/hub-ia" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="HUB I.A">
+            <a href="/hub-ia" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.hub_ai')); ?>">
               <i class="fas fa-brain"></i>
-              <span class="link-text">HUB I.A</span>
+              <span class="link-text"><?php echo htmlspecialchars(t('common.hub_ai')); ?></span>
             </a>
             <ul class="submenu">
               <li><a href="/hub-ia"
                   class="nav-link <?php echo $_SERVER['REQUEST_URI'] === '/hub-ia' ? 'active' : ''; ?>">DASHBOARD</a>
               </li>
               <li><a href="/hub-ia/conectores"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/conectores') !== false ? 'active' : ''; ?>">CONECTORES</a>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/conectores') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.connectors')); ?></a>
               </li>
               <li><a href="/hub-ia/agentes"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/agentes') !== false ? 'active' : ''; ?>">ROBÔS IA</a>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/agentes') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.ai_agents')); ?></a>
               </li>
               <li><a href="/hub-ia/prompts"
                   class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/prompts') !== false ? 'active' : ''; ?>">PROMPTS</a>
               </li>
               <li><a href="/hub-ia/conhecimento"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/conhecimento') !== false ? 'active' : ''; ?>">BASE DE CONHECIMENTO</a>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/conhecimento') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.knowledge_base')); ?></a>
               </li>
               <li><a href="/hub-ia/banco"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/banco') !== false ? 'active' : ''; ?>">BANCO DE DADOS</a>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/banco') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.database')); ?></a>
               </li>
               <li><a href="/hub-ia/whatsapp"
                   class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/whatsapp') !== false ? 'active' : ''; ?>">WHATSAPP</a>
               </li>
               <li><a href="/hub-ia/chat"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/chat') !== false ? 'active' : ''; ?>">CHAT (EVA)</a>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/chat') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.chat')); ?></a>
               </li>
               <li><a href="/hub-ia/relatorios"
-                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/relatorios') !== false ? 'active' : ''; ?>">RELATÓRIOS</a>
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/relatorios') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.reports')); ?></a>
               </li>
             </ul>
           </li>
@@ -788,7 +785,7 @@ if ($_ec) {
 
       <!-- BOTTOM: SYSTEM INFO -->
       <div class="sidebar-footer">
-        v1.0.2 · InLaudo ERP
+        v1.0.2 · <?php echo htmlspecialchars(t('common.app_name')); ?>
       </div>
 
     </aside>
@@ -806,7 +803,7 @@ if ($_ec) {
           <div class="page-title-box">
             <nav aria-label="breadcrumb">
               <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="/dashboard">Home</a></li>
+                <li class="breadcrumb-item"><a href="/dashboard"><?php echo htmlspecialchars(t('common.home')); ?></a></li>
                 <?php if (isset($breadcrumb)): ?>
                   <?php foreach ($breadcrumb as $label => $link): ?>
                     <?php if (is_numeric($label)): ?>
@@ -818,11 +815,13 @@ if ($_ec) {
                 <?php endif; ?>
               </ol>
             </nav>
-            <h1 class="page-title"><?php echo $title ?? 'Dashboard'; ?></h1>
+            <h1 class="page-title"><?php echo htmlspecialchars($title ?? t('common.dashboard')); ?></h1>
           </div>
         </div>
 
         <div class="header-right">
+          <?php require dirname(__DIR__) . '/partials/language_selector.php'; ?>
+
 
           <!-- ===== NOTIFICAÇÕES ===== -->
           <div class="dropdown" id="notifDropdownWrapper">
@@ -831,7 +830,7 @@ if ($_ec) {
               id="notifDropdownBtn"
               data-bs-toggle="dropdown"
               aria-expanded="false"
-              title="Notificações"
+              title="<?php echo htmlspecialchars(t('common.notifications')); ?>"
               style="background:none;border:none;cursor:pointer;padding:0.4rem 0.6rem;border-radius:0.5rem;transition:background .2s;"
             >
               <i class="far fa-bell" style="font-size:1.2rem;"></i>
@@ -851,27 +850,27 @@ if ($_ec) {
             >
               <!-- Cabeçalho -->
               <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom" style="background:#f8fafc;border-radius:.75rem .75rem 0 0;">
-                <span style="font-weight:600;font-size:.875rem;color:#1a202c;"><i class="far fa-bell me-2 text-primary"></i>Notificações</span>
+                <span style="font-weight:600;font-size:.875rem;color:#1a202c;"><i class="far fa-bell me-2 text-primary"></i><?php echo htmlspecialchars(t('common.notifications')); ?></span>
                 <button
                   id="notifMarcarTodasBtn"
                   class="btn btn-link btn-sm p-0 text-primary"
                   style="font-size:.75rem;text-decoration:none;"
                   onclick="notifMarcarTodas()"
-                >Marcar todas como lidas</button>
+                ><?php echo htmlspecialchars(t('common.mark_all_as_read')); ?></button>
               </div>
 
               <!-- Lista de notificações -->
               <div id="notifLista" style="max-height:380px;overflow-y:auto;">
                 <div class="text-center py-4 text-muted" id="notifEmpty" style="font-size:.85rem;">
                   <i class="far fa-bell-slash fa-2x mb-2 d-block"></i>
-                  Nenhuma notificação no momento
+                  <?php echo htmlspecialchars(t('common.no_notifications')); ?>
                 </div>
               </div>
 
               <!-- Rodapé -->
               <div class="border-top text-center py-2" style="background:#f8fafc;border-radius:0 0 .75rem .75rem;">
                 <a href="/configuracoes?tab=notificacoes" style="font-size:.78rem;color:#00529B;text-decoration:none;font-weight:500;">
-                  <i class="fas fa-cog me-1"></i>Configurar alertas
+                  <i class="fas fa-cog me-1"></i><?php echo htmlspecialchars(t('common.configure_alerts')); ?>
                 </a>
               </div>
             </div>
@@ -885,8 +884,8 @@ if ($_ec) {
                 src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['user_name'] ?? 'User'); ?>&background=00529B&color=fff"
                 alt="Avatar" class="user-avatar">
               <div class="user-info">
-                <span class="user-name"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Usuário'); ?></span>
-                <span class="user-role">Administrador</span>
+                <span class="user-name"><?php echo htmlspecialchars($_SESSION['user_name'] ?? t('common.user')); ?></span>
+                <span class="user-role"><?php echo htmlspecialchars(t('common.administrator')); ?></span>
               </div>
               <i class="fas fa-chevron-down ms-2 fs-xs text-muted"></i>
             </div>
@@ -894,17 +893,17 @@ if ($_ec) {
             <ul class="dropdown-menu dropdown-menu-end dropdown-menu-user" aria-labelledby="userDropdown">
               <li>
                 <a class="dropdown-item dropdown-item-user" href="/perfil">
-                  <i class="far fa-user"></i> Meu Perfil
+                  <i class="far fa-user"></i> <?php echo htmlspecialchars(t('common.my_profile')); ?>
                 </a>
               </li>
               <li>
                 <a class="dropdown-item dropdown-item-user" href="/configuracoes">
-                  <i class="fas fa-cog"></i> Configurações
+                  <i class="fas fa-cog"></i> <?php echo htmlspecialchars(t('common.settings')); ?>
                 </a>
               </li>
               <li>
                 <a class="dropdown-item dropdown-item-user" href="/manual">
-                  <i class="fas fa-book-open"></i> Manual do Sistema
+                  <i class="fas fa-book-open"></i> <?php echo htmlspecialchars(t('common.system_manual')); ?>
                 </a>
               </li>
               <li>
@@ -913,7 +912,7 @@ if ($_ec) {
               <li>
                 <a class="dropdown-item dropdown-item-user text-danger" href="javascript:void(0);"
                   onclick="confirmLogout()">
-                  <i class="fas fa-sign-out-alt"></i> Sair do Sistema
+                  <i class="fas fa-sign-out-alt"></i> <?php echo htmlspecialchars(t('common.logout')); ?>
                 </a>
               </li>
             </ul>

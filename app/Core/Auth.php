@@ -69,6 +69,11 @@ class Auth
         $_SESSION['user_role'] = $user->tenant_role ?? $user->role ?? 'user';
         $_SESSION['login_time'] = time();
 
+        $userLocale = (string) ($user->locale ?? 'pt_BR');
+        if (Lang::instance()->isSupported($userLocale)) {
+            Lang::instance()->setLocale($userLocale);
+        }
+
         AuditLogger::log('login_success', [
             'user_id' => $user->id,
             'email' => $user->email,

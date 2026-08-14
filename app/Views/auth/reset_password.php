@@ -2,7 +2,7 @@
 use App\Core\Form;
 require_once dirname(__DIR__) . '/layout/public_header.php';
 
-$logoPath = '/assets/logo-inlaudo.png';
+$logoPath = '/assets/logo-erp-imaginiflow.png';
 $uploadLogoDir = BASE_PATH . '/public/uploads/logo';
 if (is_dir($uploadLogoDir)) {
     $files = array_diff(scandir($uploadLogoDir), ['.', '..']);
@@ -16,19 +16,19 @@ $tokenValue = $tokenValue ?? '';
 $errorMsg = '';
 if (!empty($_GET['error'])) {
     if ($_GET['error'] === 'short') {
-        $errorMsg = 'A senha deve ter no mínimo 8 caracteres.';
+        $errorMsg = t('auth.password_minimum');
     } elseif ($_GET['error'] === 'mismatch') {
-        $errorMsg = 'As senhas não coincidem.';
+        $errorMsg = t('auth.passwords_do_not_match');
     } else {
-        $errorMsg = 'Não foi possível redefinir a senha. Tente novamente.';
+        $errorMsg = t('auth.password_reset_failed');
     }
 }
 ?>
 
 <div class="login-card">
-    <img src="<?php echo htmlspecialchars($logoPath); ?>" alt="InLaudo" class="logo">
+    <img src="<?php echo htmlspecialchars($logoPath); ?>" alt="ERP IMAGINIFLOW" class="logo">
 
-    <h1>Redefinir senha</h1>
+    <h1><?php echo htmlspecialchars(t('auth.reset_title')); ?></h1>
 
     <?php if ($errorMsg): ?>
         <div class="alert alert-danger border-0 shadow-sm py-2 px-3 mb-3 rounded-3">
@@ -38,9 +38,9 @@ if (!empty($_GET['error'])) {
 
     <?php Form::start('resetForm', '/reset-password/' . htmlspecialchars($tokenValue)); ?>
     <div class="mb-3">
-        <label class="form-label">Nova senha <span class="text-danger">*</span></label>
+        <label class="form-label"><?php echo htmlspecialchars(t('auth.new_password')); ?> <span class="text-danger">*</span></label>
         <?php Form::input('password', '', 'password', '', [
-            'placeholder' => 'Mínimo 8 caracteres',
+            'placeholder' => t('auth.password_minimum'),
             'required' => true,
             'class' => 'form-control',
             'autofocus' => true,
@@ -49,21 +49,21 @@ if (!empty($_GET['error'])) {
     </div>
 
     <div class="mb-4">
-        <label class="form-label">Confirmar senha <span class="text-danger">*</span></label>
+        <label class="form-label"><?php echo htmlspecialchars(t('auth.confirm_password')); ?> <span class="text-danger">*</span></label>
         <?php Form::input('password_confirm', '', 'password', '', [
-            'placeholder' => 'Repita a senha',
+            'placeholder' => t('auth.password_repeat_placeholder'),
             'required' => true,
             'class' => 'form-control',
             'minlength' => 8
         ]); ?>
     </div>
 
-    <?php Form::button('Redefinir senha', 'submit', 'btn btn-primary'); ?>
+    <?php Form::button(t('auth.reset_password'), 'submit', 'btn btn-primary'); ?>
     <?php Form::end(); ?>
 
-    <a href="/login" class="forgot-password">Voltar ao login</a>
+    <a href="/login" class="forgot-password"><?php echo htmlspecialchars(t('auth.back_to_login')); ?></a>
 
-    <p class="login-footer">© 2026 InLaudo. Todos os direitos reservados.</p>
+    <p class="login-footer">© <?php echo date('Y'); ?> <?php echo htmlspecialchars(t('common.app_name')); ?>. <?php echo htmlspecialchars(t('common.copyright')); ?></p>
 </div>
 
 <?php require_once dirname(__DIR__) . '/layout/public_footer.php'; ?>

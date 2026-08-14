@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use App\Core\Lang;
 use App\Core\Logger;
 use App\Core\Router;
 use Dotenv\Dotenv;
@@ -157,6 +158,15 @@ session_start();
 
 /*
 |--------------------------------------------------------------------------
+| Idioma da interface
+|--------------------------------------------------------------------------
+| A resolução acontece após o tenant e antes das rotas para atender também
+| telas públicas, portal e ERP autenticado na mesma requisição.
+*/
+Lang::instance()->resolveCurrent();
+
+/*
+|--------------------------------------------------------------------------
 | CSRF Token
 |--------------------------------------------------------------------------
 */
@@ -220,6 +230,15 @@ Router::dispatch();
 /**
  * Função auxiliar para obter o nome da severidade do erro
  */
+/**
+ * Traduz uma chave de interface com fallback locale ativo -> pt_BR -> chave.
+ *
+ * @param array<string, scalar|null> $replacements
+ */
+function t(string $key, array $replacements = []): string {
+    return Lang::instance()->get($key, $replacements);
+}
+
 function getSeverityName($severity) {
     $severityMap = [
         E_ERROR => 'E_ERROR',

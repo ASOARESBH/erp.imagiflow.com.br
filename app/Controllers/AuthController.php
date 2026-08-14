@@ -2,6 +2,7 @@
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\Lang;
 use App\Core\Logger;
 use App\Core\Controller;
 use App\Core\Mail;
@@ -44,7 +45,7 @@ class AuthController extends Controller
             header('Location: /portal/dashboard');
             exit();
         }
-        $title = 'Acesso ao Sistema';
+        $title = t('common.access_erp');
         require dirname(__DIR__) . '/Views/auth/login.php';
     }
 
@@ -165,6 +166,11 @@ class AuthController extends Controller
                 $_SESSION['portal_cliente_email'] = $portalCliente->email;
                 $_SESSION['portal_login_time']    = time();
 
+                $portalLocale = (string) ($portalCliente->locale ?? 'pt_BR');
+                if (Lang::instance()->isSupported($portalLocale)) {
+                    Lang::instance()->setLocale($portalLocale);
+                }
+
                 $portalModel->registrarAcesso((int) $portalCliente->id);
 
                 $logger->auth('Login portal bem-sucedido', [
@@ -264,7 +270,7 @@ class AuthController extends Controller
             $nomeCliente = $portalDados->nome_fantasia ?? $portalDados->razao_social ?? 'Cliente';
         }
 
-        $title = 'Primeiro Acesso';
+        $title = t('auth.first_access_title');
         require dirname(__DIR__) . '/Views/auth/primeiro_acesso.php';
     }
 
@@ -403,7 +409,7 @@ class AuthController extends Controller
             header('Location: /dashboard');
             exit();
         }
-        $title = 'Esqueci minha senha';
+        $title = t('auth.forgot_title');
         $sent  = $_GET['sent'] ?? null;
         require dirname(__DIR__) . '/Views/auth/forgot_password.php';
     }
@@ -457,7 +463,7 @@ class AuthController extends Controller
             header('Location: /login?reset=invalid');
             exit();
         }
-        $title      = 'Redefinir senha';
+        $title      = t('auth.reset_title');
         $tokenValue = $token;
         require dirname(__DIR__) . '/Views/auth/reset_password.php';
     }
@@ -531,7 +537,7 @@ class AuthController extends Controller
         }
 
         $twoFactorService = new TwoFactorService();
-        $title            = 'Verificação em Dois Fatores';
+        $title            = t('auth.two_factor_title');
         $emailMascarado   = self::maskEmail($user->email);
         $bloqueado        = $twoFactorService->isLocked($user);
         $segundosBloqueio = $bloqueado ? $twoFactorService->secondsUntilUnlock($user) : 0;

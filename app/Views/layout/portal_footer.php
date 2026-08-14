@@ -8,23 +8,23 @@
     ?>
     <a href="/portal/dashboard" class="portal-bottom-item <?php echo $currentUri === '/portal/dashboard' ? 'active' : ''; ?>">
         <i class="fa fa-home"></i>
-        <span>Painel</span>
+        <span><?php echo htmlspecialchars(t('portal.dashboard')); ?></span>
     </a>
     <a href="/portal/contas-a-pagar" class="portal-bottom-item <?php echo str_starts_with($currentUri, '/portal/contas-a-pagar') ? 'active' : ''; ?>">
         <i class="fa fa-file-invoice-dollar"></i>
-        <span>Contas</span>
+        <span><?php echo htmlspecialchars(t('portal.accounts')); ?></span>
     </a>
     <a href="/portal/pagamentos/dashboard" class="portal-bottom-item <?php echo str_starts_with($currentUri, '/portal/pagamentos') ? 'active' : ''; ?>">
         <i class="fa fa-chart-pie"></i>
-        <span>Financeiro</span>
+        <span><?php echo htmlspecialchars(t('portal.financial')); ?></span>
     </a>
     <a href="/portal/faturamento/notas-fiscais" class="portal-bottom-item <?php echo str_starts_with($currentUri, '/portal/faturamento') ? 'active' : ''; ?>">
         <i class="fa fa-file-alt"></i>
-        <span>Notas</span>
+        <span><?php echo htmlspecialchars(t('portal.invoices')); ?></span>
     </a>
     <a href="/portal/perfil" class="portal-bottom-item <?php echo $currentUri === '/portal/perfil' ? 'active' : ''; ?>">
         <i class="fa fa-user"></i>
-        <span>Perfil</span>
+        <span><?php echo htmlspecialchars(t('portal.profile')); ?></span>
     </a>
 </nav>
 
@@ -37,9 +37,9 @@
     $m = floor(($elapsed % 3600) / 60);
     $tempoSessao = $h > 0 ? "{$h}h {$m}min" : "{$m}min";
     ?>
-    <span>Portal do Cliente v1.0.0</span>
+    <span><?php echo htmlspecialchars(t('portal.portal_version')); ?></span>
     <span class="mx-2">·</span>
-    <span>Sessão ativa há <?php echo $tempoSessao; ?></span>
+    <span><?php echo htmlspecialchars(t('portal.session_active_for', ['tempo' => $tempoSessao])); ?></span>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
