@@ -20,10 +20,13 @@ class Tenant extends Model
             "SELECT *
              FROM {$this->table}
              WHERE status = 'active'
-               AND (LOWER(domain) = :host OR LOWER(subdomain) = :host)
+               AND (LOWER(domain) = :domain_host OR LOWER(subdomain) = :subdomain_host)
              LIMIT 1"
         );
-        $stmt->execute([':host' => $host]);
+        $stmt->execute([
+            ':domain_host' => $host,
+            ':subdomain_host' => $host,
+        ]);
 
         return $stmt->fetch(PDO::FETCH_OBJ);
     }
