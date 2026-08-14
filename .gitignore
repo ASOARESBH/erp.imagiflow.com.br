@@ -21,7 +21,6 @@ Thumbs.db
 
 # Composer
 vendor/
-composer.lock
 
 # Cache
 *.cache
