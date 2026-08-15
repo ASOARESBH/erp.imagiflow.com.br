@@ -44,6 +44,13 @@ body {
   text-align: center;
 }
 
+/* Seletor de idioma dentro do cartão, sem alterar a centralização do body */
+.login-language-selector {
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.75rem -0.75rem 0.75rem 0;
+}
+
 /* Logo */
 .login-card .logo {
   max-width: 160px;

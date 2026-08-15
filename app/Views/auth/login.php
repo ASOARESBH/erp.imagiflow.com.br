@@ -12,6 +12,9 @@ if (is_dir($uploadLogoDir)) {
 }
 ?>
 <div class="login-card">
+    <div class="login-language-selector">
+        <?php require dirname(__DIR__) . '/partials/language_selector.php'; ?>
+    </div>
     <img src="<?php echo htmlspecialchars($logoPath); ?>" alt="ERP IMAGINIFLOW" class="logo">
     <h1><?php echo htmlspecialchars(t('common.app_name')); ?></h1>
 

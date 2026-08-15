@@ -18,6 +18,3 @@
 </head>
 
 <body>
-    <div class="container-fluid d-flex justify-content-end px-3 pt-3">
-        <?php require dirname(__DIR__) . '/partials/language_selector.php'; ?>
-    </div>
