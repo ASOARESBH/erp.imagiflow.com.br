@@ -12,9 +12,6 @@ if (is_dir($uploadLogoDir)) {
 }
 ?>
 <div class="login-card">
-    <div class="login-language-selector">
-        <?php require dirname(__DIR__) . '/partials/language_selector.php'; ?>
-    </div>
     <img src="<?php echo htmlspecialchars($logoPath); ?>" alt="ERP IMAGINIFLOW" class="logo">
     <h1><?php echo htmlspecialchars(t('common.app_name')); ?></h1>
 
@@ -92,6 +89,10 @@ if (is_dir($uploadLogoDir)) {
         <a href="/primeiro-acesso" class="forgot-password primeiro-acesso-link">
             <i class="fa fa-user-plus" style="margin-right:.3rem;"></i><?php echo htmlspecialchars(t('auth.first_access')); ?>
         </a>
+    </div>
+
+    <div class="login-language-selector">
+        <?php require dirname(__DIR__) . '/partials/language_selector.php'; ?>
     </div>
 
     <p class="login-footer">© <?php echo date('Y'); ?> <?php echo htmlspecialchars(t('common.app_name')); ?>. <?php echo htmlspecialchars(t('common.copyright')); ?></p>

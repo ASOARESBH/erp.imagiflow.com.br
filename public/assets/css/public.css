@@ -44,11 +44,11 @@ body {
   text-align: center;
 }
 
-/* Seletor de idioma dentro do cartão, sem alterar a centralização do body */
+/* Seletor de idioma no rodapé interno do cartão, sem alterar a centralização do body */
 .login-language-selector {
   display: flex;
-  justify-content: flex-end;
-  margin: -0.75rem -0.75rem 0.75rem 0;
+  justify-content: center;
+  margin: 1rem 0 0.75rem;
 }
 
 /* Logo */
