@@ -16,6 +16,8 @@ class Router
         'Permission'      => \App\Middlewares\PermissionMiddleware::class,
         'PortalCliente'   => \App\Middlewares\PortalClienteMiddleware::class,
         'WhatsappApiAuth' => \App\Middlewares\WhatsappApiAuthMiddleware::class,
+        'SaasAdmin'       => \App\Middlewares\SaasAdminMiddleware::class,
+        'Plan'            => \App\Middlewares\PlanMiddleware::class,
     ];
 
     /* =========================

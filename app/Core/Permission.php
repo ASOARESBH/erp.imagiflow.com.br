@@ -7,6 +7,23 @@ use App\Core\Contracts\PermissionProviderInterface;
 class Permission implements PermissionProviderInterface
 {
     protected array $roles = [
+        // Papel exclusivo do tenant de controle SaaS. Não concede permissões operacionais do ERP.
+        'saas_owner' => [
+            'access_saas_admin',
+            'view_saas_dashboard',
+            'view_saas_tenants',
+            'create_saas_tenants',
+            'edit_saas_tenants',
+            'suspend_saas_tenants',
+            'view_saas_plans',
+            'manage_saas_plans',
+            'impersonate_saas_tenant',
+            'view_saas_impersonation_logs',
+            'manage_saas_admins',
+            'view_profile',
+            'edit_profile',
+        ],
+
         'superadmin' => [
             'view_clients',
             'create_clients',

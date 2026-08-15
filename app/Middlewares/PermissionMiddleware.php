@@ -4,11 +4,21 @@ namespace App\Middlewares;
 
 use App\Core\Auth;
 use App\Core\Middleware;
+use App\Core\PlanGate;
 use App\Core\Audit\AuditLogger;
 
 class PermissionMiddleware extends Middleware
 {
     protected string $permission;
+
+    /** @var array<string, string> */
+    private const PLAN_MODULE_BY_PERMISSION = [
+        'view_clients' => 'clientes', 'create_clients' => 'clientes', 'edit_clients' => 'clientes', 'delete_clients' => 'clientes',
+        'view_colaboradores' => 'colaboradores', 'create_colaboradores' => 'colaboradores',
+        'view_crm' => 'crm', 'view_financeiro_pagar' => 'financeiro_pagar', 'view_financeiro_receber' => 'financeiro_receber',
+        'view_fornecedores' => 'fornecedores', 'view_estoque' => 'estoque', 'view_marketing' => 'marketing',
+        'view_rdv' => 'rdv', 'view_hub_ia' => 'hub_ia', 'view_manutencao' => 'manutencao',
+    ];
 
     public function __construct(string $permission = '')
     {
@@ -17,8 +27,9 @@ class PermissionMiddleware extends Middleware
 
     public function handle(): void
     {
-        if (!Auth::can($this->permission)) {
-            AuditLogger::log('access_denied', ['permission' => $this->permission]);
+        $module = self::PLAN_MODULE_BY_PERMISSION[$this->permission] ?? null;
+        if (!Auth::can($this->permission) || ($module !== null && !PlanGate::allows($module))) {
+            AuditLogger::log('access_denied', ['permission' => $this->permission, 'module' => $module]);
             http_response_code(403);
 
             if ($this->isAjax()) {

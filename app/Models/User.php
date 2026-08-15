@@ -63,6 +63,7 @@ class User extends Model
     {
         $tenantId = TenantContext::id();
         $role = $data['role'] ?? 'user';
+        $this->assertSaasOwnerAssignment((string) $role, $tenantId);
 
         try {
             $this->pdo->beginTransaction();
@@ -161,6 +162,7 @@ class User extends Model
     public function update(int $id, array $data): bool
     {
         try {
+            $this->assertSaasOwnerAssignment((string) ($data['role'] ?? ''), TenantContext::id());
             // Verifica se a coluna status existe na tabela users
             $checkCol = $this->pdo->query("SHOW COLUMNS FROM {$this->table} LIKE 'status'");
             $statusExists = $checkCol && $checkCol->rowCount() > 0;
@@ -245,6 +247,21 @@ class User extends Model
                 'error' => $e->getMessage(),
             ]);
             return false;
+        }
+    }
+
+    /**
+     * O papel saas_owner pertence exclusivamente ao tenant de controle.
+     * Esta validação central protege fluxos de criação e edição de usuários.
+     */
+    private function assertSaasOwnerAssignment(string $role, int $tenantId): void
+    {
+        if ($role !== 'saas_owner') {
+            return;
+        }
+        $controlTenantId = (int) ($_ENV['SAAS_CONTROL_TENANT_ID'] ?? 0);
+        if ($controlTenantId <= 0 || $tenantId !== $controlTenantId) {
+            throw new \LogicException('O papel saas_owner só pode ser atribuído no tenant de controle SaaS.');
         }
     }
 

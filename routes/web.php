@@ -738,3 +738,52 @@ Router::group(["middleware" => ["Auth"]], function () {
     Router::get("/manual/artigo/{slug}",                          "ManualController@artigo");
     Router::get("/manual/categoria/{slug}",                       "ManualController@categoria");
 });
+
+
+// ============================================================================
+// PAINEL SAAS — control-plane isolado no tenant configurado em SAAS_CONTROL_TENANT_ID
+// ============================================================================
+Router::group(["middleware" => ["Auth", "SaasAdmin"]], function () {
+    Router::get("/saas-admin", "SaasDashboardController@index");
+
+    Router::group(["middleware" => ["Permission:view_saas_tenants"]], function () {
+        Router::get("/saas-admin/empresas", "SaasEmpresasController@index");
+        Router::get("/saas-admin/empresas/buscar-cnpj", "SaasEmpresasController@buscarCnpj");
+        Router::get("/saas-admin/empresas/buscar-cep", "SaasEmpresasController@buscarCep");
+        Router::get("/saas-admin/empresas/edit/{id}", "SaasEmpresasController@edit");
+    });
+    Router::group(["middleware" => ["Permission:create_saas_tenants"]], function () {
+        Router::get("/saas-admin/empresas/create", "SaasEmpresasController@create");
+        Router::post("/saas-admin/empresas", "SaasEmpresasController@store");
+    });
+    Router::group(["middleware" => ["Permission:edit_saas_tenants"]], function () {
+        Router::post("/saas-admin/empresas/update/{id}", "SaasEmpresasController@update");
+    });
+    Router::group(["middleware" => ["Permission:suspend_saas_tenants"]], function () {
+        Router::post("/saas-admin/empresas/{id}/status", "SaasEmpresasController@toggleStatus");
+    });
+    Router::group(["middleware" => ["Permission:impersonate_saas_tenant"]], function () {
+        Router::post("/saas-admin/empresas/{id}/impersonar", "SaasEmpresasController@impersonar");
+    });
+
+    Router::group(["middleware" => ["Permission:view_saas_plans"]], function () {
+        Router::get("/saas-admin/planos", "SaasPlanosController@index");
+    });
+    Router::group(["middleware" => ["Permission:manage_saas_plans"]], function () {
+        Router::get("/saas-admin/planos/create", "SaasPlanosController@create");
+        Router::post("/saas-admin/planos", "SaasPlanosController@store");
+        Router::get("/saas-admin/planos/edit/{id}", "SaasPlanosController@edit");
+        Router::post("/saas-admin/planos/update/{id}", "SaasPlanosController@update");
+    });
+    Router::group(["middleware" => ["Permission:view_saas_impersonation_logs"]], function () {
+        Router::get("/saas-admin/impersonacao/logs", "SaasImpersonacaoController@logs");
+    });
+});
+
+// A entrada é protegida por token de uso único e deve funcionar no host do tenant alvo.
+Router::get("/saas-admin/impersonacao/entrar/{token}", "SaasImpersonacaoController@entrar");
+// A saída exige autenticação no tenant alvo; o retorno exige sessão no control-plane.
+Router::group(["middleware" => ["Auth"]], function () {
+    Router::post("/saas-admin/impersonacao/sair", "SaasImpersonacaoController@sair");
+    Router::get("/saas-admin/impersonacao/retornar/{token}", "SaasImpersonacaoController@retornar");
+});

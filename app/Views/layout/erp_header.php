@@ -68,6 +68,9 @@ if ($_ec) {
       overflow-x: hidden;
       margin: 0;
     }
+    body.impersonation-active { padding-top: 46px; }
+    .impersonation-banner { position: fixed; inset: 0 0 auto 0; z-index: 2000; min-height: 46px; background: #a16207; color: #fff; display: flex; align-items: center; justify-content: center; gap: .75rem; padding: .45rem 1rem; font-size: .875rem; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+    .impersonation-banner form { margin: 0; }
 
     /* LAYOUT CORE STRUCTURE */
     .layout-wrapper {
@@ -491,7 +494,17 @@ if ($_ec) {
   </style>
 </head>
 
-<body>
+<body class="<?php echo isset($_SESSION['impersonation_origin']) ? 'impersonation-active' : ''; ?>">
+<?php if (isset($_SESSION['impersonation_origin'])): ?>
+  <div class="impersonation-banner" role="alert">
+    <i class="fas fa-user-secret"></i>
+    <span><strong>Modo de suporte ativo.</strong> Você está acessando esta empresa por impersonação.</span>
+    <form method="post" action="/saas-admin/impersonacao/sair">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+      <button type="submit" class="btn btn-sm btn-light">Sair da impersonação</button>
+    </form>
+  </div>
+<?php endif; ?>
 
   <!-- Overlay para fechar o sidebar em mobile ao clicar fora -->
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -783,6 +796,15 @@ if ($_ec) {
                   class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/hub-ia/relatorios') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.reports')); ?></a>
               </li>
             </ul>
+          </li>
+          <?php endif; ?>
+
+          <?php if (\App\Core\Auth::hasRole('saas_owner')): ?>
+          <div class="nav-label">PLATAFORMA</div>
+          <li class="nav-item <?php echo strpos($_SERVER['REQUEST_URI'], '/saas-admin') !== false ? 'active' : ''; ?>">
+            <a href="/saas-admin" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Painel SaaS">
+              <i class="fas fa-cloud"></i><span class="link-text">Painel SaaS</span>
+            </a>
           </li>
           <?php endif; ?>
         </ul>
