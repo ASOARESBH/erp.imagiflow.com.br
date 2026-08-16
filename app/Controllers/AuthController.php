@@ -6,10 +6,12 @@ use App\Core\Lang;
 use App\Core\Logger;
 use App\Core\Controller;
 use App\Core\Mail;
+use App\Core\TenantContext;
 use App\Core\Audit\AuditLogger;
 use App\Models\User;
 use App\Models\PasswordResetToken;
 use App\Models\PortalCliente;
+use App\Models\Tenant;
 use App\Services\TwoFactorService;
 
 /**
@@ -465,9 +467,7 @@ class AuthController extends Controller
             header('Location: ' . Auth::postLoginPath());
             exit();
         }
-        $tokenHash  = hash('sha256', $token);
-        $tokenModel = new PasswordResetToken();
-        $record     = $tokenModel->findValidByTokenHash($tokenHash);
+        $record = $this->resolveValidResetToken(hash('sha256', $token));
         if (!$record) {
             AuditLogger::log('password_reset_failed', ['reason' => 'invalid_or_expired_token']);
             header('Location: /login?reset=invalid');
@@ -494,21 +494,24 @@ class AuthController extends Controller
             header('Location: /reset-password/' . $token . '?error=mismatch');
             exit();
         }
-        $tokenHash  = hash('sha256', $token);
-        $tokenModel = new PasswordResetToken();
-        $record     = $tokenModel->findValidByTokenHash($tokenHash);
+        $record = $this->resolveValidResetToken(hash('sha256', $token));
         if (!$record) {
             AuditLogger::log('password_reset_failed', ['reason' => 'invalid_or_expired_token']);
             header('Location: /login?reset=invalid');
             exit();
         }
         $userModel = new User();
-        if (!Auth::prepareTenantForUserId((int) $record->user_id)) {
+        if (!Auth::isSharedHost() && !Auth::prepareTenantForUserId((int) $record->user_id)) {
             AuditLogger::log('password_reset_failed', ['reason' => 'tenant_unavailable', 'user_id' => $record->user_id]);
             header('Location: /login?reset=invalid');
             exit();
         }
-        $tokenModel->markAsUsed((int) $record->id);
+        $tokenModel = new PasswordResetToken();
+        if (!$tokenModel->markAsUsed((int) $record->id)) {
+            AuditLogger::log('password_reset_failed', ['reason' => 'token_consume_failed', 'user_id' => $record->user_id]);
+            header('Location: /login?reset=invalid');
+            exit();
+        }
         $hashedPassword = Auth::hashPassword($password);
         $updated        = $userModel->updatePassword((int) $record->user_id, $hashedPassword);
         if ($updated) {
@@ -519,6 +522,34 @@ class AuthController extends Controller
         AuditLogger::log('password_reset_failed', ['reason' => 'update_failed', 'user_id' => $record->user_id]);
         header('Location: /reset-password/' . $token . '?error=1');
         exit();
+    }
+
+    /**
+     * Valida o token de reset no tenant correto. No domínio compartilhado, o
+     * tenant é obtido exclusivamente do registro de token e do vínculo ativo
+     * usuário-tenant, nunca de parâmetro da URL ou do tenant padrão do host.
+     */
+    private function resolveValidResetToken(string $tokenHash): object|false
+    {
+        $tokenModel = new PasswordResetToken();
+
+        if (!Auth::isSharedHost()) {
+            return $tokenModel->findValidByTokenHash($tokenHash);
+        }
+
+        $record = $tokenModel->findValidGlobalByTokenHash($tokenHash);
+        if (!$record) {
+            return false;
+        }
+
+        $tenant = (new Tenant())->findActiveForUser((int) $record->tenant_id, (int) $record->user_id);
+        if (!$tenant) {
+            return false;
+        }
+
+        TenantContext::set($tenant);
+
+        return $record;
     }
 
     // =========================================================

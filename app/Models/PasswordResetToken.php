@@ -60,18 +60,35 @@ class PasswordResetToken extends Model
     }
 
     /**
+     * Resolve um token ativo pelo hash sem depender do tenant do host atual.
+     * O vínculo ativo usuário-tenant é exigido para impedir uso cruzado entre empresas.
+     */
+    public function findValidGlobalByTokenHash(string $tokenHash): object|false
+    {
+        $sql = "SELECT prt.*\n                FROM {$this->table} prt\n                INNER JOIN user_tenants ut\n                    ON ut.user_id = prt.user_id\n                   AND ut.tenant_id = prt.tenant_id\n                   AND ut.status = 'active'\n                INNER JOIN users u\n                    ON u.id = prt.user_id\n                   AND u.status = 'ativo'\n                INNER JOIN tenants t\n                    ON t.id = prt.tenant_id\n                   AND t.status = 'active'\n                WHERE prt.token_hash = :token_hash\n                  AND prt.used_at IS NULL\n                  AND prt.expires_at > NOW()\n                LIMIT 1";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([':token_hash' => $tokenHash]);
+
+        return $stmt->fetch(PDO::FETCH_OBJ) ?: false;
+    }
+
+    /**
      * Marca o token como utilizado somente no tenant atual.
      */
     public function markAsUsed(int $id): bool
     {
         $sql = "UPDATE {$this->table}
                 SET used_at = NOW()
-                WHERE id = :id AND tenant_id = :tenant_id";
+                WHERE id = :id
+                  AND tenant_id = :tenant_id
+                  AND used_at IS NULL";
         $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([
+        $stmt->execute([
             ':id' => $id,
             ':tenant_id' => TenantContext::id(),
         ]);
+
+        return $stmt->rowCount() === 1;
     }
 
     /**
