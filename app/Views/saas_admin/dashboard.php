@@ -7,14 +7,15 @@ $counts = $tenantCounts ?? ['active' => 0, 'inactive' => 0, 'suspended' => 0];
             <h1 class="h3 mb-1"><i class="fas fa-cloud me-2 text-primary"></i>Painel SaaS</h1>
             <p class="text-muted mb-0">Administração central de empresas, planos e acessos da plataforma.</p>
         </div>
-        <div class="d-flex gap-2">
-            <a href="/painel/empresas/create" class="btn btn-primary"><i class="fas fa-building me-1"></i> Nova Empresa</a>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="/painel/empresas" class="btn btn-outline-primary"><i class="fas fa-building me-1"></i> Empresas Cadastradas</a>
+            <a href="/painel/empresas/create" class="btn btn-primary"><i class="fas fa-plus me-1"></i> Nova Empresa</a>
             <a href="/painel/planos" class="btn btn-outline-primary"><i class="fas fa-layer-group me-1"></i> Gerenciar Planos</a>
         </div>
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><span class="text-muted small">Empresas cadastradas</span><div class="display-6 fw-bold"><?= (int) $totalTenants ?></div></div></div></div>
+        <div class="col-sm-6 col-xl-3"><a href="/painel/empresas" class="text-decoration-none text-reset"><div class="card border-0 shadow-sm h-100"><div class="card-body"><span class="text-muted small">Empresas cadastradas</span><div class="display-6 fw-bold"><?= (int) $totalTenants ?></div><small class="text-primary">Consultar empresas <i class="fas fa-arrow-right ms-1"></i></small></div></div></a></div>
         <div class="col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><span class="text-muted small">Empresas ativas</span><div class="display-6 fw-bold text-success"><?= (int) $counts['active'] ?></div></div></div></div>
         <div class="col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><span class="text-muted small">Empresas suspensas</span><div class="display-6 fw-bold text-warning"><?= (int) $counts['suspended'] ?></div></div></div></div>
         <div class="col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><span class="text-muted small">Planos configurados</span><div class="display-6 fw-bold text-primary"><?= count($planos ?? []) ?></div></div></div></div>

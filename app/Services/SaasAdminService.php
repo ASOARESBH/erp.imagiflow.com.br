@@ -140,6 +140,73 @@ class SaasAdminService
         }
     }
 
+    /**
+     * Renova o convite de definição de senha do usuário master.
+     * O token anterior é invalidado antes da criação do novo token de uso único.
+     */
+    public function renewMasterInvite(int $tenantId, int $saasAdminId): array
+    {
+        $tenant = $this->tenantModel->findActiveById($tenantId);
+        if (!$tenant || $tenantId === Auth::controlTenantId()) {
+            throw new RuntimeException('Empresa inválida para reenvio de convite.');
+        }
+
+        $masterUserId = (int) ($tenant->master_user_id ?? 0);
+        $master = $this->findGlobalUserById($masterUserId);
+        if (!$master) {
+            throw new RuntimeException('A empresa não possui um usuário master ativo.');
+        }
+
+        $link = $this->pdo->prepare(
+            "SELECT 1 FROM user_tenants
+             WHERE user_id = :user_id AND tenant_id = :tenant_id
+               AND status = 'active'
+             LIMIT 1"
+        );
+        $link->execute([':user_id' => $masterUserId, ':tenant_id' => $tenantId]);
+        if (!(bool) $link->fetchColumn()) {
+            throw new RuntimeException('O usuário master não possui vínculo ativo com esta empresa.');
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            $invalidate = $this->pdo->prepare(
+                "UPDATE password_reset_tokens
+                 SET used_at = NOW()
+                 WHERE user_id = :user_id AND tenant_id = :tenant_id AND used_at IS NULL"
+            );
+            $invalidate->execute([':user_id' => $masterUserId, ':tenant_id' => $tenantId]);
+
+            $token = bin2hex(random_bytes(32));
+            $this->createPasswordResetTokenForTenant($masterUserId, $tenantId, $token);
+            $this->pdo->commit();
+
+            AuditLogger::log('saas_master_invite_renewed', [
+                'tenant_id' => $tenantId,
+                'master_user_id' => $masterUserId,
+                'saas_admin_user_id' => $saasAdminId,
+            ]);
+
+            return [
+                'tenant' => $tenant,
+                'master_user_id' => $masterUserId,
+                'master_email' => (string) $master->email,
+                'invite_token' => $token,
+                'expires_at' => date('Y-m-d H:i:s', strtotime('+60 minutes')),
+            ];
+        } catch (\Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            AuditLogger::log('saas_master_invite_renew_failed', [
+                'tenant_id' => $tenantId,
+                'saas_admin_user_id' => $saasAdminId,
+                'error' => $exception->getMessage(),
+            ]);
+            throw $exception;
+        }
+    }
+
     public function updateCompany(int $tenantId, array $company): bool
     {
         $plan = $this->planoModel->findById((int) ($company['plano_id'] ?? 0));

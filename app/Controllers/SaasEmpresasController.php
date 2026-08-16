@@ -148,6 +148,38 @@ class SaasEmpresasController extends Controller
         exit();
     }
 
+    /**
+     * Gera novo convite de senha para o master da empresa e invalida o anterior.
+     */
+    public function resendInvite(int $id): void
+    {
+        $this->assertCsrf();
+        try {
+            $result = $this->saasService->renewMasterInvite($id, (int) Auth::user()->id);
+            $inviteUrl = 'https://' . $this->tenantHost($result['tenant'])
+                . '/reset-password/' . rawurlencode((string) $result['invite_token']);
+
+            if (!Mail::sendPasswordResetLink((string) $result['master_email'], $inviteUrl, (int) $result['master_user_id'])) {
+                AuditLogger::log('saas_master_invite_renew_delivery_failed', [
+                    'tenant_id' => $id,
+                    'master_user_id' => $result['master_user_id'],
+                ]);
+                header('Location: /painel/empresas?error=' . rawurlencode('Novo convite criado, mas o e-mail não pôde ser entregue. Verifique o SMTP e tente novamente.'));
+                exit();
+            }
+
+            header('Location: /painel/empresas?success=invite_resent');
+        } catch (\Throwable $exception) {
+            AuditLogger::log('saas_master_invite_renew_controller_failed', [
+                'tenant_id' => $id,
+                'saas_admin_user_id' => Auth::user()->id ?? null,
+                'error' => $exception->getMessage(),
+            ]);
+            header('Location: /painel/empresas?error=' . rawurlencode('Não foi possível reenviar o convite: ' . $exception->getMessage()));
+        }
+        exit();
+    }
+
     public function buscarCnpj(): void
     {
         header('Content-Type: application/json; charset=utf-8');

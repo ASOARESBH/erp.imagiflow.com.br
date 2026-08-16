@@ -758,6 +758,7 @@ Router::group(["middleware" => ["Auth", "SaasAdmin"]], function () {
     });
     Router::group(["middleware" => ["Permission:edit_saas_tenants"]], function () {
         Router::post("/painel/empresas/update/{id}", "SaasEmpresasController@update");
+        Router::post("/painel/empresas/{id}/reenviar-convite", "SaasEmpresasController@resendInvite");
     });
     Router::group(["middleware" => ["Permission:suspend_saas_tenants"]], function () {
         Router::post("/painel/empresas/{id}/status", "SaasEmpresasController@toggleStatus");
