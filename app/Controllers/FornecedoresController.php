@@ -28,12 +28,13 @@ class FornecedoresController extends Controller
     public function index(): void
     {
         try {
-            $usuarioId = Auth::user()->id;
+            $user = Auth::user();
+            $tenantId = (int) $user->tenant_id;
             $filtros   = [
                 'status'   => $_GET['status'] ?? 'ativo',
                 'pesquisa' => $_GET['q']      ?? '',
             ];
-            $fornecedores = $this->model->findByUsuarioId($usuarioId, $filtros);
+            $fornecedores = $this->model->findByTenantId($tenantId, $filtros);
             View::render('fornecedores/index', [
                 '_layout'      => 'erp',
                 'title'        => 'Fornecedores',
@@ -73,7 +74,9 @@ class FornecedoresController extends Controller
     public function store(): void
     {
         try {
-            $usuarioId = Auth::user()->id;
+            $user = Auth::user();
+            $usuarioId = (int) $user->id;
+            $tenantId = (int) $user->tenant_id;
             $nome      = trim($_POST['nome'] ?? '');
 
             if ($nome === '') {
@@ -82,12 +85,14 @@ class FornecedoresController extends Controller
             }
 
             $dados               = $this->extrairDadosPost();
+            $dados['tenant_id']  = $tenantId;
             $dados['usuario_id'] = $usuarioId;
             $dados['nome']       = $nome;
 
             // --- PROTECAO CONTRA DUPLICATAS (camada de aplicacao) ---
             $documento = preg_replace('/\D/', '', $dados['documento'] ?? '');
-            if ($documento !== '' && $this->model->documentoExists($documento, $usuarioId)) {
+            if (($documento !== '' && $this->model->documentoExistsForTenant($documento, $tenantId))
+                || ($documento === '' && $this->model->nameExistsForTenant($nome, $tenantId))) {
                 $this->logger->warning('[Fornecedores] store bloqueado: documento duplicado', [
                     'usuario_id' => $usuarioId,
                     'documento'  => $documento,
@@ -117,16 +122,132 @@ class FornecedoresController extends Controller
     }
 
     // ---------------------------------------------------------------
+    // API: BUSCA E CADASTRO RÁPIDO PARA FORMULÁRIOS FINANCEIROS
+    // ---------------------------------------------------------------
+
+    public function quickSearch(): void
+    {
+        try {
+            $user = Auth::user();
+            $tenantId = (int) ($user->tenant_id ?? 0);
+            if ($tenantId <= 0) {
+                $this->jsonResponse(false, 'Tenant não identificado.', [], 403);
+                return;
+            }
+
+            $query = substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
+            $preferredId = (int) ($_GET['preferido'] ?? 0) ?: null;
+            $items = $this->model->searchByTenant($tenantId, $query, 20, $preferredId);
+            $data = array_map(static function (object $fornecedor): array {
+                return [
+                    'id' => (int) $fornecedor->id,
+                    'nome' => (string) $fornecedor->nome,
+                    'nome_fantasia' => (string) ($fornecedor->nome_fantasia ?? ''),
+                    'documento' => (string) ($fornecedor->documento ?? ''),
+                    'email' => (string) ($fornecedor->email ?? ''),
+                    'telefone' => (string) ($fornecedor->telefone ?? ''),
+                ];
+            }, $items);
+            $this->jsonResponse(true, 'Fornecedores encontrados.', $data);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Erro na busca rápida de fornecedor: ' . $exception->getMessage());
+            $this->jsonResponse(false, 'Não foi possível buscar fornecedores agora.', [], 500);
+        }
+    }
+
+    public function quickStore(): void
+    {
+        try {
+            $csrfToken = (string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+            if ($csrfToken === '' || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $csrfToken)) {
+                $this->jsonResponse(false, 'Sessão expirada. Atualize a página e tente novamente.', [], 419);
+                return;
+            }
+            if (!Auth::can('create_fornecedores')) {
+                $this->jsonResponse(false, 'Você não tem permissão para cadastrar fornecedores.', [], 403);
+                return;
+            }
+
+            $payload = json_decode((string) file_get_contents('php://input'), true);
+            if (!is_array($payload)) {
+                $this->jsonResponse(false, 'Dados do fornecedor inválidos.', [], 400);
+                return;
+            }
+
+            $user = Auth::user();
+            $tenantId = (int) ($user->tenant_id ?? 0);
+            $usuarioId = (int) ($user->id ?? 0);
+            $nome = trim((string) ($payload['nome'] ?? ''));
+            $documento = preg_replace('/\D/', '', (string) ($payload['documento'] ?? ''));
+            $email = strtolower(trim((string) ($payload['email'] ?? '')));
+            if ($tenantId <= 0 || $usuarioId <= 0 || $nome === '') {
+                $this->jsonResponse(false, 'Informe pelo menos o nome ou razão social do fornecedor.', [], 422);
+                return;
+            }
+            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $this->jsonResponse(false, 'Informe um e-mail válido ou deixe o campo vazio.', [], 422);
+                return;
+            }
+            if (($documento !== '' && $this->model->documentoExistsForTenant($documento, $tenantId))
+                || ($documento === '' && $this->model->nameExistsForTenant($nome, $tenantId))) {
+                AuditLogger::log('fornecedor_rapido_duplicado_bloqueado', [
+                    'tenant_id' => $tenantId,
+                    'user_id' => $usuarioId,
+                    'fornecedor_nome' => $nome,
+                ]);
+                $this->jsonResponse(false, 'Já existe um fornecedor com este documento ou nome neste tenant.', [], 409);
+                return;
+            }
+
+            $id = $this->model->create([
+                'tenant_id' => $tenantId,
+                'usuario_id' => $usuarioId,
+                'tipo' => ($payload['tipo'] ?? 'PJ') === 'PF' ? 'PF' : 'PJ',
+                'nome' => $nome,
+                'nome_fantasia' => $this->quickNullable($payload['nome_fantasia'] ?? null),
+                'documento' => $documento !== '' ? $documento : null,
+                'email' => $email !== '' ? $email : null,
+                'telefone' => $this->quickNullable($payload['telefone'] ?? null),
+                'status' => 'ativo',
+            ]);
+            if (!$id) {
+                throw new \RuntimeException('A gravação do fornecedor não retornou identificador.');
+            }
+
+            AuditLogger::log('create_fornecedor_rapido', [
+                'tenant_id' => $tenantId,
+                'user_id' => $usuarioId,
+                'fornecedor_id' => (int) $id,
+            ]);
+            $this->logger->info('Fornecedor criado rapidamente.', [
+                'tenant_id' => $tenantId,
+                'user_id' => $usuarioId,
+                'fornecedor_id' => (int) $id,
+            ]);
+            $this->jsonResponse(true, 'Fornecedor cadastrado e selecionado com sucesso.', [
+                'id' => (int) $id,
+                'nome' => $nome,
+                'nome_fantasia' => (string) ($payload['nome_fantasia'] ?? ''),
+                'documento' => $documento,
+                'email' => $email,
+            ], 201);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Erro ao criar fornecedor rapidamente: ' . $exception->getMessage());
+            $this->jsonResponse(false, 'Não foi possível cadastrar o fornecedor agora.', [], 500);
+        }
+    }
+
+    // ---------------------------------------------------------------
     // EDICAO
     // ---------------------------------------------------------------
 
     public function edit($id): void
     {
-        $usuarioId  = Auth::user()->id;
-        $isAdmin    = Auth::hasRole('admin') || Auth::hasRole('superadmin');
-        $fornecedor = $this->model->findById((int)$id);
+        $user = Auth::user();
+        $tenantId = (int) $user->tenant_id;
+        $fornecedor = $this->model->findByIdForTenant((int) $id, $tenantId);
 
-        if (!$fornecedor || ((int)$fornecedor->usuario_id !== (int)$usuarioId && !$isAdmin)) {
+        if (!$fornecedor) {
             header('Location: ' . self::BASE_ROUTE . '?error=not_found');
             exit();
         }
@@ -150,11 +271,12 @@ class FornecedoresController extends Controller
     public function update($id): void
     {
         try {
-        $usuarioId  = Auth::user()->id;
-        $isAdmin    = Auth::hasRole('admin') || Auth::hasRole('superadmin');
-        $fornecedor = $this->model->findById((int)$id);
+        $user = Auth::user();
+        $usuarioId = (int) $user->id;
+        $tenantId = (int) $user->tenant_id;
+        $fornecedor = $this->model->findByIdForTenant((int) $id, $tenantId);
 
-        if (!$fornecedor || ((int)$fornecedor->usuario_id !== (int)$usuarioId && !$isAdmin)) {
+        if (!$fornecedor) {
             header('Location: ' . self::BASE_ROUTE . '?error=unauthorized');
                 exit();
             }
@@ -170,7 +292,8 @@ class FornecedoresController extends Controller
 
             // --- PROTECAO CONTRA DUPLICATAS NO UPDATE (camada de aplicacao) ---
             $documento = preg_replace('/\D/', '', $dados['documento'] ?? '');
-            if ($documento !== '' && $this->model->documentoExists($documento, $usuarioId, (int)$id)) {
+            if (($documento !== '' && $this->model->documentoExistsForTenant($documento, $tenantId, (int) $id))
+                || ($documento === '' && $this->model->nameExistsForTenant($nome, $tenantId, (int) $id))) {
                 $this->logger->warning('[Fornecedores] update bloqueado: documento duplicado', [
                     'usuario_id'  => $usuarioId,
                     'fornecedor_id' => (int)$id,
@@ -186,7 +309,7 @@ class FornecedoresController extends Controller
             }
             // -------------------------------------------------------------------
 
-            if ($this->model->update((int)$id, $dados)) {
+            if ($this->model->updateForTenant((int) $id, $tenantId, $dados)) {
                 AuditLogger::log('update_fornecedor', ['id' => (int)$id, 'nome' => $nome]);
                 header('Location: ' . self::BASE_ROUTE . "/edit/{$id}?success=updated");
             } else {
@@ -206,16 +329,16 @@ class FornecedoresController extends Controller
     public function delete($id): void
     {
         try {
-            $usuarioId  = Auth::user()->id;
-            $isAdmin    = Auth::hasRole('admin') || Auth::hasRole('superadmin');
-            $fornecedor = $this->model->findById((int)$id);
+            $user = Auth::user();
+            $tenantId = (int) $user->tenant_id;
+            $fornecedor = $this->model->findByIdForTenant((int) $id, $tenantId);
 
-            if (!$fornecedor || ((int)$fornecedor->usuario_id !== (int)$usuarioId && !$isAdmin)) {
+            if (!$fornecedor) {
                 header('Location: ' . self::BASE_ROUTE . '?error=unauthorized');
                 exit();
             }
 
-            if ($this->model->delete((int)$id)) {
+            if ($this->model->deleteForTenant((int) $id, $tenantId)) {
                 AuditLogger::log('delete_fornecedor', ['id' => (int)$id, 'nome' => $fornecedor->nome ?? null]);
                 header('Location: ' . self::BASE_ROUTE . '?success=deleted');
             } else {
@@ -238,11 +361,11 @@ class FornecedoresController extends Controller
      */
     public function historico($id): void
     {
-        $usuarioId  = Auth::user()->id;
-        $isAdmin    = Auth::hasRole('admin') || Auth::hasRole('superadmin');
-        $fornecedor = $this->model->findById((int)$id);
+        $user = Auth::user();
+        $tenantId = (int) $user->tenant_id;
+        $fornecedor = $this->model->findByIdForTenant((int) $id, $tenantId);
 
-        if (!$fornecedor || ((int)$fornecedor->usuario_id !== (int)$usuarioId && !$isAdmin)) {
+        if (!$fornecedor) {
             header('Location: ' . self::BASE_ROUTE . '?error=not_found');
             exit();
         }
@@ -391,6 +514,20 @@ class FornecedoresController extends Controller
     // ---------------------------------------------------------------
     // AUXILIARES PRIVADOS
     // ---------------------------------------------------------------
+
+    private function quickNullable(mixed $value): ?string
+    {
+        $value = trim((string) $value);
+        return $value === '' ? null : $value;
+    }
+
+    private function jsonResponse(bool $success, string $message, array $data = [], int $status = 200): void
+    {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => $success, 'message' => $message, 'data' => $data], JSON_UNESCAPED_UNICODE);
+        exit();
+    }
 
     /**
      * Extrai e sanitiza os dados do POST para criacao/edicao.

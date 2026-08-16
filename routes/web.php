@@ -182,6 +182,7 @@ Router::group(["middleware" => ["Auth"]], function () {
     Router::group(["middleware" => ["Permission:view_fornecedores"]], function () {
         Router::get("/fornecedores", "FornecedoresController@index");
         Router::get("/financeiro/fornecedores", "FornecedoresController@index");
+        Router::get("/fornecedores/busca-rapida", "FornecedoresController@quickSearch");
     });
 
     Router::group(["middleware" => ["Permission:create_fornecedores"]], function () {
@@ -189,6 +190,7 @@ Router::group(["middleware" => ["Auth"]], function () {
         Router::post("/fornecedores", "FornecedoresController@store");
         Router::get("/financeiro/fornecedores/create", "FornecedoresController@create");
         Router::post("/financeiro/fornecedores", "FornecedoresController@store");
+        Router::post("/fornecedores/criar-rapido", "FornecedoresController@quickStore");
     });
 
     Router::group(["middleware" => ["Permission:edit_fornecedores"]], function () {

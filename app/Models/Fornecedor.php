@@ -66,10 +66,75 @@ class Fornecedor extends Model
             $params[':q3'] = $like;
         }
 
-        $sql  = "SELECT * FROM {$this->table} WHERE " . implode(' AND ', $where) . " ORDER BY nome ASC";
+        $sql  = "SELECT * FROM {$this->table} WHERE " . implode(' AND ', $where) . " ORDER BY created_at DESC, nome ASC";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_OBJ);
+    }
+
+    /** Retorna fornecedores do tenant, com os mais novos primeiro. */
+    public function findByTenantId(int $tenantId, array $filtros = []): array
+    {
+        $where = ['tenant_id = :tenant_id'];
+        $params = [':tenant_id' => $tenantId];
+        $status = $filtros['status'] ?? 'ativo';
+        if ($status !== '') {
+            $where[] = 'status = :status';
+            $params[':status'] = $status;
+        }
+        $q = trim((string) ($filtros['pesquisa'] ?? ''));
+        if ($q !== '') {
+            $where[] = '(nome LIKE :q1 OR nome_fantasia LIKE :q2 OR documento LIKE :q3 OR email LIKE :q4)';
+            $like = '%' . $q . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
+            $params[':q4'] = $like;
+        }
+
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM {$this->table} WHERE " . implode(' AND ', $where) . ' ORDER BY created_at DESC, nome ASC'
+        );
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_OBJ);
+    }
+
+    /** Busca curta, própria para campos com digitação. */
+    public function searchByTenant(int $tenantId, string $query = '', int $limit = 20, ?int $preferredId = null): array
+    {
+        $limit = max(1, min($limit, 50));
+        $where = ['tenant_id = :tenant_id', "status = 'ativo'"];
+        $params = [':tenant_id' => $tenantId];
+        $query = trim($query);
+        if ($query !== '') {
+            $where[] = '(nome LIKE :q1 OR nome_fantasia LIKE :q2 OR documento LIKE :q3 OR email LIKE :q4)';
+            $like = '%' . $query . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
+            $params[':q4'] = $like;
+        }
+        $preferredSql = '0';
+        if ($preferredId !== null && $preferredId > 0) {
+            $preferredSql = 'CASE WHEN id = :preferred_id THEN 0 ELSE 1 END';
+            $params[':preferred_id'] = $preferredId;
+        }
+
+        $sql = "SELECT id, nome, nome_fantasia, documento, email, telefone
+                FROM {$this->table}
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY {$preferredSql} ASC, created_at DESC, nome ASC
+                LIMIT {$limit}";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_OBJ);
+    }
+
+    public function findByIdForTenant(int $id, int $tenantId): object|false
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE id = :id AND tenant_id = :tenant_id LIMIT 1");
+        $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        return $stmt->fetch(PDO::FETCH_OBJ) ?: false;
     }
 
     // ---------------------------------------------------------------
@@ -206,6 +271,43 @@ class Fornecedor extends Model
      * Verifica se ja existe um fornecedor com o mesmo documento (CNPJ/CPF)
      * para o mesmo usuario_id. Exclui o proprio registro no caso de update.
      */
+    public function nameExistsForTenant(string $name, int $tenantId, ?int $excludeId = null): bool
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return false;
+        }
+        $sql = "SELECT COUNT(*) AS total FROM {$this->table}
+                WHERE LOWER(TRIM(nome)) = LOWER(:nome) AND tenant_id = :tenant_id";
+        $params = [':nome' => $name, ':tenant_id' => $tenantId];
+        if ($excludeId !== null) {
+            $sql .= ' AND id <> :exclude_id';
+            $params[':exclude_id'] = $excludeId;
+        }
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return (int) ($stmt->fetch(PDO::FETCH_OBJ)->total ?? 0) > 0;
+    }
+
+    public function documentoExistsForTenant(string $documento, int $tenantId, ?int $excludeId = null): bool
+    {
+        $doc = preg_replace('/\D/', '', $documento);
+        if ($doc === '') {
+            return false;
+        }
+        $sql = "SELECT COUNT(*) AS total FROM {$this->table}
+                WHERE REPLACE(REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', ''), ' ', '') = :documento
+                  AND tenant_id = :tenant_id";
+        $params = [':documento' => $doc, ':tenant_id' => $tenantId];
+        if ($excludeId !== null) {
+            $sql .= ' AND id <> :exclude_id';
+            $params[':exclude_id'] = $excludeId;
+        }
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return (int) ($stmt->fetch(PDO::FETCH_OBJ)->total ?? 0) > 0;
+    }
+
     public function documentoExists(string $documento, int $usuarioId, ?int $excludeId = null): bool
     {
         $doc = preg_replace('/\D/', '', $documento);
@@ -253,7 +355,7 @@ class Fornecedor extends Model
 
     public function create(array $data): string|false
     {
-        $fields = array_intersect_key($data, array_flip(array_merge(['usuario_id'], $this->allowedFields)));
+        $fields = array_intersect_key($data, array_flip(array_merge(['tenant_id', 'usuario_id'], $this->allowedFields)));
 
         $cols   = implode(', ', array_keys($fields));
         $placeholders = implode(', ', array_map(fn($k) => ':' . $k, array_keys($fields)));
@@ -269,6 +371,29 @@ class Fornecedor extends Model
             return $this->pdo->lastInsertId();
         }
         return false;
+    }
+
+    public function updateForTenant(int $id, int $tenantId, array $data): bool
+    {
+        $fields = array_intersect_key($data, array_flip($this->allowedFields));
+        if (empty($fields)) {
+            return false;
+        }
+        $setParts = array_map(fn($k) => "{$k} = :{$k}", array_keys($fields));
+        $sql = "UPDATE {$this->table} SET " . implode(', ', $setParts) . " WHERE id = :id AND tenant_id = :tenant_id";
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($fields as $key => $value) {
+            $stmt->bindValue(':' . $key, $value);
+        }
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
+
+    public function deleteForTenant(int $id, int $tenantId): bool
+    {
+        $stmt = $this->pdo->prepare("UPDATE {$this->table} SET status = 'inativo' WHERE id = :id AND tenant_id = :tenant_id");
+        return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
     }
 
     public function update(int $id, array $data): bool

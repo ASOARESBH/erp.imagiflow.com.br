@@ -71,7 +71,7 @@ class ContasPagarController extends Controller
         $tenantId = (int) $user->tenant_id;
 
         $planos = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo']);
-        $fornecedores = $this->fornecedorModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
+        $fornecedores = $this->fornecedorModel->findByTenantId($tenantId, ['status' => 'ativo']);
 
         View::render('contas_pagar/form-enterprise', [
             '_layout' => 'erp',
@@ -109,8 +109,8 @@ class ContasPagarController extends Controller
 
             $fornecedorId = $_POST['fornecedor_id'] ?? null;
             if ($fornecedorId !== null && $fornecedorId !== '') {
-                $forn = $this->fornecedorModel->findById((int)$fornecedorId);
-                if (!$forn || (int)$forn->usuario_id !== (int)$usuarioId) {
+                $forn = $this->fornecedorModel->findByIdForTenant((int) $fornecedorId, $tenantId);
+                if (!$forn) {
                     header('Location: /financeiro/contas-a-pagar/create?error=invalid_fornecedor');
                     exit();
                 }
@@ -162,7 +162,7 @@ class ContasPagarController extends Controller
         }
 
         $planos = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo']);
-        $fornecedores = $this->fornecedorModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
+        $fornecedores = $this->fornecedorModel->findByTenantId($tenantId, ['status' => 'ativo']);
         $anexos = $this->anexoModel->findByContaId((int)$conta->id, $usuarioId);
 
         View::render('contas_pagar/form-enterprise', [
@@ -207,8 +207,8 @@ class ContasPagarController extends Controller
 
             $fornecedorId = $_POST['fornecedor_id'] ?? null;
             if ($fornecedorId !== null && $fornecedorId !== '') {
-                $forn = $this->fornecedorModel->findById((int)$fornecedorId);
-                if (!$forn || (int)$forn->usuario_id !== (int)$usuarioId) {
+                $forn = $this->fornecedorModel->findByIdForTenant((int) $fornecedorId, $tenantId);
+                if (!$forn) {
                     header("Location: /financeiro/contas-a-pagar/edit/{$id}?error=invalid_fornecedor");
                     exit();
                 }
@@ -512,7 +512,7 @@ class ContasPagarController extends Controller
             $boletos      = $this->ddaModel->findByUsuarioId($usuarioId, $filtros);
             $contagens    = $this->ddaModel->countByStatus($usuarioId);
             $planos       = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo']);
-            $fornecedores = $this->fornecedorModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
+            $fornecedores = $this->fornecedorModel->findByTenantId($tenantId, ['status' => 'ativo']);
 
             View::render('contas_pagar/dda_index', [
                 '_layout'      => 'erp',

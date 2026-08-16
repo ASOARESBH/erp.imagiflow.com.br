@@ -3,9 +3,18 @@
 $action = $isEdit ? '/financeiro/contas-a-pagar/update/' . ($conta->id ?? '') : '/financeiro/contas-a-pagar';
 $planos = $planos ?? [];
 $fornecedores = $fornecedores ?? [];
+$fornecedorSelecionadoId = (int) ($conta->fornecedor_id ?? 0);
+$fornecedorSelecionadoNome = '';
+foreach ($fornecedores as $fornecedor) {
+    if ((int) $fornecedor->id === $fornecedorSelecionadoId) {
+        $fornecedorSelecionadoNome = (string) $fornecedor->nome;
+        break;
+    }
+}
 ?>
 
 <form id="contaPagarFormGeral" action="<?php echo $action; ?>" method="POST" class="enterprise-form-main">
+    <?php echo \App\Core\View::csrfField(); ?>
 
     <section class="form-section">
         <h2 class="form-section-title">
@@ -26,16 +35,22 @@ $fornecedores = $fornecedores ?? [];
                 </select>
             </div>
 
-            <div class="form-group">
-                <label for="fornecedor_id" class="form-label">Fornecedor</label>
-                <select name="fornecedor_id" id="fornecedor_id" class="form-select">
-                    <option value="">(Opcional)</option>
-                    <?php foreach ($fornecedores as $f): ?>
-                        <option value="<?php echo (int)$f->id; ?>" <?php echo ((int)($conta->fornecedor_id ?? 0) === (int)$f->id) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($f->nome ?? ''); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+            <div class="form-group position-relative" data-fornecedor-picker>
+                <div class="d-flex justify-content-between align-items-center">
+                    <label for="fornecedor_busca" class="form-label mb-1">Fornecedor</label>
+                    <?php if (\App\Core\Auth::can('create_fornecedores')): ?>
+                        <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="modal" data-bs-target="#modalNovoFornecedor">
+                            <i class="fas fa-plus me-1"></i>Novo fornecedor
+                        </button>
+                    <?php endif; ?>
+                </div>
+                <input type="hidden" name="fornecedor_id" id="fornecedor_id" value="<?php echo $fornecedorSelecionadoId ?: ''; ?>">
+                <input type="search" id="fornecedor_busca" class="form-control" autocomplete="off"
+                    placeholder="Digite nome, CNPJ, e-mail ou telefone"
+                    value="<?php echo htmlspecialchars($fornecedorSelecionadoNome); ?>"
+                    aria-autocomplete="list" aria-controls="fornecedor_resultados" aria-expanded="false">
+                <div id="fornecedor_resultados" class="dropdown-menu w-100 shadow" role="listbox"></div>
+                <div class="form-text">Digite para buscar. Os fornecedores mais recentes aparecem primeiro.</div>
             </div>
 
             <div class="form-group">
@@ -110,3 +125,57 @@ $fornecedores = $fornecedores ?? [];
     </section>
 
 </form>
+
+<?php if (\App\Core\Auth::can('create_fornecedores')): ?>
+    <div class="modal fade" id="modalNovoFornecedor" tabindex="-1" aria-labelledby="modalNovoFornecedorTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="modalNovoFornecedorTitulo"><i class="fas fa-truck me-2"></i>Novo fornecedor</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <form id="formNovoFornecedorRapido" novalidate>
+                    <div class="modal-body">
+                        <div id="fornecedor_rapido_feedback" class="alert d-none" role="alert"></div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="fornecedor_rapido_tipo" class="form-label">Tipo</label>
+                                <select id="fornecedor_rapido_tipo" class="form-select">
+                                    <option value="PJ">Pessoa jurídica</option>
+                                    <option value="PF">Pessoa física</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label for="fornecedor_rapido_nome" class="form-label required">Razão social / Nome</label>
+                                <input type="text" id="fornecedor_rapido_nome" class="form-control" required maxlength="255" autocomplete="organization">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="fornecedor_rapido_documento" class="form-label">CPF / CNPJ</label>
+                                <input type="text" id="fornecedor_rapido_documento" class="form-control" maxlength="30">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="fornecedor_rapido_nome_fantasia" class="form-label">Nome fantasia</label>
+                                <input type="text" id="fornecedor_rapido_nome_fantasia" class="form-control" maxlength="255">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="fornecedor_rapido_email" class="form-label">E-mail</label>
+                                <input type="email" id="fornecedor_rapido_email" class="form-control" maxlength="255">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="fornecedor_rapido_telefone" class="form-label">Telefone</label>
+                                <input type="text" id="fornecedor_rapido_telefone" class="form-control" maxlength="30">
+                            </div>
+                        </div>
+                        <p class="text-muted small mt-3 mb-0">Após salvar, o fornecedor é selecionado automaticamente nesta conta a pagar. Os dados complementares podem ser incluídos depois em Cadastros → Fornecedores.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnSalvarFornecedorRapido"><i class="fas fa-save me-1"></i>Salvar e selecionar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
+<script src="/assets/js/fornecedor-rapido.js"></script>
