@@ -26,14 +26,25 @@ class Mail
     public static function sendPasswordResetLink(string $toEmail, string $resetUrl, int $usuarioId = 0): bool
     {
         $subject = 'Redefinição de senha — ERP IMAGINIFLOW';
+        $resetUrl = trim($resetUrl);
+        $urlParts = parse_url($resetUrl);
+        if (!filter_var($resetUrl, FILTER_VALIDATE_URL)
+            || !is_array($urlParts)
+            || strtolower((string) ($urlParts['scheme'] ?? '')) !== 'https'
+            || empty($urlParts['host'])) {
+            throw new \InvalidArgumentException('Link de redefinição inválido.');
+        }
+        $resetUrlHtml = htmlspecialchars($resetUrl, ENT_QUOTES, 'UTF-8');
 
         $bodyHtml = MailService::buildEmailHtml(
             'Redefinição de Senha',
             "<p style='margin:0 0 12px;'>Você solicitou a redefinição de senha no <strong>ERP IMAGINIFLOW</strong>.</p>"
             . "<p style='margin:0 0 24px;'>Clique no botão abaixo para definir uma nova senha. O link é válido por <strong>60 minutos</strong>.</p>"
             . "<p style='text-align:center;margin:24px 0;'>"
-            . "<a href='{$resetUrl}' style='background:#1a56db;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;'>Redefinir minha senha</a>"
+            . "<a href='{$resetUrlHtml}' style='background:#1a56db;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;'>Redefinir minha senha</a>"
             . "</p>"
+            . "<p style='margin:0 0 8px;'>Se o botão não abrir, copie e cole este link completo no navegador:</p>"
+            . "<p style='margin:0 0 24px;word-break:break-all;font-size:12px;line-height:1.5;'><a href='{$resetUrlHtml}' style='color:#1a56db;text-decoration:underline;'>{$resetUrlHtml}</a></p>"
             . "<p style='color:#9ca3af;font-size:13px;margin:0;'>Se você não solicitou isso, ignore este e-mail. Sua senha permanece a mesma.</p>"
         );
 

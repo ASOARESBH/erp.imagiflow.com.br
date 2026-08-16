@@ -36,7 +36,7 @@ class MailService
         $password  = $_ENV['MAIL_PASSWORD']   ?? getenv('MAIL_PASSWORD')   ?: '';
         $protocol  = $_ENV['MAIL_ENCRYPTION'] ?? getenv('MAIL_ENCRYPTION') ?: 'tls';
         $fromEmail = $_ENV['MAIL_FROM_EMAIL'] ?? getenv('MAIL_FROM_EMAIL') ?: '';
-        $fromName  = $_ENV['MAIL_FROM_NAME']  ?? getenv('MAIL_FROM_NAME')  ?: 'ERP InLaudo';
+        $fromName  = $_ENV['MAIL_FROM_NAME']  ?? getenv('MAIL_FROM_NAME')  ?: 'ERP IMAGINIFLOW';
 
         // Se MAIL_FROM_EMAIL não estiver definido, usa o username como remetente
         if (empty($fromEmail)) {
@@ -535,7 +535,7 @@ class MailService
       <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);max-width:600px;">
         <tr>
           <td style="background:{$accentColor};padding:24px 32px;">
-            <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.5px;">ERP InLaudo</h1>
+            <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.5px;">ERP IMAGINIFLOW</h1>
             <p style="margin:4px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">{$subtitle}</p>
           </td>
         </tr>
@@ -547,7 +547,7 @@ class MailService
         <tr>
           <td style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb;text-align:center;">
             <p style="margin:0;color:#9ca3af;font-size:12px;">
-              &copy; {$year} ERP InLaudo &mdash; E-mail automático, não responda.
+              &copy; {$year} ERP IMAGINIFLOW &mdash; E-mail automático, não responda.
             </p>
           </td>
         </tr>
