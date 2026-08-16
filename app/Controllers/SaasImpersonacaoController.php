@@ -40,52 +40,35 @@ class SaasImpersonacaoController extends Controller
     }
 
     /**
-     * Encerramento no tenant alvo: limpa apenas a sessão temporária e redireciona
-     * ao control-plane, onde a sessão original permanece intacta por host.
+     * Encerramento no mesmo host: recupera o tenant de controle e a sessão SaaS
+     * original após validar o token de retorno de uso único.
      */
     public function sair(): void
     {
         $this->assertCsrf();
         $origin = $_SESSION['impersonation_origin'] ?? null;
-        if (!is_array($origin) || empty($origin['return_token'])) {
+        if (!is_array($origin)) {
             http_response_code(403);
             exit('403 - Nenhuma impersonação ativa.');
         }
-
-        $controlTenant = (new Tenant())->findActiveById((int) ($_ENV['SAAS_CONTROL_TENANT_ID'] ?? 0));
-        $returnToken = (string) $origin['return_token'];
-        session_unset();
-        session_destroy();
-
-        if (!$controlTenant) {
-            http_response_code(500);
-            exit('Tenant de controle não configurado.');
+        try {
+            $this->service->exitToControlTenant($origin);
+            header('Location: /painel/empresas?impersonation=ended');
+        } catch (\Throwable $exception) {
+            http_response_code(403);
+            echo '403 - Não foi possível encerrar a impersonação com segurança.';
         }
-        header('Location: https://' . $controlTenant->domain . '/saas-admin/impersonacao/retornar/' . rawurlencode($returnToken));
         exit();
     }
 
     /**
-     * Recebe o retorno no host de controle e recupera a sessão SaaS já preservada nesse domínio.
+     * Compatibilidade para links de retorno antigos: o fluxo atual encerra no
+     * mesmo POST protegido por CSRF e não depende de outro host.
      */
     public function retornar(string $token): void
     {
-        $pending = $_SESSION['saas_impersonation_pending'] ?? null;
-        if (!is_array($pending) || empty($pending['return_token'])
-            || !hash_equals((string) $pending['return_token'], $token)) {
-            http_response_code(403);
-            exit('403 - Retorno de impersonação inválido.');
-        }
-
-        $log = $this->service->finalizeReturn($token);
-        if (!$log || (int) $log->id !== (int) $pending['log_id']) {
-            http_response_code(403);
-            exit('403 - Sessão de impersonação expirada ou já encerrada.');
-        }
-
-        unset($_SESSION['saas_impersonation_pending']);
-        header('Location: /saas-admin/empresas?impersonation=ended');
-        exit();
+        http_response_code(410);
+        exit('410 - Fluxo de retorno substituído pelo encerramento no mesmo domínio.');
     }
 
     public function logs(): void

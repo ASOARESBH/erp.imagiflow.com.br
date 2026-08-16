@@ -37,7 +37,7 @@ class AuthController extends Controller
     {
         // Se já autenticado como usuário ERP, vai para o dashboard
         if (Auth::check()) {
-            header('Location: /dashboard');
+            header('Location: ' . Auth::postLoginPath());
             exit();
         }
         // Se já autenticado como cliente do portal, vai para o portal
@@ -67,10 +67,16 @@ class AuthController extends Controller
         // 1. Tenta autenticar como usuário do ERP
         // ----------------------------------------------------------
         $userModel = new User();
-        $user      = $userModel->findByEmail($email);
+        $user = Auth::isSharedHost()
+            ? $userModel->findForSharedLogin($email)
+            : $userModel->findByEmail($email);
 
         if ($user) {
             $senhaCorreta = Auth::verifyPassword($password, $user->password);
+            if ($senhaCorreta && !Auth::prepareTenantForUser($user)) {
+                $senhaCorreta = false;
+                AuditLogger::log('shared_login_tenant_unavailable', ['user_id' => $user->id ?? null]);
+            }
 
             // ----------------------------------------------------------
             // 1a. Senha correta + 2FA habilitado: NÃO cria sessão definitiva
@@ -79,6 +85,8 @@ class AuthController extends Controller
             if ($senhaCorreta && !empty($user->two_factor_enabled)) {
                 session_regenerate_id(true);
                 $_SESSION['2fa_pending_user_id'] = (int) $user->id;
+                $_SESSION['2fa_pending_tenant_id'] = (int) ($user->tenant_id ?? 0);
+                $_SESSION['active_tenant_id'] = (int) ($user->tenant_id ?? 0);
                 $_SESSION['2fa_pending_started'] = time();
 
                 $twoFactorService = new TwoFactorService();
@@ -112,7 +120,7 @@ class AuthController extends Controller
                     'tipo'    => 'erp',
                     'ip'      => $ip,
                 ]);
-                header('Location: /dashboard');
+                header('Location: ' . Auth::postLoginPath());
                 exit();
             }
 
@@ -406,7 +414,7 @@ class AuthController extends Controller
     public function showForgotPasswordForm(): void
     {
         if (Auth::check()) {
-            header('Location: /dashboard');
+            header('Location: ' . Auth::postLoginPath());
             exit();
         }
         $title = t('auth.forgot_title');
@@ -417,7 +425,7 @@ class AuthController extends Controller
     public function forgotPassword(): void
     {
         if (Auth::check()) {
-            header('Location: /dashboard');
+            header('Location: ' . Auth::postLoginPath());
             exit();
         }
         $email = trim($_POST['email'] ?? '');
@@ -426,8 +434,10 @@ class AuthController extends Controller
             exit();
         }
         $userModel = new User();
-        $user      = $userModel->findByEmail($email);
-        if ($user) {
+        $user = Auth::isSharedHost()
+            ? $userModel->findForSharedLogin($email)
+            : $userModel->findByEmail($email);
+        if ($user && Auth::prepareTenantForUser($user)) {
             $tokenModel = new PasswordResetToken();
             $result     = $tokenModel->createForUser((int) $user->id);
             $rawToken   = $result['raw'];
@@ -452,7 +462,7 @@ class AuthController extends Controller
     public function showResetPasswordForm(string $token): void
     {
         if (Auth::check()) {
-            header('Location: /dashboard');
+            header('Location: ' . Auth::postLoginPath());
             exit();
         }
         $tokenHash  = hash('sha256', $token);
@@ -471,7 +481,7 @@ class AuthController extends Controller
     public function resetPassword(string $token): void
     {
         if (Auth::check()) {
-            header('Location: /dashboard');
+            header('Location: ' . Auth::postLoginPath());
             exit();
         }
         $password        = $_POST['password']         ?? '';
@@ -492,8 +502,13 @@ class AuthController extends Controller
             header('Location: /login?reset=invalid');
             exit();
         }
+        $userModel = new User();
+        if (!Auth::prepareTenantForUserId((int) $record->user_id)) {
+            AuditLogger::log('password_reset_failed', ['reason' => 'tenant_unavailable', 'user_id' => $record->user_id]);
+            header('Location: /login?reset=invalid');
+            exit();
+        }
         $tokenModel->markAsUsed((int) $record->id);
-        $userModel      = new User();
         $hashedPassword = Auth::hashPassword($password);
         $updated        = $userModel->updatePassword((int) $record->user_id, $hashedPassword);
         if ($updated) {
@@ -518,7 +533,7 @@ class AuthController extends Controller
     public function showTwoFactorForm(): void
     {
         if (Auth::check()) {
-            header('Location: /dashboard');
+            header('Location: ' . Auth::postLoginPath());
             exit();
         }
 
@@ -582,10 +597,10 @@ class AuthController extends Controller
         $result           = $twoFactorService->verifyCode($user, $codigo, $ip, $userAgent);
 
         if ($result['success']) {
-            unset($_SESSION['2fa_pending_user_id'], $_SESSION['2fa_pending_started']);
+            unset($_SESSION['2fa_pending_user_id'], $_SESSION['2fa_pending_tenant_id'], $_SESSION['2fa_pending_started']);
             Auth::loginAsUser($user);
             AuditLogger::log('2fa_verify_success', ['user_id' => $user->id, 'ip' => $ip]);
-            echo json_encode(['success' => true, 'redirect' => '/dashboard']);
+            echo json_encode(['success' => true, 'redirect' => Auth::postLoginPath()]);
             exit();
         }
 

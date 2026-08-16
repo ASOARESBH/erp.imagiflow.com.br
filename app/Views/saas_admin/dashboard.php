@@ -8,8 +8,8 @@ $counts = $tenantCounts ?? ['active' => 0, 'inactive' => 0, 'suspended' => 0];
             <p class="text-muted mb-0">Administração central de empresas, planos e acessos da plataforma.</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="/saas-admin/empresas/create" class="btn btn-primary"><i class="fas fa-building me-1"></i> Nova Empresa</a>
-            <a href="/saas-admin/planos" class="btn btn-outline-primary"><i class="fas fa-layer-group me-1"></i> Gerenciar Planos</a>
+            <a href="/painel/empresas/create" class="btn btn-primary"><i class="fas fa-building me-1"></i> Nova Empresa</a>
+            <a href="/painel/planos" class="btn btn-outline-primary"><i class="fas fa-layer-group me-1"></i> Gerenciar Planos</a>
         </div>
     </div>
 
@@ -23,7 +23,7 @@ $counts = $tenantCounts ?? ['active' => 0, 'inactive' => 0, 'suspended' => 0];
     <div class="row g-4">
         <div class="col-lg-7">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center"><strong>Planos da plataforma</strong><a href="/saas-admin/planos" class="small">Ver todos</a></div>
+                <div class="card-header bg-white d-flex justify-content-between align-items-center"><strong>Planos da plataforma</strong><a href="/painel/planos" class="small">Ver todos</a></div>
                 <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Plano</th><th>Limite</th><th>Módulos</th><th>Status</th></tr></thead><tbody>
                 <?php foreach ($planos as $plano): ?>
                     <tr><td><strong><?= htmlspecialchars($plano->nome) ?></strong><br><small class="text-muted"><?= htmlspecialchars($plano->slug) ?></small></td><td><?= $plano->limite_usuarios === null ? 'Ilimitado' : (int) $plano->limite_usuarios ?></td><td><?= (int) $plano->total_modulos_ativos ?></td><td><span class="badge <?= $plano->status === 'ativo' ? 'bg-success' : 'bg-secondary' ?>"><?= htmlspecialchars($plano->status) ?></span></td></tr>
@@ -33,7 +33,7 @@ $counts = $tenantCounts ?? ['active' => 0, 'inactive' => 0, 'suspended' => 0];
         </div>
         <div class="col-lg-5">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center"><strong>Impersonações recentes</strong><a href="/saas-admin/impersonacao/logs" class="small">Auditoria completa</a></div>
+                <div class="card-header bg-white d-flex justify-content-between align-items-center"><strong>Impersonações recentes</strong><a href="/painel/impersonacao/logs" class="small">Auditoria completa</a></div>
                 <div class="list-group list-group-flush">
                 <?php if (empty($recentImpersonations)): ?>
                     <div class="list-group-item text-muted">Nenhuma impersonação registrada.</div>

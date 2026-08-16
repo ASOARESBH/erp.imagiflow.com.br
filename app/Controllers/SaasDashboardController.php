@@ -40,7 +40,7 @@ class SaasDashboardController extends Controller
 
         View::render('saas_admin/dashboard', [
             'title' => 'Painel SaaS',
-            'breadcrumb' => ['Painel SaaS' => '/saas-admin'],
+            'breadcrumb' => ['Painel SaaS' => '/painel'],
             'totalTenants' => count($tenants),
             'tenantCounts' => $counts,
             'planos' => $this->planoModel->listAll(),

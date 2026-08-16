@@ -148,12 +148,12 @@ WHERE p.slug = 'enterprise';
 
 -- ============================================================================
 -- 4. TENANT DE CONTROLE E SUPERADMIN INICIAL
--- O host painel.imagiflow.com.br deve apontar para esta mesma aplicação antes do uso.
+-- O painel usa o mesmo domínio ERP compartilhado; não requer subdomínio adicional.
 -- A senha inicial informada no briefing deve ser substituída imediatamente após o primeiro login.
 -- ============================================================================
 
 INSERT INTO `tenants` (`name`, `slug`, `domain`, `status`, `created_at`, `updated_at`)
-SELECT 'Imagiflow SaaS Admin', 'imagiflow-saas-admin', 'painel.imagiflow.com.br', 'active', NOW(), NOW()
+SELECT 'Imagiflow SaaS Admin', 'imagiflow-saas-admin', 'saas-control.internal', 'active', NOW(), NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM `tenants` t WHERE t.slug = 'imagiflow-saas-admin'
 );

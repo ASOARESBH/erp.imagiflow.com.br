@@ -499,7 +499,7 @@ if ($_ec) {
   <div class="impersonation-banner" role="alert">
     <i class="fas fa-user-secret"></i>
     <span><strong>Modo de suporte ativo.</strong> Você está acessando esta empresa por impersonação.</span>
-    <form method="post" action="/saas-admin/impersonacao/sair">
+    <form method="post" action="/painel/impersonacao/sair">
       <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
       <button type="submit" class="btn btn-sm btn-light">Sair da impersonação</button>
     </form>
@@ -801,8 +801,8 @@ if ($_ec) {
 
           <?php if (\App\Core\Auth::hasRole('saas_owner')): ?>
           <div class="nav-label">PLATAFORMA</div>
-          <li class="nav-item <?php echo strpos($_SERVER['REQUEST_URI'], '/saas-admin') !== false ? 'active' : ''; ?>">
-            <a href="/saas-admin" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Painel SaaS">
+          <li class="nav-item <?php echo strpos($_SERVER['REQUEST_URI'], '/painel') !== false ? 'active' : ''; ?>">
+            <a href="/painel" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Painel SaaS">
               <i class="fas fa-cloud"></i><span class="link-text">Painel SaaS</span>
             </a>
           </li>

@@ -31,9 +31,15 @@ class Auth
     public static function login(string $email, string $password): bool
     {
         $userModel = new \App\Models\User();
-        $user = $userModel->findByEmail($email);
+        $user = self::isSharedHost()
+            ? $userModel->findForSharedLogin($email)
+            : $userModel->findByEmail($email);
 
         if ($user && self::verifyPassword($password, $user->password)) {
+            if (!self::prepareTenantForUser($user)) {
+                AuditLogger::log('login_tenant_unavailable', ['user_id' => $user->id ?? null]);
+                return false;
+            }
             self::loginAsUser($user);
             return true;
         }
@@ -67,6 +73,7 @@ class Auth
         $_SESSION['user_name'] = $user->name;
         $_SESSION['user_email'] = $user->email;
         $_SESSION['user_role'] = $user->tenant_role ?? $user->role ?? 'user';
+        $_SESSION['active_tenant_id'] = $tenantId;
         $_SESSION['login_time'] = time();
 
         $userLocale = (string) ($user->locale ?? 'pt_BR');
@@ -80,6 +87,76 @@ class Auth
             'role' => $_SESSION['user_role'],
             'tenant_id' => $tenantId,
         ]);
+    }
+
+    /**
+     * Prepara o contexto de tenant do usuário no domínio compartilhado. O tenant
+     * só é aceito quando o vínculo user_tenants está ativo no banco.
+     */
+    public static function prepareTenantForUser(object $user): bool
+    {
+        if (!self::isSharedHost()) {
+            return true;
+        }
+        $tenantId = (int) ($user->tenant_id ?? 0);
+        $userId = (int) ($user->id ?? 0);
+        if ($tenantId <= 0 || $userId <= 0) {
+            return false;
+        }
+        $tenant = (new \App\Models\Tenant())->findActiveForUser($tenantId, $userId);
+        if (!$tenant) {
+            return false;
+        }
+        TenantContext::set($tenant);
+        $_SESSION['active_tenant_id'] = (int) $tenant->id;
+        return true;
+    }
+
+    /**
+     * Resolve o tenant padrão de um usuário para operações de recuperação de senha
+     * no domínio compartilhado, sempre revalidando o vínculo ativo no banco.
+     */
+    public static function prepareTenantForUserId(int $userId): bool
+    {
+        if (!self::isSharedHost()) {
+            return true;
+        }
+        $userModel = new \App\Models\User();
+        $tenantId = $userModel->findDefaultTenantId($userId);
+        if ($tenantId <= 0) {
+            return false;
+        }
+        $tenant = (new \App\Models\Tenant())->findActiveForUser($tenantId, $userId);
+        if (!$tenant) {
+            return false;
+        }
+        TenantContext::set($tenant);
+        $_SESSION['active_tenant_id'] = (int) $tenant->id;
+        return true;
+    }
+
+    /**
+     * Redirecionamento pós-login, sem confiar em parâmetros de URL externos.
+     */
+    public static function postLoginPath(): string
+    {
+        $controlTenantId = (int) ($_ENV['SAAS_CONTROL_TENANT_ID'] ?? 0);
+        if (self::hasRole('saas_owner') && $controlTenantId > 0 && TenantContext::has()
+            && TenantContext::id() === $controlTenantId) {
+            return '/painel';
+        }
+        return '/dashboard';
+    }
+
+    /**
+     * Identifica o host compartilhado estritamente por configuração de servidor.
+     */
+    public static function isSharedHost(): bool
+    {
+        $configured = strtolower(trim((string) ($_ENV['SAAS_SHARED_HOST'] ?? '')));
+        $host = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
+        $host = preg_replace('/:\\d+$/', '', $host) ?? '';
+        return $configured !== '' && hash_equals($configured, $host);
     }
 
     /**

@@ -48,7 +48,7 @@ class SaasPlanosController extends Controller
     {
         View::render('saas_admin/planos/index', [
             'title' => 'Planos SaaS',
-            'breadcrumb' => ['Painel SaaS' => '/saas-admin', 0 => 'Planos'],
+            'breadcrumb' => ['Painel SaaS' => '/painel', 0 => 'Planos'],
             'planos' => $this->planoModel->listAll(),
             '_layout' => 'erp',
         ]);
@@ -63,7 +63,7 @@ class SaasPlanosController extends Controller
     {
         $plano = $this->planoModel->findById($id);
         if (!$plano) {
-            header('Location: /saas-admin/planos?error=not_found');
+            header('Location: /painel/planos?error=not_found');
             exit();
         }
         $this->renderForm($plano);
@@ -83,13 +83,13 @@ class SaasPlanosController extends Controller
             $this->planoModuloModel->replaceForPlan($id, $data['modules']);
             $pdo->commit();
             AuditLogger::log('saas_plan_created', ['plan_id' => $id, 'created_by' => Auth::user()->id]);
-            header('Location: /saas-admin/planos/edit/' . $id . '?success=created');
+            header('Location: /painel/planos/edit/' . $id . '?success=created');
         } catch (\Throwable $exception) {
             if ($this->planoModel->getPdo()->inTransaction()) {
                 $this->planoModel->getPdo()->rollBack();
             }
             AuditLogger::log('saas_plan_create_exception', ['error' => $exception->getMessage()]);
-            header('Location: /saas-admin/planos/create?error=' . rawurlencode($exception->getMessage()));
+            header('Location: /painel/planos/create?error=' . rawurlencode($exception->getMessage()));
         }
         exit();
     }
@@ -113,13 +113,13 @@ class SaasPlanosController extends Controller
             $this->planoModuloModel->replaceForPlan($id, $data['modules']);
             $pdo->commit();
             AuditLogger::log('saas_plan_updated', ['plan_id' => $id, 'updated_by' => Auth::user()->id]);
-            header('Location: /saas-admin/planos/edit/' . $id . '?success=updated');
+            header('Location: /painel/planos/edit/' . $id . '?success=updated');
         } catch (\Throwable $exception) {
             if ($this->planoModel->getPdo()->inTransaction()) {
                 $this->planoModel->getPdo()->rollBack();
             }
             AuditLogger::log('saas_plan_update_exception', ['plan_id' => $id, 'error' => $exception->getMessage()]);
-            header('Location: /saas-admin/planos/edit/' . $id . '?error=' . rawurlencode($exception->getMessage()));
+            header('Location: /painel/planos/edit/' . $id . '?error=' . rawurlencode($exception->getMessage()));
         }
         exit();
     }

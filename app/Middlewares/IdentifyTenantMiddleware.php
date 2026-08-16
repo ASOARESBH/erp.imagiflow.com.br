@@ -24,7 +24,16 @@ class IdentifyTenantMiddleware extends Middleware
                 $tenant = $tenantModel->findActiveBySlug($defaultSlug);
             }
         } else {
-            $tenant = $tenantModel->findActiveByHost($host);
+            // No domínio compartilhado, o tenant de uma sessão autenticada é
+            // recuperado exclusivamente a partir de um vínculo ativo no banco.
+            // Hosts de tenant dedicados continuam sendo resolvidos pelo host.
+            $sessionUserId = (int) ($_SESSION['user_id'] ?? $_SESSION['2fa_pending_user_id'] ?? 0);
+            $sessionTenantId = (int) ($_SESSION['active_tenant_id'] ?? $_SESSION['2fa_pending_tenant_id'] ?? 0);
+            if ($this->isSharedHost($host) && $sessionUserId > 0 && $sessionTenantId > 0) {
+                $tenant = $tenantModel->findActiveForUser($sessionTenantId, $sessionUserId);
+            } else {
+                $tenant = $tenantModel->findActiveByHost($host);
+            }
         }
 
         if (!$tenant) {
@@ -36,6 +45,16 @@ class IdentifyTenantMiddleware extends Middleware
         }
 
         TenantContext::set($tenant);
+    }
+
+    private function isSharedHost(string $host): bool
+    {
+        $configured = strtolower(trim((string) ($_ENV['SAAS_SHARED_HOST'] ?? '')));
+        if ($configured === '') {
+            return false;
+        }
+
+        return hash_equals($configured, $host);
     }
 
     private function requestHost(): string

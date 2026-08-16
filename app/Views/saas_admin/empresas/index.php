@@ -2,7 +2,7 @@
 <div class="container-fluid py-4 saas-admin">
     <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
         <div><h1 class="h3 mb-1">Empresas SaaS</h1><p class="text-muted mb-0">Tenants cadastrados, seus planos e usuários master.</p></div>
-        <?php if (Auth::can('create_saas_tenants')): ?><a href="/saas-admin/empresas/create" class="btn btn-primary"><i class="fas fa-plus me-1"></i> Nova Empresa</a><?php endif; ?>
+        <?php if (Auth::can('create_saas_tenants')): ?><a href="/painel/empresas/create" class="btn btn-primary"><i class="fas fa-plus me-1"></i> Nova Empresa</a><?php endif; ?>
     </div>
     <?php if (!empty($_GET['error'])): ?><div class="alert alert-danger"><?= htmlspecialchars((string) $_GET['error']) ?></div><?php endif; ?>
     <?php if (!empty($_GET['success'])): ?><div class="alert alert-success">Operação concluída com sucesso.</div><?php endif; ?>
@@ -19,7 +19,7 @@
                 <td><?= htmlspecialchars($empresa->master_user_name ?: 'Não definido') ?><br><small class="text-muted"><?= htmlspecialchars($empresa->master_user_email ?: '') ?></small></td>
                 <td><span class="badge <?= $empresa->status === 'active' ? 'bg-success' : ($empresa->status === 'suspended' ? 'bg-warning text-dark' : 'bg-secondary') ?>"><?= htmlspecialchars($empresa->status) ?></span></td>
                 <td class="text-end"><div class="btn-group btn-group-sm">
-                    <?php if (Auth::can('edit_saas_tenants')): ?><a class="btn btn-outline-primary" href="/saas-admin/empresas/edit/<?= (int) $empresa->id ?>"><i class="fas fa-pen"></i></a><?php endif; ?>
+                    <?php if (Auth::can('edit_saas_tenants')): ?><a class="btn btn-outline-primary" href="/painel/empresas/edit/<?= (int) $empresa->id ?>"><i class="fas fa-pen"></i></a><?php endif; ?>
                     <?php if (!$isControl && Auth::can('impersonate_saas_tenant') && $empresa->status === 'active' && $empresa->master_user_id): ?>
                         <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#impersonateModal" data-tenant-id="<?= (int) $empresa->id ?>" data-tenant-name="<?= htmlspecialchars($empresa->nome_fantasia ?: $empresa->name) ?>"><i class="fas fa-user-secret"></i></button>
                     <?php endif; ?>

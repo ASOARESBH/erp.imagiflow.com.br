@@ -54,6 +54,35 @@ class User extends Model
     }
 
     /**
+     * Localiza o vínculo padrão ativo de um usuário por e-mail sem depender do tenant
+     * corrente. Este método deve ser usado somente pelo fluxo de login do host
+     * compartilhado, que materializa o contexto a partir do vínculo retornado.
+     */
+    public function findForSharedLogin(string $email): object|false
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT u.*, ut.tenant_id, ut.role AS tenant_role\n             FROM {$this->table} u\n             INNER JOIN user_tenants ut ON ut.user_id = u.id\n             INNER JOIN tenants t ON t.id = ut.tenant_id\n             WHERE u.email = :email\n               AND ut.status = 'active'\n               AND t.status = 'active'\n             ORDER BY ut.is_default DESC, ut.id ASC\n             LIMIT 1"
+        );
+        $stmt->execute([':email' => strtolower(trim($email))]);
+
+        return $stmt->fetch() ?: false;
+    }
+
+    /**
+     * Localiza o tenant padrão ativo de um usuário; usado por redefinição de senha
+     * no host compartilhado antes de executar métodos que exigem TenantContext.
+     */
+    public function findDefaultTenantId(int $userId): int
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT ut.tenant_id\n             FROM user_tenants ut\n             INNER JOIN tenants t ON t.id = ut.tenant_id\n             WHERE ut.user_id = :user_id\n               AND ut.status = 'active'\n               AND t.status = 'active'\n             ORDER BY ut.is_default DESC, ut.id ASC\n             LIMIT 1"
+        );
+        $stmt->execute([':user_id' => $userId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
      * Cria um novo usuário no banco de dados.
      *
      * @param array $data Os dados do usuário (ex: ["name" => ..., "email" => ..., "password" => ...]).

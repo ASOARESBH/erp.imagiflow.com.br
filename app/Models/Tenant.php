@@ -52,6 +52,20 @@ class Tenant extends Model
     }
 
     /**
+     * Resolve um tenant ativo somente quando há vínculo ativo para o usuário.
+     * Usado exclusivamente pelo host compartilhado após autenticação ou handoff interno.
+     */
+    public function findActiveForUser(int $tenantId, int $userId): object|false
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT t.*\n             FROM {$this->table} t\n             INNER JOIN user_tenants ut ON ut.tenant_id = t.id\n             WHERE t.id = :tenant_id\n               AND t.status = 'active'\n               AND ut.user_id = :user_id\n               AND ut.status = 'active'\n             LIMIT 1"
+        );
+        $stmt->execute([':tenant_id' => $tenantId, ':user_id' => $userId]);
+
+        return $stmt->fetch(PDO::FETCH_OBJ) ?: false;
+    }
+
+    /**
      * Métodos abaixo são exclusivos do control-plane, protegido por SaasAdminMiddleware.
      * A tabela tenants é global por definição arquitetural.
      */

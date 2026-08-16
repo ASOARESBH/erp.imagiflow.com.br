@@ -11,8 +11,8 @@ use App\Models\User;
 use RuntimeException;
 
 /**
- * Impersonação segura por handoff entre hosts.
- * O tenant continua sendo definido somente pelo HTTP_HOST de cada requisição.
+ * Impersonação segura no domínio ERP compartilhado por token de uso único.
+ * O tenant alvo é materializado somente após validação do token e do vínculo ativo.
  */
 class SaasImpersonationService
 {
@@ -83,25 +83,36 @@ class SaasImpersonationService
     public function enterTargetTenant(string $entryToken, string $returnToken): void
     {
         $log = $this->logModel->consumeHandoff(hash('sha256', $entryToken));
-        if (!$log || !TenantContext::matches((int) $log->target_tenant_id)
-            || !$this->logModel->returnTokenMatchesLog((int) $log->id, hash('sha256', $returnToken))) {
-            throw new RuntimeException('Link de impersonação inválido, expirado ou direcionado ao tenant incorreto.');
+        if (!$log || !$this->logModel->returnTokenMatchesLog((int) $log->id, hash('sha256', $returnToken))) {
+            throw new RuntimeException('Link de impersonação inválido, expirado ou já utilizado.');
         }
 
-        $user = $this->userModel->findById((int) $log->target_user_id);
-        if (!$user) {
-            throw new RuntimeException('O usuário master do tenant não está disponível.');
+        $targetTenant = $this->tenantModel->findActiveForUser(
+            (int) $log->target_tenant_id,
+            (int) $log->target_user_id
+        );
+        if (!$targetTenant) {
+            throw new RuntimeException('O tenant ou o usuário master alvo não está disponível.');
         }
 
-        Auth::loginAsUser($user);
-        $_SESSION['impersonation_origin'] = [
+        $origin = [
             'log_id' => (int) $log->id,
             'saas_admin_user_id' => (int) $log->saas_admin_user_id,
+            'control_tenant_id' => (int) ($_ENV['SAAS_CONTROL_TENANT_ID'] ?? 0),
             'target_tenant_id' => (int) $log->target_tenant_id,
             'return_token' => $returnToken,
             'started_at' => time(),
         ];
 
+        // O token autoriza a troca controlada; o TenantContext não é obtido de URL.
+        TenantContext::set($targetTenant);
+        $_SESSION['active_tenant_id'] = (int) $targetTenant->id;
+        $user = $this->userModel->findById((int) $log->target_user_id);
+        if (!$user) {
+            throw new RuntimeException('O usuário master do tenant não está disponível.');
+        }
+        Auth::loginAsUser($user);
+        $_SESSION['impersonation_origin'] = $origin;
     }
 
     public function finalizeReturn(string $returnToken): object|false
@@ -117,6 +128,38 @@ class SaasImpersonationService
         }
 
         return $log;
+    }
+
+    /**
+     * Encerra a impersonação no mesmo domínio e restaura a sessão SaaS original.
+     */
+    public function exitToControlTenant(array $origin): void
+    {
+        $returnToken = (string) ($origin['return_token'] ?? '');
+        $controlTenantId = (int) ($origin['control_tenant_id'] ?? 0);
+        $adminUserId = (int) ($origin['saas_admin_user_id'] ?? 0);
+        if ($returnToken === '' || $controlTenantId <= 0 || $adminUserId <= 0) {
+            throw new RuntimeException('Sessão de impersonação inválida.');
+        }
+
+        $log = $this->finalizeReturn($returnToken);
+        if (!$log || (int) $log->id !== (int) ($origin['log_id'] ?? 0)
+            || (int) $log->saas_admin_user_id !== $adminUserId) {
+            throw new RuntimeException('Retorno de impersonação inválido ou expirado.');
+        }
+
+        $controlTenant = $this->tenantModel->findActiveForUser($controlTenantId, $adminUserId);
+        if (!$controlTenant) {
+            throw new RuntimeException('A sessão administrativa original não está mais disponível.');
+        }
+        TenantContext::set($controlTenant);
+        $_SESSION['active_tenant_id'] = (int) $controlTenant->id;
+        $admin = $this->userModel->findById($adminUserId);
+        if (!$admin || ($admin->tenant_role ?? '') !== 'saas_owner') {
+            throw new RuntimeException('Usuário SaaS original não está autorizado.');
+        }
+        Auth::loginAsUser($admin);
+        unset($_SESSION['impersonation_origin'], $_SESSION['saas_impersonation_pending']);
     }
 
     public function closeForTimeout(int $logId): void

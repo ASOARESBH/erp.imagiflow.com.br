@@ -34,7 +34,7 @@ class SaasEmpresasController extends Controller
     {
         View::render('saas_admin/empresas/index', [
             'title' => 'Empresas SaaS',
-            'breadcrumb' => ['Painel SaaS' => '/saas-admin', 0 => 'Empresas'],
+            'breadcrumb' => ['Painel SaaS' => '/painel', 0 => 'Empresas'],
             'empresas' => $this->tenantModel->listAllWithPlan(),
             '_layout' => 'erp',
         ]);
@@ -49,7 +49,7 @@ class SaasEmpresasController extends Controller
     {
         $empresa = $this->tenantModel->findById($id);
         if (!$empresa) {
-            header('Location: /saas-admin/empresas?error=not_found');
+            header('Location: /painel/empresas?error=not_found');
             exit();
         }
         $this->renderForm($empresa, true);
@@ -92,13 +92,13 @@ class SaasEmpresasController extends Controller
                 ]);
             }
 
-            header('Location: /saas-admin/empresas/edit/' . (int) $result['tenant_id'] . '?success=created&invite=' . $inviteDelivery);
+            header('Location: /painel/empresas/edit/' . (int) $result['tenant_id'] . '?success=created&invite=' . $inviteDelivery);
         } catch (\Throwable $exception) {
             AuditLogger::log('saas_company_store_exception', [
                 'saas_admin_user_id' => Auth::user()->id ?? null,
                 'error' => $exception->getMessage(),
             ]);
-            header('Location: /saas-admin/empresas/create?error=' . rawurlencode($exception->getMessage()));
+            header('Location: /painel/empresas/create?error=' . rawurlencode($exception->getMessage()));
         }
         exit();
     }
@@ -114,14 +114,14 @@ class SaasEmpresasController extends Controller
             }
             $company['status'] = (string) $current->status;
             $this->saasService->updateCompany($id, $company);
-            header('Location: /saas-admin/empresas/edit/' . $id . '?success=updated');
+            header('Location: /painel/empresas/edit/' . $id . '?success=updated');
         } catch (\Throwable $exception) {
             AuditLogger::log('saas_company_update_exception', [
                 'tenant_id' => $id,
                 'saas_admin_user_id' => Auth::user()->id ?? null,
                 'error' => $exception->getMessage(),
             ]);
-            header('Location: /saas-admin/empresas/edit/' . $id . '?error=' . rawurlencode($exception->getMessage()));
+            header('Location: /painel/empresas/edit/' . $id . '?error=' . rawurlencode($exception->getMessage()));
         }
         exit();
     }
@@ -132,13 +132,13 @@ class SaasEmpresasController extends Controller
         try {
             $status = (string) ($_POST['status'] ?? '');
             $this->saasService->changeCompanyStatus($id, $status, (int) Auth::user()->id);
-            header('Location: /saas-admin/empresas?success=status_updated');
+            header('Location: /painel/empresas?success=status_updated');
         } catch (\Throwable $exception) {
             AuditLogger::log('saas_company_status_exception', [
                 'tenant_id' => $id,
                 'error' => $exception->getMessage(),
             ]);
-            header('Location: /saas-admin/empresas?error=' . rawurlencode($exception->getMessage()));
+            header('Location: /painel/empresas?error=' . rawurlencode($exception->getMessage()));
         }
         exit();
     }
@@ -213,7 +213,7 @@ class SaasEmpresasController extends Controller
                 'started_at' => time(),
             ];
             $host = $this->tenantHost($handoff['target_tenant']);
-            $url = 'https://' . $host . '/saas-admin/impersonacao/entrar/' . rawurlencode($handoff['entry_token'])
+            $url = 'https://' . $host . '/painel/impersonacao/entrar/' . rawurlencode($handoff['entry_token'])
                 . '?return=' . rawurlencode($handoff['return_token']);
             header('Location: ' . $url);
         } catch (\Throwable $exception) {
@@ -221,7 +221,7 @@ class SaasEmpresasController extends Controller
                 'target_tenant_id' => $id,
                 'error' => $exception->getMessage(),
             ]);
-            header('Location: /saas-admin/empresas?error=' . rawurlencode($exception->getMessage()));
+            header('Location: /painel/empresas?error=' . rawurlencode($exception->getMessage()));
         }
         exit();
     }
@@ -240,17 +240,15 @@ class SaasEmpresasController extends Controller
     private function sanitizeCompanyRequest(): array
     {
         $slug = strtolower(trim((string) ($_POST['slug'] ?? '')));
-        $baseDomain = strtolower(trim((string) ($_ENV['SAAS_TENANT_BASE_DOMAIN'] ?? 'imagiflow.com.br')));
-        $subdomain = trim((string) ($_POST['subdomain'] ?? ''));
-        if ($subdomain === '' && $slug !== '') {
-            $subdomain = $slug . '.' . $baseDomain;
-        }
+        // O domínio externo é único (erp.imagiflow.com.br). Cada tenant recebe
+        // apenas um identificador técnico único, que nunca exige DNS público.
+        $internalDomain = $slug !== '' ? 'tenant-' . $slug . '.internal' : null;
 
         return [
             'name' => trim(strip_tags((string) ($_POST['nome_fantasia'] ?? ''))),
             'slug' => $slug,
-            'domain' => strtolower(trim((string) ($_POST['domain'] ?? ''))) ?: null,
-            'subdomain' => strtolower($subdomain) ?: null,
+            'domain' => $internalDomain,
+            'subdomain' => null,
             'status' => 'active',
             'email' => strtolower(trim((string) ($_POST['email'] ?? ''))) ?: null,
             'phone' => trim(strip_tags((string) ($_POST['telefone'] ?? ''))) ?: null,
@@ -282,13 +280,20 @@ class SaasEmpresasController extends Controller
         }
     }
 
+    /**
+     * Todos os convites e handoffs SaaS usam o mesmo domínio ERP. O tenant é
+     * selecionado por vínculo autenticado e token, nunca por host do cliente.
+     */
     private function tenantHost(object $tenant): string
     {
-        $host = strtolower(trim((string) ($tenant->domain ?: $tenant->subdomain)));
+        $host = strtolower(trim((string) ($_ENV['SAAS_SHARED_HOST'] ?? '')));
         if ($host === '') {
-            throw new RuntimeException('A empresa não possui domínio ou subdomínio configurado.');
+            $host = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
+            $host = preg_replace('/:\\d+$/', '', $host) ?? '';
         }
-
+        if ($host === '') {
+            throw new RuntimeException('Domínio compartilhado do ERP não configurado.');
+        }
         return $host;
     }
 }
