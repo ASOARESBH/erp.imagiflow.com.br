@@ -39,23 +39,39 @@ if (!empty($_GET['error'])) {
     <?php Form::start('resetForm', '/reset-password/' . htmlspecialchars($tokenValue)); ?>
     <div class="mb-3">
         <label class="form-label"><?php echo htmlspecialchars(t('auth.new_password')); ?> <span class="text-danger">*</span></label>
-        <?php Form::input('password', '', 'password', '', [
+        <?php
+        $resetPasswordToggle = sprintf(
+            '<button class="btn btn-outline-secondary" type="button" data-password-toggle="password" data-show-label="%1$s" data-hide-label="%2$s" aria-label="%1$s" title="%1$s" aria-pressed="false"><i class="fa-solid fa-eye" data-password-toggle-icon aria-hidden="true"></i><span class="visually-hidden">%1$s</span></button>',
+            htmlspecialchars(t('auth.show_password'), ENT_QUOTES, 'UTF-8'),
+            htmlspecialchars(t('auth.hide_password'), ENT_QUOTES, 'UTF-8')
+        );
+        Form::input('password', '', 'password', '', [
             'placeholder' => t('auth.password_minimum'),
             'required' => true,
             'class' => 'form-control',
             'autofocus' => true,
-            'minlength' => 8
-        ]); ?>
+            'minlength' => 8,
+            'append' => $resetPasswordToggle,
+        ]);
+        ?>
     </div>
 
     <div class="mb-4">
         <label class="form-label"><?php echo htmlspecialchars(t('auth.confirm_password')); ?> <span class="text-danger">*</span></label>
-        <?php Form::input('password_confirm', '', 'password', '', [
+        <?php
+        $resetPasswordConfirmToggle = sprintf(
+            '<button class="btn btn-outline-secondary" type="button" data-password-toggle="password_confirm" data-show-label="%1$s" data-hide-label="%2$s" aria-label="%1$s" title="%1$s" aria-pressed="false"><i class="fa-solid fa-eye" data-password-toggle-icon aria-hidden="true"></i><span class="visually-hidden">%1$s</span></button>',
+            htmlspecialchars(t('auth.show_password'), ENT_QUOTES, 'UTF-8'),
+            htmlspecialchars(t('auth.hide_password'), ENT_QUOTES, 'UTF-8')
+        );
+        Form::input('password_confirm', '', 'password', '', [
             'placeholder' => t('auth.password_repeat_placeholder'),
             'required' => true,
             'class' => 'form-control',
-            'minlength' => 8
-        ]); ?>
+            'minlength' => 8,
+            'append' => $resetPasswordConfirmToggle,
+        ]);
+        ?>
     </div>
 
     <?php Form::button(t('auth.reset_password'), 'submit', 'btn btn-primary'); ?>

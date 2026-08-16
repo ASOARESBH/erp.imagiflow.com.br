@@ -64,21 +64,20 @@ if (is_dir($uploadLogoDir)) {
     </div>
     <div class="mb-4">
         <label class="form-label"><?php echo htmlspecialchars(t('auth.password')); ?> <span class="text-danger">*</span></label>
-        <div class="position-relative">
-            <?php Form::input('password', '', 'password', '', [
-                'id'           => 'loginPassword',
-                'placeholder'  => '••••••••',
-                'required'     => true,
-                'class'        => 'form-control pe-5',
-                'autocomplete' => 'current-password',
-            ]); ?>
-            <button type="button"
-                    onclick="toggleLoginSenha()"
-                    tabindex="-1"
-                    style="position:absolute;top:50%;right:.75rem;transform:translateY(-50%);background:none;border:none;color:#9ca3af;cursor:pointer;padding:0;">
-                <i class="fa fa-eye" id="loginEyeIcon"></i>
-            </button>
-        </div>
+        <?php
+        $loginPasswordToggle = sprintf(
+            '<button class="btn btn-outline-secondary" type="button" data-password-toggle="password" data-show-label="%1$s" data-hide-label="%2$s" aria-label="%1$s" title="%1$s" aria-pressed="false"><i class="fa-solid fa-eye" data-password-toggle-icon aria-hidden="true"></i><span class="visually-hidden">%1$s</span></button>',
+            htmlspecialchars(t('auth.show_password'), ENT_QUOTES, 'UTF-8'),
+            htmlspecialchars(t('auth.hide_password'), ENT_QUOTES, 'UTF-8')
+        );
+        Form::input('password', '', 'password', '', [
+            'placeholder'  => t('auth.password_placeholder'),
+            'required'     => true,
+            'class'        => 'form-control',
+            'autocomplete' => 'current-password',
+            'append'       => $loginPasswordToggle,
+        ]);
+        ?>
     </div>
     <?php Form::button(t('auth.sign_in'), 'submit', 'btn btn-primary'); ?>
     <?php Form::end(); ?>
@@ -98,22 +97,5 @@ if (is_dir($uploadLogoDir)) {
     <p class="login-footer">© <?php echo date('Y'); ?> <?php echo htmlspecialchars(t('common.app_name')); ?>. <?php echo htmlspecialchars(t('common.copyright')); ?></p>
 </div>
 
-<script>
-function toggleLoginSenha() {
-    // O Form::input gera id="password" (igual ao name), ignorando o atributo id passado
-    var input = document.getElementById('password');
-    var icon  = document.getElementById('loginEyeIcon');
-    if (!input || !icon) return;
-    if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'fa fa-eye-slash';
-    } else {
-        input.type = 'password';
-        icon.className = 'fa fa-eye';
-    }
-    // Mantém o foco no campo após o clique
-    input.focus();
-}
-</script>
 
 <?php require_once dirname(__DIR__) . '/layout/public_footer.php'; ?>

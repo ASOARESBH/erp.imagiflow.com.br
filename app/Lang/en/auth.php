@@ -6,6 +6,8 @@ return [
     'email_placeholder' => 'you@email.com',
     'password' => 'Password',
     'password_placeholder' => '••••••••',
+    'show_password' => 'Show password',
+    'hide_password' => 'Hide password',
     'sign_in' => 'Sign In',
     'forgot_password' => 'Forgot your password?',
     'first_access' => 'First access',

@@ -6,6 +6,8 @@ return [
     'email_placeholder' => 'tu@correo.com',
     'password' => 'Contraseña',
     'password_placeholder' => '••••••••',
+    'show_password' => 'Mostrar contraseña',
+    'hide_password' => 'Ocultar contraseña',
     'sign_in' => 'Iniciar sesión',
     'forgot_password' => '¿Olvidaste tu contraseña?',
     'first_access' => 'Primer acceso',
