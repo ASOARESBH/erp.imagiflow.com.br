@@ -524,12 +524,11 @@ if ($_ec) {
                alt="Logo"
                style="max-height:34px;max-width:34px;object-fit:contain;border-radius:4px;">
         <?php else: ?>
-          <svg class="logo-svg" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" />
-            <path d="M2 17L12 22L22 17M2 12L12 17L22 12" />
-          </svg>
+          <img src="/assets/favicon-imaginiflow-512.png"
+               alt="ERP IMAGINIFLOW"
+               style="max-height:34px;max-width:34px;object-fit:contain;border-radius:4px;">
         <?php endif; ?>
-        <span class="logo-text"><?php echo htmlspecialchars(!empty($_ecNome) ? $_ecNome : 'INLAUDO ERP'); ?></span>
+        <span class="logo-text"><?php echo htmlspecialchars(!empty($_ecNome) ? $_ecNome : 'ERP IMAGINIFLOW'); ?></span>
       </div>
 
       <!-- CENTER: NAV -->

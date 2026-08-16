@@ -54,6 +54,38 @@ document.addEventListener('DOMContentLoaded', () => {
         set('estado', data.uf || data.estado);
     });
 
+    const companyForm = $('saasCompanyForm');
+    if (companyForm) {
+        companyForm.addEventListener('submit', (event) => {
+            const invalid = Array.from(companyForm.elements).find((field) => (
+                field instanceof HTMLElement && typeof field.checkValidity === 'function' && !field.checkValidity()
+            ));
+
+            if (invalid) {
+                event.preventDefault();
+                const pane = invalid.closest('.tab-pane');
+                if (pane && pane.id) {
+                    const tab = document.querySelector(`[data-bs-target="#${pane.id}"]`);
+                    if (tab && window.bootstrap) {
+                        window.bootstrap.Tab.getOrCreateInstance(tab).show();
+                    }
+                }
+                window.setTimeout(() => {
+                    invalid.focus();
+                    invalid.reportValidity();
+                }, 120);
+                return;
+            }
+
+            const submit = $('btnSalvarEmpresa');
+            if (submit) {
+                submit.disabled = true;
+                submit.dataset.originalText = submit.innerHTML;
+                submit.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Salvando cadastro...';
+            }
+        });
+    }
+
     const modal = $('impersonateModal');
     if (modal) {
         modal.addEventListener('show.bs.modal', (event) => {

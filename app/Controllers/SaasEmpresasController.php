@@ -98,7 +98,12 @@ class SaasEmpresasController extends Controller
                 'saas_admin_user_id' => Auth::user()->id ?? null,
                 'error' => $exception->getMessage(),
             ]);
-            header('Location: /painel/empresas/create?error=' . rawurlencode($exception->getMessage()));
+            $_SESSION['saas_company_form_flash'] = [
+                'type' => 'error',
+                'message' => 'O cadastro não foi concluído: ' . $exception->getMessage(),
+                'old' => $this->safeFormInput(),
+            ];
+            header('Location: /painel/empresas/create');
         }
         exit();
     }
@@ -228,13 +233,37 @@ class SaasEmpresasController extends Controller
 
     private function renderForm(?object $empresa, bool $isEdit): void
     {
+        $flash = !$isEdit ? ($_SESSION['saas_company_form_flash'] ?? null) : null;
+        unset($_SESSION['saas_company_form_flash']);
+
         View::render('saas_admin/empresas/form-enterprise', [
             'title' => $isEdit ? 'Editar Empresa SaaS' : 'Nova Empresa SaaS',
             'empresa' => $empresa,
             'isEdit' => $isEdit,
             'planos' => $this->planoModel->listActive(),
+            'formFlash' => $flash,
+            'oldInput' => is_array($flash['old'] ?? null) ? $flash['old'] : [],
             '_layout' => 'erp',
         ]);
+    }
+
+    /**
+     * Mantém somente campos não sensíveis para repopular o formulário após erro.
+     */
+    private function safeFormInput(): array
+    {
+        $allowed = [
+            'cnpj', 'razao_social', 'nome_fantasia', 'email', 'telefone',
+            'cep', 'endereco', 'numero', 'complemento', 'bairro', 'cidade',
+            'estado', 'plano_id', 'trial_ends_at', 'billing_email', 'notes',
+            'master_name', 'master_email', 'slug',
+        ];
+        $input = [];
+        foreach ($allowed as $field) {
+            $input[$field] = (string) ($_POST[$field] ?? '');
+        }
+
+        return $input;
     }
 
     private function sanitizeCompanyRequest(): array
