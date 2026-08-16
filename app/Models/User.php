@@ -288,7 +288,11 @@ class User extends Model
         if ($role !== 'saas_owner') {
             return;
         }
-        $controlTenantId = (int) ($_ENV['SAAS_CONTROL_TENANT_ID'] ?? 0);
+        $controlTenantId = (new Tenant())->findControlTenantId();
+        $configuredControlTenantId = (int) ($_ENV['SAAS_CONTROL_TENANT_ID'] ?? 0);
+        if ($configuredControlTenantId > 0) {
+            $controlTenantId = $configuredControlTenantId;
+        }
         if ($controlTenantId <= 0 || $tenantId !== $controlTenantId) {
             throw new \LogicException('O papel saas_owner só pode ser atribuído no tenant de controle SaaS.');
         }

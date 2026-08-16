@@ -140,7 +140,7 @@ class Auth
      */
     public static function postLoginPath(): string
     {
-        $controlTenantId = (int) ($_ENV['SAAS_CONTROL_TENANT_ID'] ?? 0);
+        $controlTenantId = self::controlTenantId();
         if (self::hasRole('saas_owner') && $controlTenantId > 0 && TenantContext::has()
             && TenantContext::id() === $controlTenantId) {
             return '/painel';
@@ -149,14 +149,33 @@ class Auth
     }
 
     /**
-     * Identifica o host compartilhado estritamente por configuração de servidor.
+     * Resolve o tenant de controle pelo .env e, quando a configuração ainda não
+     * existe, pelo slug estável criado na migration SaaS.
+     */
+    public static function controlTenantId(): int
+    {
+        $configured = (int) ($_ENV['SAAS_CONTROL_TENANT_ID'] ?? 0);
+        if ($configured > 0) {
+            return $configured;
+        }
+
+        return (new \App\Models\Tenant())->findControlTenantId();
+    }
+
+    /**
+     * Identifica o domínio ERP compartilhado. O valor configurado prevalece;
+     * erp.imagiflow.com.br é um fallback seguro para evitar que a ausência de
+     * uma chave no .env transforme o login SaaS em login de tenant comum.
      */
     public static function isSharedHost(): bool
     {
         $configured = strtolower(trim((string) ($_ENV['SAAS_SHARED_HOST'] ?? '')));
+        if ($configured === '') {
+            $configured = 'erp.imagiflow.com.br';
+        }
         $host = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
         $host = preg_replace('/:\\d+$/', '', $host) ?? '';
-        return $configured !== '' && hash_equals($configured, $host);
+        return hash_equals($configured, $host);
     }
 
     /**

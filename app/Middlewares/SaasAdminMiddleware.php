@@ -23,7 +23,7 @@ class SaasAdminMiddleware extends Middleware
             exit();
         }
 
-        $controlTenantId = (int) ($_ENV['SAAS_CONTROL_TENANT_ID'] ?? 0);
+        $controlTenantId = Auth::controlTenantId();
         $currentTenantId = TenantContext::id();
 
         if ($controlTenantId <= 0 || $currentTenantId !== $controlTenantId) {

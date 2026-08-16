@@ -41,6 +41,20 @@ class Tenant extends Model
         return $stmt->fetch(PDO::FETCH_OBJ);
     }
 
+    /**
+     * Resolve o tenant de controle SaaS pelo slug estável. Usado somente como
+     * fallback quando SAAS_CONTROL_TENANT_ID ainda não foi configurado.
+     */
+    public function findControlTenantId(): int
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT id FROM {$this->table} WHERE slug = :slug AND status = 'active' LIMIT 1"
+        );
+        $stmt->execute([':slug' => 'imagiflow-saas-admin']);
+
+        return (int) $stmt->fetchColumn();
+    }
+
     public function findActiveById(int $id): object|false
     {
         $stmt = $this->pdo->prepare(

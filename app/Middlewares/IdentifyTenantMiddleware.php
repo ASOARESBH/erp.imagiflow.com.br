@@ -51,7 +51,7 @@ class IdentifyTenantMiddleware extends Middleware
     {
         $configured = strtolower(trim((string) ($_ENV['SAAS_SHARED_HOST'] ?? '')));
         if ($configured === '') {
-            return false;
+            $configured = 'erp.imagiflow.com.br';
         }
 
         return hash_equals($configured, $host);
