@@ -25,6 +25,37 @@ class EmpresaConfig extends Model
         return $stmt->fetch(PDO::FETCH_OBJ);
     }
 
+    /**
+     * Busca a configuração complementar da empresa pelo tenant ativo.
+     */
+    public function findByTenantId(int $tenantId): object|false
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM {$this->table} WHERE tenant_id = :tenant_id LIMIT 1"
+        );
+        $stmt->execute([':tenant_id' => $tenantId]);
+
+        return $stmt->fetch(PDO::FETCH_OBJ) ?: false;
+    }
+
+    /**
+     * Cria ou atualiza (upsert) os dados da empresa pelo tenant ativo.
+     * O usuario_id continua como proprietário técnico para compatibilidade
+     * com os módulos legados que ainda o utilizam em documentos.
+     */
+    public function upsertForTenant(int $tenantId, int $usuarioId, array $data): bool
+    {
+        $existing = $this->findByTenantId($tenantId);
+        if ($existing) {
+            return $this->update((int) $existing->id, $data);
+        }
+
+        $data['tenant_id'] = $tenantId;
+        $data['usuario_id'] = $usuarioId;
+
+        return $this->insert($data) > 0;
+    }
+
     // ---------------------------------------------------------------
     // Cria ou atualiza (upsert) os dados da empresa
     // ---------------------------------------------------------------

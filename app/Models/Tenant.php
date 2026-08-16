@@ -208,6 +208,54 @@ class Tenant extends Model
         return $stmt->execute($params);
     }
 
+    /**
+     * Atualiza somente os dados corporativos do tenant. O status, plano, slug e
+     * domínio permanecem sob controle exclusivo do painel SaaS.
+     */
+    public function updateCompanyProfile(int $tenantId, array $data): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE {$this->table}
+             SET name = :name,
+                 email = :email,
+                 phone = :phone,
+                 cnpj = :cnpj,
+                 razao_social = :razao_social,
+                 nome_fantasia = :nome_fantasia,
+                 endereco = :endereco,
+                 numero = :numero,
+                 complemento = :complemento,
+                 bairro = :bairro,
+                 cidade = :cidade,
+                 estado = :estado,
+                 cep = :cep,
+                 billing_email = :billing_email,
+                 logo = COALESCE(:logo, logo),
+                 updated_at = NOW()
+             WHERE id = :id
+               AND status = 'active'"
+        );
+
+        return $stmt->execute([
+            ':id' => $tenantId,
+            ':name' => $data['name'],
+            ':email' => $data['email'],
+            ':phone' => $data['phone'],
+            ':cnpj' => $data['cnpj'],
+            ':razao_social' => $data['razao_social'],
+            ':nome_fantasia' => $data['nome_fantasia'],
+            ':endereco' => $data['endereco'],
+            ':numero' => $data['numero'],
+            ':complemento' => $data['complemento'],
+            ':bairro' => $data['bairro'],
+            ':cidade' => $data['cidade'],
+            ':estado' => $data['estado'],
+            ':cep' => $data['cep'],
+            ':billing_email' => $data['billing_email'],
+            ':logo' => $data['logo'] ?? null,
+        ]);
+    }
+
     public function updateStatus(int $id, string $status): bool
     {
         $stmt = $this->pdo->prepare(

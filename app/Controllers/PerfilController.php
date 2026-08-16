@@ -10,16 +10,19 @@ use App\Models\User;
 use App\Models\LayoutExame;
 use App\Models\EmpresaConfig;
 use App\Services\SecurityLogService;
+use App\Services\TenantCompanyProfileService;
 
 class PerfilController extends Controller
 {
     private User $userModel;
     private EmpresaConfig $empresaModel;
+    private TenantCompanyProfileService $tenantCompanyProfileService;
 
     public function __construct()
     {
-        $this->userModel    = new User();
+        $this->userModel = new User();
         $this->empresaModel = new EmpresaConfig();
+        $this->tenantCompanyProfileService = new TenantCompanyProfileService();
     }
 
     /**
@@ -35,9 +38,9 @@ class PerfilController extends Controller
         }
 
         $usuario       = $this->userModel->findById((int) $sessionUser->id) ?: $sessionUser;
-        $layoutModel   = new LayoutExame();
-        $layouts_exame = $layoutModel->allByUser((int)($sessionUser->id ?? 0));
-        $empresa       = $this->empresaModel->findByUsuarioId((int) $sessionUser->id);
+        $layoutModel = new LayoutExame();
+        $layouts_exame = $layoutModel->allByUser((int) ($sessionUser->id ?? 0));
+        $empresa = $this->tenantCompanyProfileService->findForTenant((int) $sessionUser->tenant_id);
 
         View::render('perfil/index', [
             'title'         => 'Meu Perfil',
@@ -223,11 +226,24 @@ class PerfilController extends Controller
     {
         if (!Auth::check()) { header('Location: /login'); exit(); }
 
-        $usuarioId = (int) Auth::user()->id;
+        $csrfToken = (string) ($_POST['csrf_token'] ?? '');
+        if ($csrfToken === '' || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $csrfToken)) {
+            AuditLogger::log('empresa_config_save_failed', ['reason' => 'invalid_csrf']);
+            http_response_code(419);
+            exit('419 - Token CSRF inválido');
+        }
+
+        $sessionUser = Auth::user();
+        $usuarioId = (int) $sessionUser->id;
+        $tenantId = (int) $sessionUser->tenant_id;
+        if ($tenantId <= 0) {
+            AuditLogger::log('empresa_config_save_failed', ['user_id' => $usuarioId, 'reason' => 'tenant_unavailable']);
+            header('Location: /perfil?tab=empresa&error=unauthorized');
+            exit();
+        }
 
         // Upload do logo (opcional)
-        $logoPath = '';
-        $empresaAtual = $this->empresaModel->findByUsuarioId($usuarioId);
+        $empresaAtual = $this->tenantCompanyProfileService->findForTenant($tenantId);
         $logoPath = $empresaAtual ? ($empresaAtual->logo_path ?? '') : '';
 
         if (!empty($_FILES['logo']['name']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
@@ -239,7 +255,7 @@ class PerfilController extends Controller
             $ext     = $allowed[$mime] ?? null;
 
             if ($ext && $file['size'] <= $maxSize) {
-                $dir = BASE_PATH . '/storage/uploads/empresa/' . $usuarioId;
+                $dir = BASE_PATH . '/storage/uploads/empresa/tenant-' . $tenantId;
                 if (!is_dir($dir)) {
                     mkdir($dir, 0755, true);
                 }
@@ -250,7 +266,7 @@ class PerfilController extends Controller
                 $fileName = 'logo_' . bin2hex(random_bytes(8)) . '.' . $ext;
                 $destPath = $dir . '/' . $fileName;
                 if (move_uploaded_file($file['tmp_name'], $destPath)) {
-                    $logoPath = 'storage/uploads/empresa/' . $usuarioId . '/' . $fileName;
+                    $logoPath = 'storage/uploads/empresa/tenant-' . $tenantId . '/' . $fileName;
                 }
             }
         }
@@ -301,26 +317,34 @@ class PerfilController extends Controller
             $allowed = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/gif' => 'gif', 'image/webp' => 'webp'];
             $ext     = $allowed[$mime] ?? null;
             if ($ext && $sig['size'] <= 1 * 1024 * 1024) {
-                $dir = BASE_PATH . '/storage/uploads/empresa/' . $usuarioId;
+                $dir = BASE_PATH . '/storage/uploads/empresa/tenant-' . $tenantId;
                 if (!is_dir($dir)) mkdir($dir, 0755, true);
                 // Remove imagem antiga
-                $empresaAtualSig = $this->empresaModel->findByUsuarioId($usuarioId);
+                $empresaAtualSig = $this->tenantCompanyProfileService->findForTenant($tenantId);
                 if ($empresaAtualSig && !empty($empresaAtualSig->assinatura_imagem_path)) {
                     @unlink(BASE_PATH . '/' . $empresaAtualSig->assinatura_imagem_path);
                 }
                 $sigName = 'assinatura_' . bin2hex(random_bytes(8)) . '.' . $ext;
                 if (move_uploaded_file($sig['tmp_name'], $dir . '/' . $sigName)) {
-                    $data['assinatura_imagem_path'] = 'storage/uploads/empresa/' . $usuarioId . '/' . $sigName;
+                    $data['assinatura_imagem_path'] = 'storage/uploads/empresa/tenant-' . $tenantId . '/' . $sigName;
                 }
             }
         }
 
         try {
-            $ok = $this->empresaModel->upsert($usuarioId, $data);
-            AuditLogger::log('empresa_config_salva', ['usuario_id' => $usuarioId, 'ok' => $ok]);
+            $ok = $this->tenantCompanyProfileService->saveForTenant($tenantId, $usuarioId, $data);
+            AuditLogger::log('empresa_config_salva', [
+                'usuario_id' => $usuarioId,
+                'tenant_id' => $tenantId,
+                'ok' => $ok,
+            ]);
             header('Location: /perfil?tab=empresa&success=empresa_salva');
         } catch (\Exception $e) {
-            error_log('[PerfilController::empresaUpdate] ' . $e->getMessage());
+            AuditLogger::log('empresa_config_save_exception', [
+                'usuario_id' => $usuarioId,
+                'tenant_id' => $tenantId,
+                'error' => $e->getMessage(),
+            ]);
             header('Location: /perfil?tab=empresa&error=exception');
         }
         exit();
