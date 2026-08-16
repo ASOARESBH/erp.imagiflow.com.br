@@ -287,7 +287,7 @@ class PerfilController extends Controller
             'email_financeiro'               => $emailFinanceiro,
             'financeiro_mesmo_responsavel'   => $financeiroMesmo,
             'telefone'                       => trim($_POST['telefone']                    ?? ''),
-            'site'                           => trim($_POST['site']                        ?? ''),
+            'site'                           => $this->normalizeCompanyWebsite((string) ($_POST['site'] ?? '')),
             'cep'                            => preg_replace('/\D/', '', $_POST['cep']     ?? ''),
             'logradouro'                     => trim($_POST['logradouro']                  ?? ''),
             'numero'                         => trim($_POST['numero']                      ?? ''),
@@ -393,12 +393,34 @@ class PerfilController extends Controller
             return 'financial_email_invalid';
         }
 
+        $website = trim((string) ($data['site'] ?? ''));
+        if ($website !== '' && !filter_var($website, FILTER_VALIDATE_URL)) {
+            return 'site_invalid';
+        }
+
         $state = trim((string) ($data['estado'] ?? ''));
         if ($state !== '' && !preg_match('/^[A-Z]{2}$/', $state)) {
             return 'state_invalid';
         }
 
         return null;
+    }
+
+    /**
+     * Aceita a forma amigável www.exemplo.com e persiste uma URL completa.
+     */
+    private function normalizeCompanyWebsite(string $website): string
+    {
+        $website = trim($website);
+        if ($website === '') {
+            return '';
+        }
+
+        if (!preg_match('#^https?://#i', $website)) {
+            $website = 'https://' . $website;
+        }
+
+        return $website;
     }
 
     /**

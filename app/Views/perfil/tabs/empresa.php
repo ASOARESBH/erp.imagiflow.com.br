@@ -171,8 +171,10 @@ $v = fn(string $field, string $default = ''): string
         </div>
         <div class="form-group">
           <label class="form-label">Site</label>
-          <input type="url" name="site" class="form-control"
-            placeholder="https://www.empresa.com.br" value="<?php echo $v('site'); ?>">
+          <input type="text" name="site" id="siteEmpresa" class="form-control" inputmode="url" autocomplete="url"
+            placeholder="www.empresa.com.br ou https://www.empresa.com.br" value="<?php echo $v('site'); ?>"
+            aria-describedby="siteHelp">
+          <small id="siteHelp" class="text-muted">Digite com ou sem <code>https://</code>; o sistema completa o endereço quando necessário.</small>
         </div>
       </div>
     </div>

@@ -528,6 +528,7 @@ $initials = strtoupper(substr($usuario->name, 0, 1) . (strpos($usuario->name, ' 
               'document_invalid' => 'Informe um CPF ou CNPJ válido com todos os dígitos.',
               'responsible_email_invalid' => 'Informe um e-mail válido para o responsável.',
               'financial_email_invalid' => 'Informe um e-mail financeiro válido.',
+              'site_invalid' => 'Informe um endereço de site válido, como www.empresa.com.br.',
               'state_invalid' => 'Informe uma UF válida com duas letras.',
               'tenant_unavailable' => 'Não foi possível identificar a empresa vinculada ao seu acesso.',
               'transaction_start_failed' => 'Não foi possível iniciar o salvamento. Tente novamente em instantes.',
