@@ -36,7 +36,7 @@ WHERE t.slug <> 'imagiflow-saas-admin'
 ORDER BY t.id DESC, u.email ASC;
 
 -- 3. Planos disponíveis. Sem plano ativo, o cadastro será bloqueado com mensagem.
-SELECT id, nome, slug, status, limite_usuarios, valor_mensal
+SELECT id, nome, slug, status, limite_usuarios, preco_mensal
 FROM planos
 ORDER BY nome ASC;
 
