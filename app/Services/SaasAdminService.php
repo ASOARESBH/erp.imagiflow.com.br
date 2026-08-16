@@ -23,6 +23,7 @@ class SaasAdminService
     private PasswordResetToken $resetTokenModel;
     private Plano $planoModel;
     private TenantImpersonationLog $impersonationLog;
+    private PlanoContasPadraoService $defaultChartOfAccountsService;
     private PDO $pdo;
 
     public function __construct()
@@ -32,6 +33,7 @@ class SaasAdminService
         $this->resetTokenModel = new PasswordResetToken();
         $this->planoModel = new Plano();
         $this->impersonationLog = new TenantImpersonationLog();
+        $this->defaultChartOfAccountsService = new PlanoContasPadraoService();
         $this->pdo = $this->tenantModel->getPdo();
     }
 
@@ -107,6 +109,9 @@ class SaasAdminService
             if (!$this->tenantModel->setMasterUser($tenantId, $masterUserId)) {
                 throw new RuntimeException('Não foi possível vincular o usuário master ao tenant.');
             }
+
+            // Toda empresa nova recebe uma cópia própria e editável do modelo.
+            $this->defaultChartOfAccountsService->seedForTenant($tenantId, $masterUserId);
 
             // Token armazenado somente como hash; é usado uma única vez no link de definição de senha.
             $token = bin2hex(random_bytes(32));

@@ -66,9 +66,11 @@ class ContasPagarController extends Controller
 
     public function create(): void
     {
-        $usuarioId = Auth::user()->id;
+        $user = Auth::user();
+        $usuarioId = $user->id;
+        $tenantId = (int) $user->tenant_id;
 
-        $planos = $this->planoContaModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
+        $planos = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo']);
         $fornecedores = $this->fornecedorModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
 
         View::render('contas_pagar/form-enterprise', [
@@ -85,7 +87,9 @@ class ContasPagarController extends Controller
     public function store(): void
     {
         try {
-            $usuarioId = Auth::user()->id;
+            $user = Auth::user();
+            $usuarioId = $user->id;
+            $tenantId = (int) $user->tenant_id;
 
             $planoContaId = (int)($_POST['plano_conta_id'] ?? 0);
             $descricao = trim($_POST['descricao'] ?? '');
@@ -97,8 +101,8 @@ class ContasPagarController extends Controller
                 exit();
             }
 
-            $plano = $this->planoContaModel->findById($planoContaId);
-            if (!$plano || (int)$plano->usuario_id !== (int)$usuarioId) {
+            $plano = $this->planoContaModel->findByIdForTenant($planoContaId, $tenantId);
+            if (!$plano) {
                 header('Location: /financeiro/contas-a-pagar/create?error=invalid_plano');
                 exit();
             }
@@ -147,7 +151,9 @@ class ContasPagarController extends Controller
 
     public function edit($id): void
     {
-        $usuarioId = Auth::user()->id;
+        $user = Auth::user();
+        $usuarioId = $user->id;
+        $tenantId = (int) $user->tenant_id;
         $conta = $this->model->findById((int)$id);
 
         if (!$conta || (int)$conta->usuario_id !== (int)$usuarioId) {
@@ -155,7 +161,7 @@ class ContasPagarController extends Controller
             exit();
         }
 
-        $planos = $this->planoContaModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
+        $planos = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo']);
         $fornecedores = $this->fornecedorModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
         $anexos = $this->anexoModel->findByContaId((int)$conta->id, $usuarioId);
 
@@ -173,7 +179,9 @@ class ContasPagarController extends Controller
     public function update($id): void
     {
         try {
-            $usuarioId = Auth::user()->id;
+            $user = Auth::user();
+            $usuarioId = $user->id;
+            $tenantId = (int) $user->tenant_id;
             $conta = $this->model->findById((int)$id);
 
             if (!$conta || (int)$conta->usuario_id !== (int)$usuarioId) {
@@ -191,8 +199,8 @@ class ContasPagarController extends Controller
                 exit();
             }
 
-            $plano = $this->planoContaModel->findById($planoContaId);
-            if (!$plano || (int)$plano->usuario_id !== (int)$usuarioId) {
+            $plano = $this->planoContaModel->findByIdForTenant($planoContaId, $tenantId);
+            if (!$plano) {
                 header("Location: /financeiro/contas-a-pagar/edit/{$id}?error=invalid_plano");
                 exit();
             }
@@ -492,7 +500,9 @@ class ContasPagarController extends Controller
     public function ddaIndex(): void
     {
         try {
-            $usuarioId = (int)Auth::user()->id;
+            $user = Auth::user();
+            $usuarioId = (int) $user->id;
+            $tenantId = (int) $user->tenant_id;
             $filtros = [
                 'status_interno' => $_GET['status'] ?? '',
                 'pesquisa'       => $_GET['q'] ?? '',
@@ -501,7 +511,7 @@ class ContasPagarController extends Controller
             ];
             $boletos      = $this->ddaModel->findByUsuarioId($usuarioId, $filtros);
             $contagens    = $this->ddaModel->countByStatus($usuarioId);
-            $planos       = $this->planoContaModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
+            $planos       = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo']);
             $fornecedores = $this->fornecedorModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
 
             View::render('contas_pagar/dda_index', [

@@ -245,8 +245,9 @@ class ContasBancariasController extends Controller
             // Dados para gráfico de categorias
             $categorias = $this->movModel->getTotaisPorCategoria($id, $filtros);
 
-            // Planos de conta para categorização
-            $planos = $this->planoModel->findByUsuarioId($usuarioId);
+            // Planos de conta para categorização do tenant ativo
+            $tenantId = (int) Auth::user()->tenant_id;
+            $planos = $this->planoModel->findByTenantId($tenantId, ['status' => 'ativo']);
 
             // Verifica se há integração Open Finance configurada
             $integracaoModel = new Integracao();
@@ -290,7 +291,9 @@ class ContasBancariasController extends Controller
     public function novaMovimentacao(int $id): void
     {
         try {
-            $usuarioId = Auth::user()->id;
+            $user = Auth::user();
+            $usuarioId = $user->id;
+            $tenantId = (int) $user->tenant_id;
             $conta     = $this->model->findById($id);
 
             if (!$conta || (int) $conta->usuario_id !== $usuarioId) {
@@ -298,7 +301,7 @@ class ContasBancariasController extends Controller
                 exit();
             }
 
-            $planos = $this->planoModel->findByUsuarioId($usuarioId);
+            $planos = $this->planoModel->findByTenantId($tenantId, ['status' => 'ativo']);
 
             View::render('contas_bancarias/form-movimentacao', [
                 '_layout'    => 'erp',
@@ -379,7 +382,9 @@ class ContasBancariasController extends Controller
     public function editarMovimentacao(int $contaId, int $movId): void
     {
         try {
-            $usuarioId = Auth::user()->id;
+            $user = Auth::user();
+            $usuarioId = $user->id;
+            $tenantId = (int) $user->tenant_id;
             $conta     = $this->model->findById($contaId);
             $mov       = $this->movModel->findById($movId);
 
@@ -388,7 +393,7 @@ class ContasBancariasController extends Controller
                 exit();
             }
 
-            $planos = $this->planoModel->findByUsuarioId($usuarioId);
+            $planos = $this->planoModel->findByTenantId($tenantId, ['status' => 'ativo']);
 
             View::render('contas_bancarias/form-movimentacao', [
                 '_layout'    => 'erp',

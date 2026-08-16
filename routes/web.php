@@ -166,6 +166,7 @@ Router::group(["middleware" => ["Auth"]], function () {
     Router::group(["middleware" => ["Permission:create_plano_contas"]], function () {
         Router::get("/financeiro/plano-contas/create", "PlanoContasController@create");
         Router::post("/financeiro/plano-contas", "PlanoContasController@store");
+        Router::post("/financeiro/plano-contas/importar-padrao", "PlanoContasController@importDefault");
     });
 
     Router::group(["middleware" => ["Permission:edit_plano_contas"]], function () {

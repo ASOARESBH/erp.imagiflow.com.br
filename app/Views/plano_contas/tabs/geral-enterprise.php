@@ -5,6 +5,7 @@ $contasPai = $contasPai ?? [];
 ?>
 
 <form id="planoContaFormGeral" action="<?php echo $action; ?>" method="POST" class="enterprise-form-main">
+    <?php echo \App\Core\View::csrfField(); ?>
 
     <section class="form-section">
         <h2 class="form-section-title">

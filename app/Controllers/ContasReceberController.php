@@ -243,8 +243,9 @@ class ContasReceberController extends Controller
             }
 
             $usuarioId = $user->id;
+            $tenantId = (int) $user->tenant_id;
 
-            $planos   = $this->planoContaModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
+            $planos   = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo']);
             $clientes = $this->clienteModel->findByUsuarioId($usuarioId, ['status' => 'ativo', 'pesquisa' => '', 'uf' => '']);
 
             View::render('contas_receber/form-enterprise', [
@@ -274,6 +275,7 @@ class ContasReceberController extends Controller
             }
 
             $usuarioId    = $user->id;
+            $tenantId     = (int) $user->tenant_id;
             $clienteId    = (int)($_POST['cliente_id'] ?? 0);
             $planoContaId = (int)($_POST['plano_conta_id'] ?? 0);
             $descricao    = trim($_POST['descricao'] ?? '');
@@ -305,8 +307,8 @@ class ContasReceberController extends Controller
                 exit();
             }
 
-            $plano = $this->planoContaModel->findById($planoContaId);
-            if (!$plano || (int)$plano->usuario_id !== (int)$usuarioId) {
+            $plano = $this->planoContaModel->findByIdForTenant($planoContaId, $tenantId);
+            if (!$plano) {
                 header('Location: /financeiro/contas-a-receber/create?error=invalid_plano');
                 exit();
             }
@@ -669,6 +671,7 @@ class ContasReceberController extends Controller
             }
 
             $usuarioId = $user->id;
+            $tenantId = (int) $user->tenant_id;
             $conta     = $this->model->findById((int)$id);
 
             if (!$conta || (int)$conta->usuario_id !== (int)$usuarioId) {
@@ -676,7 +679,7 @@ class ContasReceberController extends Controller
                 exit();
             }
 
-            $planos   = $this->planoContaModel->findByUsuarioId($usuarioId, ['status' => 'ativo']);
+            $planos   = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo']);
             $clientes = $this->clienteModel->findByUsuarioId($usuarioId, ['status' => 'ativo', 'pesquisa' => '', 'uf' => '']);
 
             $anexos   = $this->anexoModel->findByContaId((int)$conta->id, $usuarioId);
@@ -718,6 +721,7 @@ class ContasReceberController extends Controller
             }
 
             $usuarioId = $user->id;
+            $tenantId = (int) $user->tenant_id;
             $conta     = $this->model->findById((int)$id);
 
             if (!$conta || (int)$conta->usuario_id !== (int)$usuarioId) {
@@ -754,8 +758,8 @@ class ContasReceberController extends Controller
                 exit();
             }
 
-            $plano = $this->planoContaModel->findById($planoContaId);
-            if (!$plano || (int)$plano->usuario_id !== (int)$usuarioId) {
+            $plano = $this->planoContaModel->findByIdForTenant($planoContaId, $tenantId);
+            if (!$plano) {
                 header("Location: /financeiro/contas-a-receber/edit/{$id}?error=invalid_plano");
                 exit();
             }
