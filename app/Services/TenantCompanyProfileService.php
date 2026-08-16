@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Core\Logger;
 use App\Models\EmpresaConfig;
 use App\Models\Tenant;
 
@@ -64,13 +65,24 @@ class TenantCompanyProfileService
         ];
     }
 
-    public function saveForTenant(int $tenantId, int $userId, array $data): bool
+    /**
+     * Persiste dados empresariais e informa o estágio do resultado para o
+     * controller exibir um retorno claro, sem revelar detalhes internos.
+     *
+     * @return array{success: bool, code: string, created: bool}
+     */
+    public function saveForTenant(int $tenantId, int $userId, array $data): array
     {
         $tenant = $this->tenantModel->findActiveForUser($tenantId, $userId);
         if (!$tenant) {
-            return false;
+            $this->log('warning', 'Empresa não salva: vínculo de tenant indisponível.', [
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+            ]);
+            return $this->failure('tenant_unavailable');
         }
 
+        $existingConfig = $this->empresaConfigModel->findByTenantId($tenantId);
         $tenantData = [
             'name'           => $this->prefer($data['nome_fantasia'] ?? null, $data['razao_social'] ?? null),
             'email'          => $data['email_responsavel'] ?? '',
@@ -93,27 +105,88 @@ class TenantCompanyProfileService
 
         $pdo = $this->tenantModel->getPdo();
         try {
-            $pdo->beginTransaction();
+            if (!$pdo->beginTransaction()) {
+                $this->log('error', 'Empresa não salva: não foi possível iniciar a transação.', [
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                ]);
+                return $this->failure('transaction_start_failed');
+            }
 
             if (!$this->tenantModel->updateCompanyProfile($tenantId, $tenantData)) {
                 $pdo->rollBack();
-                return false;
+                $this->log('error', 'Empresa não salva: falha ao atualizar dados centrais do tenant.', [
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                ]);
+                return $this->failure('tenant_update_failed');
             }
 
             $configOwnerId = (int) ($tenant->master_user_id ?? 0) ?: $userId;
             if (!$this->empresaConfigModel->upsertForTenant($tenantId, $configOwnerId, $data)) {
                 $pdo->rollBack();
-                return false;
+                $this->log('error', 'Empresa não salva: falha ao persistir campos complementares.', [
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'config_owner_id' => $configOwnerId,
+                ]);
+                return $this->failure('company_config_save_failed');
             }
 
-            $pdo->commit();
-            return true;
+            if (!$pdo->commit()) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                $this->log('error', 'Empresa não salva: falha ao confirmar a transação.', [
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                ]);
+                return $this->failure('transaction_commit_failed');
+            }
+
+            $created = !$existingConfig;
+            $this->log('info', 'Dados da empresa salvos com sucesso.', [
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'action' => $created ? 'created' : 'updated',
+            ]);
+
+            return [
+                'success' => true,
+                'code' => $created ? 'empresa_criada' : 'empresa_atualizada',
+                'created' => $created,
+            ];
         } catch (\Throwable $exception) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            throw $exception;
+            $this->log('error', 'Empresa não salva: exceção durante a persistência.', [
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'exception' => $exception->getMessage(),
+            ]);
+
+            return $this->failure('exception');
         }
+    }
+
+    private function failure(string $code): array
+    {
+        return ['success' => false, 'code' => $code, 'created' => false];
+    }
+
+    private function log(string $level, string $message, array $context): void
+    {
+        $logger = new Logger();
+        if ($level === 'error') {
+            $logger->error($message, $context);
+            return;
+        }
+        if ($level === 'warning') {
+            $logger->warning($message, $context);
+            return;
+        }
+        $logger->info($message, $context);
     }
 
     private function prefer(?string ...$values): string

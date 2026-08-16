@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Services\TenantCompanyProfileService;
 
 require_once dirname(__DIR__) . '/app/Core/Model.php';
+require_once dirname(__DIR__) . '/app/Core/Logger.php';
 require_once dirname(__DIR__) . '/app/Models/Tenant.php';
 require_once dirname(__DIR__) . '/app/Models/EmpresaConfig.php';
 require_once dirname(__DIR__) . '/app/Services/TenantCompanyProfileService.php';
@@ -172,10 +173,19 @@ $saveData = [
     'site' => 'https://imagemsaude.com.br',
     'assinatura_nome' => 'Dra. Ana',
 ];
-assertTenantProfile($service->saveForTenant(27, 9, $saveData), 'A atualização conjunta do tenant e dos campos complementares deve ser concluída.');
+$saveResult = $service->saveForTenant(27, 9, $saveData);
+assertTenantProfile($saveResult['success'], 'A atualização conjunta do tenant e dos campos complementares deve ser concluída.');
+assertTenantProfile($saveResult['code'] === 'empresa_atualizada', 'Uma configuração existente deve retornar atualização confirmada.');
 assertTenantProfile(count($tenantModel->updates) === 1, 'Os dados centrais devem atualizar o tenant uma única vez.');
 assertTenantProfile($tenantModel->updates[0]['data']['cnpj'] === '12345678000199', 'A atualização central deve receber o CNPJ do formulário.');
 assertTenantProfile(count($configModel->upserts) === 1, 'Os campos complementares devem persistir na configuração do tenant.');
 assertTenantProfile($configModel->upserts[0]['tenant_id'] === 27, 'Os campos complementares devem ser gravados no tenant correto.');
 
 echo "OK: perfil empresarial sincronizado com o tenant ativo.\n";
+
+$tenantModel->tenant = false;
+$deniedResult = $service->saveForTenant(27, 9, $saveData);
+assertTenantProfile(!$deniedResult['success'], 'A gravação deve falhar sem vínculo ativo ao tenant.');
+assertTenantProfile($deniedResult['code'] === 'tenant_unavailable', 'A falha de vínculo deve retornar um código compreensível.');
+
+echo "OK: falha de vínculo do tenant tratada com retorno explícito.\n";

@@ -515,10 +515,38 @@ $initials = strtoupper(substr($usuario->name, 0, 1) . (strpos($usuario->name, ' 
   <div id="tab-empresa" style="display:<?php echo $activeTab === 'empresa' ? 'block' : 'none'; ?>">
     <?php
       if ($activeTab === 'empresa') {
-          $errEmp = $_GET['error']   ?? '';
-          $okEmp  = $_GET['success'] ?? '';
-          if ($errEmp === 'exception')   echo '<div class="alert alert-danger mx-0 mt-0 mb-3"><i class="fas fa-exclamation-triangle me-2"></i>Erro inesperado ao salvar. Tente novamente.</div>';
-          if ($okEmp  === 'empresa_salva') echo '<div class="alert alert-success mx-0 mt-0 mb-3"><i class="fas fa-check-circle me-2"></i>Dados da empresa salvos com sucesso!</div>';
+          $errEmp = (string) ($_GET['error'] ?? '');
+          $okEmp  = (string) ($_GET['success'] ?? '');
+          $empresaSuccessMessages = [
+              'empresa_criada' => 'Dados da empresa cadastrados com sucesso.',
+              'empresa_atualizada' => 'Dados da empresa atualizados com sucesso.',
+              'empresa_salva' => 'Dados da empresa salvos com sucesso.',
+          ];
+          $empresaErrorMessages = [
+              'csrf' => 'Sua sessão de segurança expirou. Atualize a página e tente salvar novamente.',
+              'razao_social_required' => 'Informe a razão social ou o nome completo da empresa.',
+              'document_invalid' => 'Informe um CPF ou CNPJ válido com todos os dígitos.',
+              'responsible_email_invalid' => 'Informe um e-mail válido para o responsável.',
+              'financial_email_invalid' => 'Informe um e-mail financeiro válido.',
+              'state_invalid' => 'Informe uma UF válida com duas letras.',
+              'tenant_unavailable' => 'Não foi possível identificar a empresa vinculada ao seu acesso.',
+              'transaction_start_failed' => 'Não foi possível iniciar o salvamento. Tente novamente em instantes.',
+              'tenant_update_failed' => 'Não foi possível atualizar os dados centrais da empresa.',
+              'company_config_save_failed' => 'Não foi possível salvar os dados complementares da empresa.',
+              'transaction_commit_failed' => 'Não foi possível confirmar o salvamento. Nenhuma alteração foi concluída.',
+              'exception' => 'Erro inesperado ao salvar. Tente novamente.',
+          ];
+          $empresaFeedback = $empresaSuccessMessages[$okEmp] ?? $empresaErrorMessages[$errEmp] ?? '';
+          $empresaFeedbackClass = isset($empresaSuccessMessages[$okEmp]) ? 'alert-success' : 'alert-danger';
+          $empresaFeedbackIcon = isset($empresaSuccessMessages[$okEmp]) ? 'fa-check-circle' : 'fa-exclamation-triangle';
+          if ($empresaFeedback !== ''):
+    ?>
+      <div class="alert <?php echo $empresaFeedbackClass; ?> alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow z-3" role="alert" aria-live="assertive">
+        <i class="fas <?php echo $empresaFeedbackIcon; ?> me-2"></i><?php echo htmlspecialchars($empresaFeedback); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+      </div>
+    <?php
+          endif;
       }
     ?>
     <?php require_once __DIR__ . '/tabs/empresa.php'; ?>

@@ -229,8 +229,8 @@ class PerfilController extends Controller
         $csrfToken = (string) ($_POST['csrf_token'] ?? '');
         if ($csrfToken === '' || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $csrfToken)) {
             AuditLogger::log('empresa_config_save_failed', ['reason' => 'invalid_csrf']);
-            http_response_code(419);
-            exit('419 - Token CSRF inválido');
+            header('Location: /perfil?tab=empresa&error=csrf');
+            exit();
         }
 
         $sessionUser = Auth::user();
@@ -331,23 +331,74 @@ class PerfilController extends Controller
             }
         }
 
-        try {
-            $ok = $this->tenantCompanyProfileService->saveForTenant($tenantId, $usuarioId, $data);
-            AuditLogger::log('empresa_config_salva', [
+        $validationError = $this->validateCompanyData($data);
+        if ($validationError !== null) {
+            AuditLogger::log('empresa_config_save_failed', [
                 'usuario_id' => $usuarioId,
                 'tenant_id' => $tenantId,
-                'ok' => $ok,
+                'reason' => $validationError,
             ]);
-            header('Location: /perfil?tab=empresa&success=empresa_salva');
-        } catch (\Exception $e) {
+            header('Location: /perfil?tab=empresa&error=' . rawurlencode($validationError));
+            exit();
+        }
+
+        try {
+            $result = $this->tenantCompanyProfileService->saveForTenant($tenantId, $usuarioId, $data);
+            AuditLogger::log($result['success'] ? 'empresa_config_salva' : 'empresa_config_save_failed', [
+                'usuario_id' => $usuarioId,
+                'tenant_id' => $tenantId,
+                'success' => $result['success'],
+                'result_code' => $result['code'],
+                'created' => $result['created'],
+            ]);
+
+            if ($result['success']) {
+                header('Location: /perfil?tab=empresa&success=' . rawurlencode($result['code']));
+            } else {
+                header('Location: /perfil?tab=empresa&error=' . rawurlencode($result['code']));
+            }
+        } catch (\Throwable $exception) {
             AuditLogger::log('empresa_config_save_exception', [
                 'usuario_id' => $usuarioId,
                 'tenant_id' => $tenantId,
-                'error' => $e->getMessage(),
+                'error' => $exception->getMessage(),
             ]);
             header('Location: /perfil?tab=empresa&error=exception');
         }
         exit();
+    }
+
+    /**
+     * Valida os dados corporativos antes de iniciar a transação e exibe um
+     * retorno compreensível ao administrador em caso de inconsistência.
+     */
+    private function validateCompanyData(array $data): ?string
+    {
+        if (trim((string) ($data['razao_social'] ?? '')) === '') {
+            return 'razao_social_required';
+        }
+
+        $document = preg_replace('/\D/', '', (string) ($data['cpf_cnpj'] ?? ''));
+        if (!in_array(strlen($document), [11, 14], true)) {
+            return 'document_invalid';
+        }
+
+        $email = trim((string) ($data['email_responsavel'] ?? ''));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return 'responsible_email_invalid';
+        }
+
+        $financeEmail = trim((string) ($data['email_financeiro'] ?? ''));
+        if ($financeEmail !== '' && !filter_var($financeEmail, FILTER_VALIDATE_EMAIL)) {
+            return 'financial_email_invalid';
+        }
+
+        $state = trim((string) ($data['estado'] ?? ''));
+        if ($state !== '' && !preg_match('/^[A-Z]{2}$/', $state)) {
+            return 'state_invalid';
+        }
+
+        return null;
     }
 
     /**
