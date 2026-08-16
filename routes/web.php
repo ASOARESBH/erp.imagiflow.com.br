@@ -161,12 +161,14 @@ Router::group(["middleware" => ["Auth"]], function () {
     // Plano de Contas (Financeiro)
     Router::group(["middleware" => ["Permission:view_plano_contas"]], function () {
         Router::get("/financeiro/plano-contas", "PlanoContasController@index");
+        Router::get("/financeiro/plano-contas/busca-rapida", "PlanoContasController@quickSearch");
     });
 
     Router::group(["middleware" => ["Permission:create_plano_contas"]], function () {
         Router::get("/financeiro/plano-contas/create", "PlanoContasController@create");
         Router::post("/financeiro/plano-contas", "PlanoContasController@store");
         Router::post("/financeiro/plano-contas/importar-padrao", "PlanoContasController@importDefault");
+        Router::post("/financeiro/plano-contas/criar-rapido", "PlanoContasController@quickStore");
     });
 
     Router::group(["middleware" => ["Permission:edit_plano_contas"]], function () {

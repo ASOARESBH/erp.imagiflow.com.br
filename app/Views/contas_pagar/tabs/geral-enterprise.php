@@ -3,6 +3,14 @@
 $action = $isEdit ? '/financeiro/contas-a-pagar/update/' . ($conta->id ?? '') : '/financeiro/contas-a-pagar';
 $planos = $planos ?? [];
 $fornecedores = $fornecedores ?? [];
+$planoSelecionadoId = (int) ($conta->plano_conta_id ?? 0);
+$planoSelecionadoRotulo = '';
+foreach ($planos as $plano) {
+    if ((int) $plano->id === $planoSelecionadoId) {
+        $planoSelecionadoRotulo = (string) $plano->codigo . ' - ' . (string) $plano->nome;
+        break;
+    }
+}
 $fornecedorSelecionadoId = (int) ($conta->fornecedor_id ?? 0);
 $fornecedorSelecionadoNome = '';
 foreach ($fornecedores as $fornecedor) {
@@ -23,16 +31,22 @@ foreach ($fornecedores as $fornecedor) {
         </h2>
 
         <div class="form-grid form-grid-3">
-            <div class="form-group">
-                <label for="plano_conta_id" class="form-label required">Plano de Conta</label>
-                <select name="plano_conta_id" id="plano_conta_id" class="form-select" required>
-                    <option value="" disabled <?php echo empty($conta->plano_conta_id) ? 'selected' : ''; ?>>Selecione...</option>
-                    <?php foreach ($planos as $p): ?>
-                        <option value="<?php echo (int)$p->id; ?>" <?php echo ((int)($conta->plano_conta_id ?? 0) === (int)$p->id) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars(($p->codigo ?? '') . ' - ' . ($p->nome ?? '')); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+            <div class="form-group position-relative" data-plano-picker data-plano-tipo="Despesa" data-plano-contexto="despesa">
+                <div class="d-flex justify-content-between align-items-center">
+                    <label for="plano_conta_busca" class="form-label required mb-1">Plano de Conta — Despesa</label>
+                    <?php if (\App\Core\Auth::can('create_plano_contas')): ?>
+                        <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="modal" data-bs-target="#modalNovoPlanoConta">
+                            <i class="fas fa-plus me-1"></i>Nova despesa
+                        </button>
+                    <?php endif; ?>
+                </div>
+                <input type="hidden" name="plano_conta_id" id="plano_conta_id" value="<?php echo $planoSelecionadoId ?: ''; ?>" required>
+                <input type="search" id="plano_conta_busca" class="form-control" autocomplete="off"
+                    placeholder="Digite código ou nome da despesa"
+                    value="<?php echo htmlspecialchars($planoSelecionadoRotulo); ?>"
+                    aria-autocomplete="list" aria-controls="plano_conta_resultados" aria-expanded="false" required>
+                <div id="plano_conta_resultados" class="dropdown-menu w-100 shadow" role="listbox"></div>
+                <div class="form-text">Exibe somente contas de despesa. Digite para buscar ou cadastre uma nova.</div>
             </div>
 
             <div class="form-group position-relative" data-fornecedor-picker>
@@ -126,6 +140,38 @@ foreach ($fornecedores as $fornecedor) {
 
 </form>
 
+<?php if (\App\Core\Auth::can('create_plano_contas')): ?>
+    <div class="modal fade" id="modalNovoPlanoConta" tabindex="-1" aria-labelledby="modalNovoPlanoContaTitulo" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="modalNovoPlanoContaTitulo"><i class="fas fa-minus-circle me-2"></i>Nova conta de despesa</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <form id="formNovoPlanoContaRapido" novalidate>
+                    <div class="modal-body">
+                        <div id="plano_conta_rapido_feedback" class="alert d-none" role="alert"></div>
+                        <input type="hidden" id="plano_conta_rapido_tipo" value="Despesa">
+                        <div class="mb-3">
+                            <label for="plano_conta_rapido_nome" class="form-label required">Nome da despesa</label>
+                            <input type="text" id="plano_conta_rapido_nome" class="form-control" placeholder="Ex.: Manutenção de equipamentos" maxlength="255" required>
+                        </div>
+                        <div class="mb-0">
+                            <label for="plano_conta_rapido_codigo" class="form-label">Código</label>
+                            <input type="text" id="plano_conta_rapido_codigo" class="form-control" placeholder="Opcional — será gerado automaticamente">
+                            <div class="form-text">O código deve ser único neste tenant.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnSalvarPlanoContaRapido"><i class="fas fa-save me-1"></i>Salvar e selecionar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
 <?php if (\App\Core\Auth::can('create_fornecedores')): ?>
     <div class="modal fade" id="modalNovoFornecedor" tabindex="-1" aria-labelledby="modalNovoFornecedorTitulo" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -178,4 +224,5 @@ foreach ($fornecedores as $fornecedor) {
     </div>
 <?php endif; ?>
 
+<script src="/assets/js/plano-conta-rapido.js"></script>
 <script src="/assets/js/fornecedor-rapido.js"></script>

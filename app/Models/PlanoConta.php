@@ -25,6 +25,60 @@ class PlanoConta extends Model
         return $stmt->fetch(PDO::FETCH_OBJ) ?: false;
     }
 
+    public function findByIdForTenantAndType(int $id, int $tenantId, string $type): object|false
+    {
+        if (!in_array($type, ['Receita', 'Despesa'], true)) {
+            return false;
+        }
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM {$this->table}
+             WHERE id = :id AND tenant_id = :tenant_id AND tipo = :tipo AND status = 'ativo'
+             LIMIT 1"
+        );
+        $stmt->execute([':id' => $id, ':tenant_id' => $tenantId, ':tipo' => $type]);
+        return $stmt->fetch(PDO::FETCH_OBJ) ?: false;
+    }
+
+    /** Busca breve por código ou nome, limitada ao tipo financeiro informado. */
+    public function searchByTenantAndType(int $tenantId, string $type, string $query = '', int $limit = 20): array
+    {
+        if (!in_array($type, ['Receita', 'Despesa'], true)) {
+            return [];
+        }
+        $limit = max(1, min($limit, 50));
+        $where = ['tenant_id = :tenant_id', 'tipo = :tipo', "status = 'ativo'"];
+        $params = [':tenant_id' => $tenantId, ':tipo' => $type];
+        $query = trim($query);
+        if ($query !== '') {
+            $where[] = '(codigo LIKE :q1 OR nome LIKE :q2)';
+            $params[':q1'] = '%' . $query . '%';
+            $params[':q2'] = '%' . $query . '%';
+        }
+
+        $stmt = $this->pdo->prepare(
+            "SELECT id, codigo, nome, tipo, nivel, conta_pai_id
+             FROM {$this->table}
+             WHERE " . implode(' AND ', $where) . "
+             ORDER BY codigo ASC, nome ASC
+             LIMIT {$limit}"
+        );
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_OBJ);
+    }
+
+    /** Gera um código técnico único quando o cadastro rápido não recebeu código manual. */
+    public function generateQuickCode(int $tenantId, string $type): string
+    {
+        $prefix = $type === 'Receita' ? 'REC' : 'DES';
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $code = $prefix . '-' . strtoupper(bin2hex(random_bytes(4)));
+            if (!$this->findByTenantAndCode($tenantId, $code)) {
+                return $code;
+            }
+        }
+        throw new \RuntimeException('Não foi possível gerar um código único para o plano de contas.');
+    }
+
     /**
      * Compatibilidade temporária para módulos legados ainda centrados em
      * usuário. O CRUD principal deve usar findByTenantId().

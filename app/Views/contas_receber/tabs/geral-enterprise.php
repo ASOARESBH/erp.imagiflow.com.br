@@ -3,6 +3,14 @@
 $action   = $isEdit ? '/financeiro/contas-a-receber/update/' . ($conta->id ?? '') : '/financeiro/contas-a-receber';
 $planos   = $planos   ?? [];
 $clientes = $clientes ?? [];
+$planoSelecionadoId = (int) ($conta->plano_conta_id ?? 0);
+$planoSelecionadoRotulo = '';
+foreach ($planos as $plano) {
+    if ((int) $plano->id === $planoSelecionadoId) {
+        $planoSelecionadoRotulo = (string) $plano->codigo . ' - ' . (string) $plano->nome;
+        break;
+    }
+}
 
 // Meios de pagamento Asaas (geram cobrança automática)
 $meiosAsaas = ['pix', 'boleto', 'cartao', 'checkout'];
@@ -10,6 +18,7 @@ $meioPagamentoAtual = $conta->meio_pagamento ?? '';
 ?>
 
 <form id="contaReceberFormGeral" action="<?php echo $action; ?>" method="POST" class="enterprise-form-main">
+    <?php echo \App\Core\View::csrfField(); ?>
 
     <section class="form-section">
         <h2 class="form-section-title">
@@ -30,16 +39,22 @@ $meioPagamentoAtual = $conta->meio_pagamento ?? '';
                 </select>
             </div>
 
-            <div class="form-group">
-                <label for="plano_conta_id" class="form-label required">Plano de Conta</label>
-                <select name="plano_conta_id" id="plano_conta_id" class="form-select" required>
-                    <option value="" disabled <?php echo empty($conta->plano_conta_id) ? 'selected' : ''; ?>>Selecione...</option>
-                    <?php foreach ($planos as $p): ?>
-                        <option value="<?php echo (int)$p->id; ?>" <?php echo ((int)($conta->plano_conta_id ?? 0) === (int)$p->id) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars(($p->codigo ?? '') . ' - ' . ($p->nome ?? '')); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+            <div class="form-group position-relative" data-plano-picker data-plano-tipo="Receita" data-plano-contexto="receita">
+                <div class="d-flex justify-content-between align-items-center">
+                    <label for="plano_conta_busca" class="form-label required mb-1">Plano de Conta — Receita</label>
+                    <?php if (\App\Core\Auth::can('create_plano_contas')): ?>
+                        <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="modal" data-bs-target="#modalNovoPlanoConta">
+                            <i class="fas fa-plus me-1"></i>Nova receita
+                        </button>
+                    <?php endif; ?>
+                </div>
+                <input type="hidden" name="plano_conta_id" id="plano_conta_id" value="<?php echo $planoSelecionadoId ?: ''; ?>" required>
+                <input type="search" id="plano_conta_busca" class="form-control" autocomplete="off"
+                    placeholder="Digite código ou nome da receita"
+                    value="<?php echo htmlspecialchars($planoSelecionadoRotulo); ?>"
+                    aria-autocomplete="list" aria-controls="plano_conta_resultados" aria-expanded="false" required>
+                <div id="plano_conta_resultados" class="dropdown-menu w-100 shadow" role="listbox"></div>
+                <div class="form-text">Exibe somente contas de receita. Digite para buscar ou cadastre uma nova.</div>
             </div>
 
             <div class="form-group">
@@ -287,6 +302,39 @@ $meioPagamentoAtual = $conta->meio_pagamento ?? '';
 
 </form>
 
+<?php if (\App\Core\Auth::can('create_plano_contas')): ?>
+    <div class="modal fade" id="modalNovoPlanoConta" tabindex="-1" aria-labelledby="modalNovoPlanoContaTitulo" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="modalNovoPlanoContaTitulo"><i class="fas fa-plus-circle me-2"></i>Nova conta de receita</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <form id="formNovoPlanoContaRapido" novalidate>
+                    <div class="modal-body">
+                        <div id="plano_conta_rapido_feedback" class="alert d-none" role="alert"></div>
+                        <input type="hidden" id="plano_conta_rapido_tipo" value="Receita">
+                        <div class="mb-3">
+                            <label for="plano_conta_rapido_nome" class="form-label required">Nome da receita</label>
+                            <input type="text" id="plano_conta_rapido_nome" class="form-control" placeholder="Ex.: Receita de serviços" maxlength="255" required>
+                        </div>
+                        <div class="mb-0">
+                            <label for="plano_conta_rapido_codigo" class="form-label">Código</label>
+                            <input type="text" id="plano_conta_rapido_codigo" class="form-control" placeholder="Opcional — será gerado automaticamente">
+                            <div class="form-text">O código deve ser único neste tenant.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnSalvarPlanoContaRapido"><i class="fas fa-save me-1"></i>Salvar e selecionar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
+<script src="/assets/js/plano-conta-rapido.js"></script>
 <script>
 // Preview dinâmico de recorrência
 (function () {

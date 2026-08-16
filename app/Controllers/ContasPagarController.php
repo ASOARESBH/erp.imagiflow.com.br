@@ -70,7 +70,7 @@ class ContasPagarController extends Controller
         $usuarioId = $user->id;
         $tenantId = (int) $user->tenant_id;
 
-        $planos = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo']);
+        $planos = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo', 'tipo' => 'Despesa']);
         $fornecedores = $this->fornecedorModel->findByTenantId($tenantId, ['status' => 'ativo']);
 
         View::render('contas_pagar/form-enterprise', [
@@ -101,7 +101,7 @@ class ContasPagarController extends Controller
                 exit();
             }
 
-            $plano = $this->planoContaModel->findByIdForTenant($planoContaId, $tenantId);
+            $plano = $this->planoContaModel->findByIdForTenantAndType($planoContaId, $tenantId, 'Despesa');
             if (!$plano) {
                 header('Location: /financeiro/contas-a-pagar/create?error=invalid_plano');
                 exit();
@@ -161,7 +161,7 @@ class ContasPagarController extends Controller
             exit();
         }
 
-        $planos = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo']);
+        $planos = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo', 'tipo' => 'Despesa']);
         $fornecedores = $this->fornecedorModel->findByTenantId($tenantId, ['status' => 'ativo']);
         $anexos = $this->anexoModel->findByContaId((int)$conta->id, $usuarioId);
 
@@ -199,7 +199,7 @@ class ContasPagarController extends Controller
                 exit();
             }
 
-            $plano = $this->planoContaModel->findByIdForTenant($planoContaId, $tenantId);
+            $plano = $this->planoContaModel->findByIdForTenantAndType($planoContaId, $tenantId, 'Despesa');
             if (!$plano) {
                 header("Location: /financeiro/contas-a-pagar/edit/{$id}?error=invalid_plano");
                 exit();
@@ -511,7 +511,7 @@ class ContasPagarController extends Controller
             ];
             $boletos      = $this->ddaModel->findByUsuarioId($usuarioId, $filtros);
             $contagens    = $this->ddaModel->countByStatus($usuarioId);
-            $planos       = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo']);
+            $planos       = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo', 'tipo' => 'Despesa']);
             $fornecedores = $this->fornecedorModel->findByTenantId($tenantId, ['status' => 'ativo']);
 
             View::render('contas_pagar/dda_index', [

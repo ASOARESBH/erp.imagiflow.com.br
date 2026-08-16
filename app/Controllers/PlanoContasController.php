@@ -209,6 +209,99 @@ class PlanoContasController extends Controller
         exit();
     }
 
+    /** Retorna planos ativos do tipo solicitado para campos de busca digitável. */
+    public function quickSearch(): void
+    {
+        try {
+            $user = $this->currentUser();
+            $type = (string) ($_GET['tipo'] ?? '');
+            if (!in_array($type, ['Receita', 'Despesa'], true)) {
+                $this->jsonResponse(false, 'Tipo de plano inválido.', [], 422);
+                return;
+            }
+            $query = substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
+            $items = $this->model->searchByTenantAndType((int) $user->tenant_id, $type, $query, 20);
+            $data = array_map(static function (object $account): array {
+                return [
+                    'id' => (int) $account->id,
+                    'codigo' => (string) $account->codigo,
+                    'nome' => (string) $account->nome,
+                    'tipo' => (string) $account->tipo,
+                ];
+            }, $items);
+            $this->jsonResponse(true, 'Planos encontrados.', $data);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Erro na busca rápida de plano: ' . $exception->getMessage());
+            $this->jsonResponse(false, 'Não foi possível buscar planos agora.', [], 500);
+        }
+    }
+
+    /** Cria uma conta no tipo solicitado e a devolve para seleção imediata. */
+    public function quickStore(): void
+    {
+        try {
+            $this->assertCsrfHeader();
+            if (!Auth::can('create_plano_contas')) {
+                $this->jsonResponse(false, 'Você não tem permissão para cadastrar planos de contas.', [], 403);
+                return;
+            }
+            $payload = json_decode((string) file_get_contents('php://input'), true);
+            if (!is_array($payload)) {
+                $this->jsonResponse(false, 'Dados do plano inválidos.', [], 400);
+                return;
+            }
+            $user = $this->currentUser();
+            $type = (string) ($payload['tipo'] ?? '');
+            $name = trim((string) ($payload['nome'] ?? ''));
+            $code = trim((string) ($payload['codigo'] ?? ''));
+            if (!in_array($type, ['Receita', 'Despesa'], true) || $name === '') {
+                $this->jsonResponse(false, 'Informe o nome e o tipo válido do plano.', [], 422);
+                return;
+            }
+            if ($code === '') {
+                $code = $this->model->generateQuickCode((int) $user->tenant_id, $type);
+            }
+            if ($this->model->findByTenantAndCode((int) $user->tenant_id, $code)) {
+                $this->jsonResponse(false, 'Já existe uma conta com este código neste tenant.', [], 409);
+                return;
+            }
+
+            $id = $this->model->createForTenant([
+                'tenant_id' => (int) $user->tenant_id,
+                'usuario_id' => (int) $user->id,
+                'codigo' => $code,
+                'nome' => $name,
+                'tipo' => $type,
+                'conta_pai_id' => null,
+                'status' => 'ativo',
+            ]);
+            if (!$id) {
+                throw new \RuntimeException('A gravação do plano não retornou identificador.');
+            }
+
+            AuditLogger::log('create_plano_conta_rapido', [
+                'id' => (int) $id,
+                'tenant_id' => (int) $user->tenant_id,
+                'tipo' => $type,
+                'codigo' => $code,
+            ]);
+            $this->logger->info('Plano criado rapidamente.', [
+                'id' => (int) $id,
+                'tenant_id' => (int) $user->tenant_id,
+                'tipo' => $type,
+            ]);
+            $this->jsonResponse(true, 'Plano de contas cadastrado e selecionado com sucesso.', [
+                'id' => (int) $id,
+                'codigo' => $code,
+                'nome' => $name,
+                'tipo' => $type,
+            ], 201);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Erro ao criar plano rapidamente: ' . $exception->getMessage());
+            $this->jsonResponse(false, 'Não foi possível cadastrar o plano agora.', [], 500);
+        }
+    }
+
     private function currentUser(): object
     {
         $user = Auth::user();
@@ -242,5 +335,21 @@ class PlanoContasController extends Controller
         if ($submitted === '' || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $submitted)) {
             throw new \RuntimeException('Token CSRF inválido.');
         }
+    }
+
+    private function assertCsrfHeader(): void
+    {
+        $submitted = (string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+        if ($submitted === '' || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $submitted)) {
+            throw new \RuntimeException('Token CSRF inválido.');
+        }
+    }
+
+    private function jsonResponse(bool $success, string $message, array $data = [], int $status = 200): void
+    {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => $success, 'message' => $message, 'data' => $data], JSON_UNESCAPED_UNICODE);
+        exit();
     }
 }
