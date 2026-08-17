@@ -114,16 +114,16 @@ class Fornecedor extends Model
             $params[':q3'] = $like;
             $params[':q4'] = $like;
         }
-        $preferredSql = '0';
+        $orderBy = 'created_at DESC, nome ASC';
         if ($preferredId !== null && $preferredId > 0) {
-            $preferredSql = 'CASE WHEN id = :preferred_id THEN 0 ELSE 1 END';
+            $orderBy = 'CASE WHEN id = :preferred_id THEN 0 ELSE 1 END ASC, ' . $orderBy;
             $params[':preferred_id'] = $preferredId;
         }
 
-        $sql =             "SELECT id, nome, documento, email, telefone
+        $sql = "SELECT id, nome, documento, email, telefone
                 FROM {$this->table}
                 WHERE " . implode(' AND ', $where) . "
-                ORDER BY {$preferredSql} ASC, created_at DESC, nome ASC
+                ORDER BY {$orderBy}
                 LIMIT {$limit}";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);

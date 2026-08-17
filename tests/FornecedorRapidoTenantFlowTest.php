@@ -23,6 +23,8 @@ assertSupplierQuickFlow(strpos($searchMethod, 'telefone LIKE :q4') !== false, 'A
 assertSupplierQuickFlow(strpos($searchMethod, 'nome_fantasia LIKE') === false, 'A busca rápida não deve depender da coluna opcional de nome fantasia.');
 assertSupplierQuickFlow(strpos($searchMethod, 'celular LIKE') === false, 'A busca rápida não deve depender da coluna opcional celular.');
 assertSupplierQuickFlow(strpos($searchMethod, 'SELECT id, nome, documento, email, telefone') !== false, 'A busca rápida deve selecionar apenas campos da estrutura mínima publicada.');
+assertSupplierQuickFlow(strpos($searchMethod, "\$preferredSql = '0'") === false, 'A busca inicial não deve gerar ORDER BY 0 no MySQL/MariaDB.');
+assertSupplierQuickFlow(strpos($searchMethod, "\$orderBy = 'created_at DESC, nome ASC'") !== false, 'A busca inicial deve usar ordenação válida pelos fornecedores mais recentes.');
 assertSupplierQuickFlow(strpos($model, 'function findByIdForTenant') !== false, 'O modelo deve validar o fornecedor pelo tenant.');
 assertSupplierQuickFlow(strpos($model, 'ORDER BY created_at DESC, nome ASC') !== false, 'Fornecedores recém-criados devem ser retornados primeiro.');
 assertSupplierQuickFlow(strpos($model, 'function documentoExistsForTenant') !== false, 'O modelo deve prevenir documento duplicado por tenant.');
