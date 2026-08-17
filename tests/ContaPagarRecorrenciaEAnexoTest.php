@@ -28,6 +28,9 @@ assertContaPagarFlow(strpos($service, 'for ($numero = 2; $numero <= $totalParcel
 assertContaPagarFlow(strpos($service, "case 'mensal':") !== false, 'O serviço deve calcular recorrência mensal.');
 assertContaPagarFlow(strpos($service, 'beginTransaction') !== false && strpos($service, 'rollBack') !== false, 'A geração de parcelas deve ser transacional.');
 assertContaPagarFlow(strpos($controller, 'new ContaPagarRecorrenciaService') !== false, 'O controlador deve acionar a geração de parcelas.');
+assertContaPagarFlow(strpos($controller, 'function normalizarRecorrencia') !== false, 'O controlador deve normalizar a recorrência no servidor.');
+assertContaPagarFlow(strpos($controller, "if (\$dados['recorrencia_tipo'] !== null && \$total > 1)") !== false, 'Tipo e quantidade devem ativar a recorrência mesmo sem checkbox.');
+assertContaPagarFlow(strpos($controller, 'function deveGerarParcelas') !== false, 'A geração deve depender de tipo e quantidade de parcelas.');
 assertContaPagarFlow(strpos($controller, 'findByIdForTenant') !== false, 'O controlador deve validar contas pelo tenant.');
 assertContaPagarFlow(strpos($anexoModel, 'function findByContaId(int $contaPagarId, int $tenantId)') !== false, 'Anexos devem ser listados pelo tenant.');
 assertContaPagarFlow(strpos($anexoModel, 'tenant_id, usuario_id, conta_pagar_id') !== false, 'Anexos devem persistir o tenant.');

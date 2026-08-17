@@ -7,6 +7,10 @@ $planos = $planos ?? [];
 $fornecedores = $fornecedores ?? [];
 $anexos = $anexos ?? [];
 
+if (($_GET['error'] ?? '') === 'parcelas_failed') {
+    echo '<div class="alert alert-danger mb-3" role="alert"><i class="fas fa-exclamation-triangle me-1"></i>Não foi possível gerar todas as parcelas. Verifique se a migration de recorrência foi aplicada e tente salvar novamente.</div>';
+}
+
 $formConfig = [
     'title' => $isEdit ? 'Editar Conta a Pagar' : 'Nova Conta a Pagar',
     'subtitle' => $isEdit

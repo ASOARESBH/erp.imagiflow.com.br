@@ -43,8 +43,8 @@ class ContaPagarRecorrenciaService
 
         try {
             $contaRaiz = $this->model->findByIdForTenant($contaRaizId, $tenantId);
-            if (!$contaRaiz || (int) ($contaRaiz->usuario_id ?? 0) !== $usuarioId) {
-                $resultado['erros'][] = 'Conta raiz não encontrada ou sem permissão.';
+            if (!$contaRaiz) {
+                $resultado['erros'][] = 'Conta raiz não encontrada no tenant ativo.';
                 return $resultado;
             }
 

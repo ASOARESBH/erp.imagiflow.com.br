@@ -140,6 +140,7 @@ class ContasPagarController extends Controller
 
             if ($dados['codigo_barras'] === '') $dados['codigo_barras'] = null;
             if ($dados['observacoes'] === '') $dados['observacoes'] = null;
+            $this->normalizarRecorrencia($dados);
 
             $statusSolicitado = $dados['status'];
             $dados = $this->statusService->apply($dados);
@@ -156,7 +157,7 @@ class ContasPagarController extends Controller
             if ($id) {
                 $totalParcelas = (int) ($dados['recorrencia_intervalo'] ?? 0);
                 $parcelasGeradas = 0;
-                if ((int) $dados['recorrente'] === 1 && $totalParcelas > 1 && !empty($dados['recorrencia_tipo'])) {
+                if ($this->deveGerarParcelas($dados)) {
                     $resultadoParcelas = (new ContaPagarRecorrenciaService())->gerarParcelas(
                         $usuarioId,
                         $tenantId,
@@ -171,6 +172,8 @@ class ContasPagarController extends Controller
                             'tenant_id' => $tenantId,
                             'erros' => $resultadoParcelas['erros'],
                         ]);
+                        header("Location: /financeiro/contas-a-pagar/edit/{$id}?error=parcelas_failed&tab=geral");
+                        exit();
                     }
                 }
                 AuditLogger::log('create_conta_pagar', [
@@ -274,6 +277,7 @@ class ContasPagarController extends Controller
 
             if ($dados['codigo_barras'] === '') $dados['codigo_barras'] = null;
             if ($dados['observacoes'] === '') $dados['observacoes'] = null;
+            $this->normalizarRecorrencia($dados);
 
             $statusSolicitado = $dados['status'];
             $dados = $this->statusService->apply($dados);
@@ -290,7 +294,7 @@ class ContasPagarController extends Controller
             if ($this->model->updateForTenant((int) $id, $tenantId, $dados)) {
                 $totalParcelas = (int) ($dados['recorrencia_intervalo'] ?? 0);
                 $parcelasGeradas = 0;
-                if ((int) $dados['recorrente'] === 1 && $totalParcelas > 1 && !empty($dados['recorrencia_tipo']) && empty($conta->grupo_parcelas)) {
+                if ($this->deveGerarParcelas($dados) && empty($conta->grupo_parcelas)) {
                     $resultadoParcelas = (new ContaPagarRecorrenciaService())->gerarParcelas(
                         $usuarioId,
                         $tenantId,
@@ -299,6 +303,15 @@ class ContasPagarController extends Controller
                         (string) $dados['recorrencia_tipo']
                     );
                     $parcelasGeradas = (int) $resultadoParcelas['geradas'];
+                    if (!empty($resultadoParcelas['erros'])) {
+                        $this->logger->error('Falha ao gerar parcelas de conta a pagar na edição.', [
+                            'conta_id' => (int) $id,
+                            'tenant_id' => $tenantId,
+                            'erros' => $resultadoParcelas['erros'],
+                        ]);
+                        header("Location: /financeiro/contas-a-pagar/edit/{$id}?error=parcelas_failed&tab=geral");
+                        exit();
+                    }
                 }
                 AuditLogger::log('update_conta_pagar', [
                     'id' => (int) $id,
@@ -747,6 +760,30 @@ class ContasPagarController extends Controller
             $this->logger->error('[DDA] Erro ao confirmar pagamento: ' . $e->getMessage());
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Normaliza a recorrência. Tipo definido e mais de uma parcela configuram
+     * automaticamente a conta como recorrente, mesmo se o checkbox não foi enviado.
+     */
+    private function normalizarRecorrencia(array &$dados): void
+    {
+        $tipo = strtolower(trim((string) ($dados['recorrencia_tipo'] ?? '')));
+        $total = (int) ($dados['recorrencia_intervalo'] ?? 0);
+        $tiposValidos = ['semanal', 'mensal', 'anual', 'customizada'];
+
+        $dados['recorrencia_tipo'] = in_array($tipo, $tiposValidos, true) ? $tipo : null;
+        $dados['recorrencia_intervalo'] = $total > 0 ? $total : null;
+
+        if ($dados['recorrencia_tipo'] !== null && $total > 1) {
+            $dados['recorrente'] = 1;
+        }
+    }
+
+    private function deveGerarParcelas(array $dados): bool
+    {
+        return !empty($dados['recorrencia_tipo'])
+            && (int) ($dados['recorrencia_intervalo'] ?? 0) > 1;
     }
 
     public function ddaIgnorar($id): void

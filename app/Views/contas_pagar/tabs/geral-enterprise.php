@@ -117,6 +117,8 @@ foreach ($fornecedores as $fornecedor) {
             <i class="fas fa-check-circle me-1"></i>A data de pagamento é igual ou posterior ao vencimento. A conta será salva como <strong>Paga</strong>.
         </div>
 
+        <div id="aviso_recorrencia_parcelas" class="alert alert-info d-none mt-3 mb-0" role="status"></div>
+
         <div class="form-grid form-grid-3">
             <div class="form-group">
                 <label for="recorrencia_tipo" class="form-label">Tipo de Recorrência</label>
