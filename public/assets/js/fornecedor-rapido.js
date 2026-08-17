@@ -14,6 +14,9 @@
     const quickForm = document.getElementById('formNovoFornecedorRapido');
     const feedback = document.getElementById('fornecedor_rapido_feedback');
     const saveQuickButton = document.getElementById('btnSalvarFornecedorRapido');
+    const quickType = document.getElementById('fornecedor_rapido_tipo');
+    const quickDocument = document.getElementById('fornecedor_rapido_documento');
+    const lookupCnpjButton = document.getElementById('btn_consulta_cnpj_rapido');
     let debounceId = null;
     let activeRequest = null;
 
@@ -106,6 +109,53 @@
         feedback.textContent = message;
         feedback.className = `alert alert-${type}`;
     };
+
+    const lookupCnpj = async () => {
+        const cnpj = String(quickDocument?.value || '').replace(/\D/g, '');
+        if (quickType?.value !== 'PJ') {
+            showFeedback('A consulta automática está disponível apenas para CNPJ de pessoa jurídica.', 'warning');
+            return;
+        }
+        if (cnpj.length !== 14) {
+            showFeedback('Informe um CNPJ completo com 14 dígitos para consultar.', 'warning');
+            quickDocument?.focus();
+            return;
+        }
+
+        lookupCnpjButton.disabled = true;
+        lookupCnpjButton.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span class="d-none d-sm-inline ms-1">Consultando...</span>';
+        if (feedback) feedback.classList.add('d-none');
+        try {
+            const response = await fetch(`/fornecedores/buscar-cnpj?cnpj=${encodeURIComponent(cnpj)}`, {
+                headers: { Accept: 'application/json' },
+            });
+            const data = await response.json();
+            if (!response.ok || data.erro) {
+                throw new Error(data.erro || 'Não foi possível consultar o CNPJ.');
+            }
+
+            const fields = {
+                fornecedor_rapido_nome: data.razao_social,
+                fornecedor_rapido_nome_fantasia: data.nome_fantasia,
+                fornecedor_rapido_email: data.email,
+                fornecedor_rapido_telefone: data.telefone,
+            };
+            Object.entries(fields).forEach(([id, value]) => {
+                const field = document.getElementById(id);
+                if (field && value) field.value = value;
+            });
+            showFeedback('Dados do CNPJ preenchidos. Confira as informações antes de salvar.', 'success');
+        } catch (error) {
+            showFeedback(error.message || 'Não foi possível consultar o CNPJ agora.');
+        } finally {
+            lookupCnpjButton.disabled = false;
+            lookupCnpjButton.innerHTML = '<i class="fas fa-search"></i><span class="d-none d-sm-inline ms-1">Consultar</span>';
+        }
+    };
+
+    if (lookupCnpjButton) {
+        lookupCnpjButton.addEventListener('click', lookupCnpj);
+    }
 
     if (quickForm) {
         quickForm.addEventListener('submit', async (event) => {

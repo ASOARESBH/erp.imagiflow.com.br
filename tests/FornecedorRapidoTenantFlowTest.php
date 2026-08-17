@@ -29,6 +29,9 @@ assertSupplierQuickFlow(strpos($view, 'fornecedor_busca') !== false, 'A conta a 
 assertSupplierQuickFlow(strpos($view, 'modalNovoFornecedor') !== false, 'A conta a pagar deve conter o cadastro rápido em modal.');
 assertSupplierQuickFlow(strpos($script, '/fornecedores/busca-rapida') !== false, 'O script deve consultar a busca rápida.');
 assertSupplierQuickFlow(strpos($script, '/fornecedores/criar-rapido') !== false, 'O script deve criar o fornecedor sem sair do formulário.');
+assertSupplierQuickFlow(strpos($script, '/fornecedores/buscar-cnpj') !== false, 'O script deve consultar o CNPJ pelo endpoint existente de fornecedores.');
+assertSupplierQuickFlow(strpos($script, 'fornecedor_rapido_nome') !== false, 'A consulta de CNPJ deve preencher o nome do fornecedor.');
+assertSupplierQuickFlow(strpos($view, 'btn_consulta_cnpj_rapido') !== false, 'O modal rápido deve expor o botão de consulta de CNPJ.');
 assertSupplierQuickFlow(strpos($routes, '/fornecedores/busca-rapida') !== false, 'A rota de busca rápida deve estar registrada.');
 assertSupplierQuickFlow(strpos($routes, '/fornecedores/criar-rapido') !== false, 'A rota de cadastro rápido deve estar registrada.');
 assertSupplierQuickFlow(strpos($contasPagar, 'fornecedorModel->findByTenantId') !== false, 'Contas a pagar deve listar fornecedores do tenant ativo.');

@@ -54,7 +54,6 @@ $meioPagamentoAtual = $conta->meio_pagamento ?? '';
                     value="<?php echo htmlspecialchars($planoSelecionadoRotulo); ?>"
                     aria-autocomplete="list" aria-controls="plano_conta_resultados" aria-expanded="false" required>
                 <div id="plano_conta_resultados" class="dropdown-menu w-100 shadow" role="listbox"></div>
-                <div class="form-text">Exibe somente contas de receita. Digite para buscar ou cadastre uma nova.</div>
             </div>
 
             <div class="form-group">

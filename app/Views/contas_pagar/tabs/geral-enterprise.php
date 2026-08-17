@@ -46,7 +46,6 @@ foreach ($fornecedores as $fornecedor) {
                     value="<?php echo htmlspecialchars($planoSelecionadoRotulo); ?>"
                     aria-autocomplete="list" aria-controls="plano_conta_resultados" aria-expanded="false" required>
                 <div id="plano_conta_resultados" class="dropdown-menu w-100 shadow" role="listbox"></div>
-                <div class="form-text">Exibe somente contas de despesa. Digite para buscar ou cadastre uma nova.</div>
             </div>
 
             <div class="form-group position-relative" data-fornecedor-picker>
@@ -197,7 +196,13 @@ foreach ($fornecedores as $fornecedor) {
                             </div>
                             <div class="col-md-6">
                                 <label for="fornecedor_rapido_documento" class="form-label">CPF / CNPJ</label>
-                                <input type="text" id="fornecedor_rapido_documento" class="form-control" maxlength="30">
+                                <div class="input-group">
+                                    <input type="text" id="fornecedor_rapido_documento" class="form-control" maxlength="30" inputmode="numeric" autocomplete="off">
+                                    <button type="button" class="btn btn-outline-primary" id="btn_consulta_cnpj_rapido" title="Consultar dados do CNPJ" aria-label="Consultar dados do CNPJ">
+                                        <i class="fas fa-search"></i><span class="d-none d-sm-inline ms-1">Consultar</span>
+                                    </button>
+                                </div>
+                                <div class="form-text">Para pessoa jurídica, informe o CNPJ e consulte os dados.</div>
                             </div>
                             <div class="col-md-6">
                                 <label for="fornecedor_rapido_nome_fantasia" class="form-label">Nome fantasia</label>
