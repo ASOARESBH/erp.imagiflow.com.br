@@ -107,14 +107,13 @@ class Fornecedor extends Model
         $params = [':tenant_id' => $tenantId];
         $query = trim($query);
         if ($query !== '') {
-            $where[] = '(nome LIKE :q1 OR nome_fantasia LIKE :q2 OR documento LIKE :q3 OR email LIKE :q4 OR telefone LIKE :q5 OR celular LIKE :q6)';
+            $where[] = '(nome LIKE :q1 OR nome_fantasia LIKE :q2 OR documento LIKE :q3 OR email LIKE :q4 OR telefone LIKE :q5)';
             $like = '%' . $query . '%';
             $params[':q1'] = $like;
             $params[':q2'] = $like;
             $params[':q3'] = $like;
             $params[':q4'] = $like;
             $params[':q5'] = $like;
-            $params[':q6'] = $like;
         }
         $preferredSql = '0';
         if ($preferredId !== null && $preferredId > 0) {

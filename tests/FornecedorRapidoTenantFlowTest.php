@@ -19,7 +19,7 @@ $contasPagar = file_get_contents($root . '/app/Controllers/ContasPagarController
 
 assertSupplierQuickFlow(strpos($model, 'function searchByTenant') !== false, 'O modelo deve expor busca digitável limitada ao tenant.');
 assertSupplierQuickFlow(strpos($model, 'telefone LIKE :q5') !== false, 'A busca deve localizar fornecedores também por telefone.');
-assertSupplierQuickFlow(strpos($model, 'celular LIKE :q6') !== false, 'A busca deve localizar fornecedores também por celular.');
+assertSupplierQuickFlow(strpos($model, 'celular LIKE :q6') === false, 'A busca rápida não deve depender da coluna opcional celular.');
 assertSupplierQuickFlow(strpos($model, 'function findByIdForTenant') !== false, 'O modelo deve validar o fornecedor pelo tenant.');
 assertSupplierQuickFlow(strpos($model, 'ORDER BY created_at DESC, nome ASC') !== false, 'Fornecedores recém-criados devem ser retornados primeiro.');
 assertSupplierQuickFlow(strpos($model, 'function documentoExistsForTenant') !== false, 'O modelo deve prevenir documento duplicado por tenant.');
