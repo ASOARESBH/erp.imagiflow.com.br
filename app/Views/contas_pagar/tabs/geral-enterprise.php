@@ -113,6 +113,10 @@ foreach ($fornecedores as $fornecedor) {
             </div>
         </div>
 
+        <div id="aviso_status_pago_automatico" class="alert alert-success d-none mt-3 mb-0" role="status">
+            <i class="fas fa-check-circle me-1"></i>A data de pagamento é igual ou posterior ao vencimento. A conta será salva como <strong>Paga</strong>.
+        </div>
+
         <div class="form-grid form-grid-3">
             <div class="form-group">
                 <label for="recorrencia_tipo" class="form-label">Tipo de Recorrência</label>
@@ -231,3 +235,4 @@ foreach ($fornecedores as $fornecedor) {
 
 <script src="/assets/js/plano-conta-rapido.js"></script>
 <script src="/assets/js/fornecedor-rapido.js"></script>
+<script src="/assets/js/conta-pagar-status-automatico.js"></script>

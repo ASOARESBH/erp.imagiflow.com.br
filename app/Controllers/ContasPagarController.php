@@ -14,6 +14,7 @@ use App\Models\Fornecedor;
 use App\Models\DdaBoleto;
 use App\Models\Integracao;
 use App\Services\AsaasService;
+use App\Services\ContaPagarStatusService;
 
 class ContasPagarController extends Controller
 {
@@ -24,6 +25,7 @@ class ContasPagarController extends Controller
     private Logger $logger;
     private DdaBoleto $ddaModel;
     private ?AsaasService $asaasService = null;
+    private ContaPagarStatusService $statusService;
 
     public function __construct()
     {
@@ -33,6 +35,7 @@ class ContasPagarController extends Controller
         $this->fornecedorModel = new Fornecedor();
         $this->logger = new Logger();
         $this->ddaModel = new DdaBoleto();
+        $this->statusService = new ContaPagarStatusService();
     }
 
     public function index(): void
@@ -135,6 +138,17 @@ class ContasPagarController extends Controller
             if ($dados['codigo_barras'] === '') $dados['codigo_barras'] = null;
             if ($dados['observacoes'] === '') $dados['observacoes'] = null;
 
+            $statusSolicitado = $dados['status'];
+            $dados = $this->statusService->apply($dados);
+            if ($statusSolicitado !== $dados['status']) {
+                $this->logger->info('Conta a pagar marcada como paga automaticamente na criação.', [
+                    'usuario_id' => $usuarioId,
+                    'tenant_id' => $tenantId,
+                    'data_vencimento' => $dados['data_vencimento'],
+                    'data_pagamento' => $dados['data_pagamento'],
+                ]);
+            }
+
             $id = $this->model->create($dados);
             if ($id) {
                 AuditLogger::log('create_conta_pagar', ['id' => $id, 'descricao' => $descricao, 'valor' => $valor]);
@@ -231,6 +245,18 @@ class ContasPagarController extends Controller
 
             if ($dados['codigo_barras'] === '') $dados['codigo_barras'] = null;
             if ($dados['observacoes'] === '') $dados['observacoes'] = null;
+
+            $statusSolicitado = $dados['status'];
+            $dados = $this->statusService->apply($dados);
+            if ($statusSolicitado !== $dados['status']) {
+                $this->logger->info('Conta a pagar marcada como paga automaticamente na edição.', [
+                    'conta_id' => (int) $id,
+                    'usuario_id' => $usuarioId,
+                    'tenant_id' => $tenantId,
+                    'data_vencimento' => $dados['data_vencimento'],
+                    'data_pagamento' => $dados['data_pagamento'],
+                ]);
+            }
 
             if ($this->model->update((int)$id, $dados)) {
                 AuditLogger::log('update_conta_pagar', ['id' => (int)$id, 'descricao' => $descricao, 'valor' => $valor]);
