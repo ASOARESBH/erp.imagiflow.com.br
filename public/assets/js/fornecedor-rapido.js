@@ -81,7 +81,8 @@
             renderResults(payload.data);
         } catch (error) {
             if (error.name === 'AbortError') return;
-            results.innerHTML = '<div class="dropdown-item-text text-danger small">Não foi possível pesquisar fornecedores. Tente novamente.</div>';
+            const message = error?.message || 'Não foi possível pesquisar fornecedores. Tente novamente.';
+            results.innerHTML = `<div class="dropdown-item-text text-danger small">${escapeHtml(message)}</div>`;
             results.classList.add('show');
             input.setAttribute('aria-expanded', 'true');
         }

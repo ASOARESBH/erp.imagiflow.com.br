@@ -137,7 +137,7 @@ class FornecedoresController extends Controller
 
             $query = substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
             $preferredId = (int) ($_GET['preferido'] ?? 0) ?: null;
-            $items = $this->model->searchByTenant($tenantId, $query, 20, $preferredId);
+            $items = $this->model->searchByTenant($tenantId, $query, 100, $preferredId);
             $data = array_map(static function (object $fornecedor): array {
                 return [
                     'id' => (int) $fornecedor->id,

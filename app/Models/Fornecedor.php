@@ -100,19 +100,21 @@ class Fornecedor extends Model
     }
 
     /** Busca curta, própria para campos com digitação. */
-    public function searchByTenant(int $tenantId, string $query = '', int $limit = 20, ?int $preferredId = null): array
+    public function searchByTenant(int $tenantId, string $query = '', int $limit = 50, ?int $preferredId = null): array
     {
-        $limit = max(1, min($limit, 50));
+        $limit = max(1, min($limit, 100));
         $where = ['tenant_id = :tenant_id', "status = 'ativo'"];
         $params = [':tenant_id' => $tenantId];
         $query = trim($query);
         if ($query !== '') {
-            $where[] = '(nome LIKE :q1 OR nome_fantasia LIKE :q2 OR documento LIKE :q3 OR email LIKE :q4)';
+            $where[] = '(nome LIKE :q1 OR nome_fantasia LIKE :q2 OR documento LIKE :q3 OR email LIKE :q4 OR telefone LIKE :q5 OR celular LIKE :q6)';
             $like = '%' . $query . '%';
             $params[':q1'] = $like;
             $params[':q2'] = $like;
             $params[':q3'] = $like;
             $params[':q4'] = $like;
+            $params[':q5'] = $like;
+            $params[':q6'] = $like;
         }
         $preferredSql = '0';
         if ($preferredId !== null && $preferredId > 0) {
