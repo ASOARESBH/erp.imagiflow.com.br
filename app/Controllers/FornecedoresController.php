@@ -150,8 +150,14 @@ class FornecedoresController extends Controller
             }, $items);
             $this->jsonResponse(true, 'Fornecedores encontrados.', $data);
         } catch (\Throwable $exception) {
-            $this->logger->error('Erro na busca rápida de fornecedor: ' . $exception->getMessage());
-            $this->jsonResponse(false, 'Não foi possível buscar fornecedores agora.', [], 500);
+            $errorId = 'FRN-' . strtoupper(substr(hash('sha256', uniqid('', true)), 0, 10));
+            $this->logger->error('Erro na busca rápida de fornecedor.', [
+                'error_id' => $errorId,
+                'tenant_id' => $tenantId ?? null,
+                'exception' => get_class($exception),
+                'error' => $exception->getMessage(),
+            ]);
+            $this->jsonResponse(false, 'Não foi possível buscar fornecedores agora. Código: ' . $errorId, [], 500);
         }
     }
 

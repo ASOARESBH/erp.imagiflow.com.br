@@ -107,13 +107,12 @@ class Fornecedor extends Model
         $params = [':tenant_id' => $tenantId];
         $query = trim($query);
         if ($query !== '') {
-            $where[] = '(nome LIKE :q1 OR nome_fantasia LIKE :q2 OR documento LIKE :q3 OR email LIKE :q4 OR telefone LIKE :q5)';
+            $where[] = '(nome LIKE :q1 OR documento LIKE :q2 OR email LIKE :q3 OR telefone LIKE :q4)';
             $like = '%' . $query . '%';
             $params[':q1'] = $like;
             $params[':q2'] = $like;
             $params[':q3'] = $like;
             $params[':q4'] = $like;
-            $params[':q5'] = $like;
         }
         $preferredSql = '0';
         if ($preferredId !== null && $preferredId > 0) {
@@ -121,7 +120,7 @@ class Fornecedor extends Model
             $params[':preferred_id'] = $preferredId;
         }
 
-        $sql = "SELECT id, nome, nome_fantasia, documento, email, telefone
+        $sql =             "SELECT id, nome, documento, email, telefone
                 FROM {$this->table}
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY {$preferredSql} ASC, created_at DESC, nome ASC

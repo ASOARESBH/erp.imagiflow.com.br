@@ -16,15 +16,19 @@ $view = file_get_contents($root . '/app/Views/contas_pagar/tabs/geral-enterprise
 $script = file_get_contents($root . '/public/assets/js/fornecedor-rapido.js');
 $routes = file_get_contents($root . '/routes/web.php');
 $contasPagar = file_get_contents($root . '/app/Controllers/ContasPagarController.php');
+$searchMethod = substr($model, (int) strpos($model, 'public function searchByTenant'));
 
 assertSupplierQuickFlow(strpos($model, 'function searchByTenant') !== false, 'O modelo deve expor busca digitável limitada ao tenant.');
-assertSupplierQuickFlow(strpos($model, 'telefone LIKE :q5') !== false, 'A busca deve localizar fornecedores também por telefone.');
-assertSupplierQuickFlow(strpos($model, 'celular LIKE :q6') === false, 'A busca rápida não deve depender da coluna opcional celular.');
+assertSupplierQuickFlow(strpos($searchMethod, 'telefone LIKE :q4') !== false, 'A busca deve localizar fornecedores também por telefone.');
+assertSupplierQuickFlow(strpos($searchMethod, 'nome_fantasia LIKE') === false, 'A busca rápida não deve depender da coluna opcional de nome fantasia.');
+assertSupplierQuickFlow(strpos($searchMethod, 'celular LIKE') === false, 'A busca rápida não deve depender da coluna opcional celular.');
+assertSupplierQuickFlow(strpos($searchMethod, 'SELECT id, nome, documento, email, telefone') !== false, 'A busca rápida deve selecionar apenas campos da estrutura mínima publicada.');
 assertSupplierQuickFlow(strpos($model, 'function findByIdForTenant') !== false, 'O modelo deve validar o fornecedor pelo tenant.');
 assertSupplierQuickFlow(strpos($model, 'ORDER BY created_at DESC, nome ASC') !== false, 'Fornecedores recém-criados devem ser retornados primeiro.');
 assertSupplierQuickFlow(strpos($model, 'function documentoExistsForTenant') !== false, 'O modelo deve prevenir documento duplicado por tenant.');
 assertSupplierQuickFlow(strpos($controller, 'function quickSearch') !== false, 'O controlador deve expor a busca rápida.');
 assertSupplierQuickFlow(strpos($controller, 'function jsonResponse') !== false, 'O controlador deve emitir a resposta JSON usada pela busca rápida.');
+assertSupplierQuickFlow(strpos($controller, "'error_id' => \$errorId") !== false, 'O endpoint deve registrar um identificador seguro para diagnosticar falhas no servidor.');
 assertSupplierQuickFlow(strpos($controller, 'searchByTenant($tenantId, $query, 100') !== false, 'A busca rápida deve recuperar até 100 fornecedores ativos do tenant.');
 assertSupplierQuickFlow(strpos($controller, 'function quickStore') !== false, 'O controlador deve expor o cadastro rápido.');
 assertSupplierQuickFlow(strpos($controller, 'HTTP_X_CSRF_TOKEN') !== false, 'O cadastro rápido deve validar CSRF.');
