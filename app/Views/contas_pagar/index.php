@@ -72,7 +72,15 @@ UI::sectionHeader('Contas a Pagar', 'Gerencie suas contas e vencimentos', $actio
                 $badge = '<span class="badge bg-warning text-dark">Aberta</span>';
             }
 
-            $venc = htmlspecialchars($c->data_vencimento ?? '');
+            $vencimentoBruto = (string) ($c->data_vencimento ?? '');
+            $venc = '';
+            if ($vencimentoBruto !== '') {
+                try {
+                    $venc = (new \DateTimeImmutable($vencimentoBruto))->format('d/m/Y');
+                } catch (\Throwable $e) {
+                    $venc = htmlspecialchars($vencimentoBruto);
+                }
+            }
             $desc = htmlspecialchars($c->descricao ?? '');
             $forn = htmlspecialchars($c->fornecedor_nome ?? '');
             $plano = htmlspecialchars($c->plano_codigo ?? '');
