@@ -33,6 +33,50 @@ class ContaPagar extends Model
         return $stmt->fetch(PDO::FETCH_OBJ);
     }
 
+    /**
+     * Resume as contas a pagar em aberto do tenant para o painel financeiro.
+     * Contas pagas e canceladas não integram os valores pendentes.
+     *
+     * @return array{em_aberto:float,quantidade_em_aberto:int,previsto_mes:float,quantidade_previsto_mes:int,em_atraso:float,quantidade_em_atraso:int}
+     */
+    public function resumoFinanceiroPorTenant(int $tenantId): array
+    {
+        $sql = "SELECT
+                    COALESCE(SUM(CASE WHEN status = 'aberta' THEN valor ELSE 0 END), 0) AS em_aberto,
+                    COALESCE(SUM(CASE WHEN status = 'aberta' THEN 1 ELSE 0 END), 0) AS quantidade_em_aberto,
+                    COALESCE(SUM(CASE
+                        WHEN status = 'aberta'
+                         AND data_vencimento >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                         AND data_vencimento <= LAST_DAY(CURDATE())
+                        THEN valor ELSE 0 END), 0) AS previsto_mes,
+                    COALESCE(SUM(CASE
+                        WHEN status = 'aberta'
+                         AND data_vencimento >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                         AND data_vencimento <= LAST_DAY(CURDATE())
+                        THEN 1 ELSE 0 END), 0) AS quantidade_previsto_mes,
+                    COALESCE(SUM(CASE
+                        WHEN status = 'aberta' AND data_vencimento < CURDATE()
+                        THEN valor ELSE 0 END), 0) AS em_atraso,
+                    COALESCE(SUM(CASE
+                        WHEN status = 'aberta' AND data_vencimento < CURDATE()
+                        THEN 1 ELSE 0 END), 0) AS quantidade_em_atraso
+                FROM {$this->table}
+                WHERE tenant_id = :tenant_id";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([':tenant_id' => $tenantId]);
+        $resumo = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'em_aberto' => (float) ($resumo['em_aberto'] ?? 0),
+            'quantidade_em_aberto' => (int) ($resumo['quantidade_em_aberto'] ?? 0),
+            'previsto_mes' => (float) ($resumo['previsto_mes'] ?? 0),
+            'quantidade_previsto_mes' => (int) ($resumo['quantidade_previsto_mes'] ?? 0),
+            'em_atraso' => (float) ($resumo['em_atraso'] ?? 0),
+            'quantidade_em_atraso' => (int) ($resumo['quantidade_em_atraso'] ?? 0),
+        ];
+    }
+
     /** @return object[] */
     public function findByUsuarioId(int $usuarioId, array $filtros = []): array
     {

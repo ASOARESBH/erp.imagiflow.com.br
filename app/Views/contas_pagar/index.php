@@ -16,6 +16,55 @@ if (Auth::can('create_contas_pagar')) {
 UI::sectionHeader('Contas a Pagar', 'Gerencie suas contas e vencimentos', $actions);
 ?>
 
+<?php
+$resumoFinanceiro = $resumoFinanceiro ?? [];
+$formatarValorResumo = static function (float $valor): string {
+    return 'R$ ' . number_format($valor, 2, ',', '.');
+};
+$formatarQuantidadeResumo = static function (int $quantidade): string {
+    return $quantidade . ' conta' . ($quantidade === 1 ? '' : 's');
+};
+?>
+
+<div class="row g-3 mb-4" aria-label="Resumo financeiro de contas a pagar">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 bg-primary-subtle text-primary p-3"><i class="fas fa-file-invoice-dollar fa-lg"></i></div>
+                <div>
+                    <div class="fs-5 fw-bold text-primary"><?php echo $formatarValorResumo((float) ($resumoFinanceiro['em_aberto'] ?? 0)); ?></div>
+                    <div class="text-muted small">Em Aberto</div>
+                    <div class="text-muted small"><?php echo $formatarQuantidadeResumo((int) ($resumoFinanceiro['quantidade_em_aberto'] ?? 0)); ?></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 bg-warning-subtle text-warning-emphasis p-3"><i class="fas fa-calendar-alt fa-lg"></i></div>
+                <div>
+                    <div class="fs-5 fw-bold text-warning-emphasis"><?php echo $formatarValorResumo((float) ($resumoFinanceiro['previsto_mes'] ?? 0)); ?></div>
+                    <div class="text-muted small">Previsto para Este Mês</div>
+                    <div class="text-muted small"><?php echo $formatarQuantidadeResumo((int) ($resumoFinanceiro['quantidade_previsto_mes'] ?? 0)); ?></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 bg-danger-subtle text-danger p-3"><i class="fas fa-exclamation-triangle fa-lg"></i></div>
+                <div>
+                    <div class="fs-5 fw-bold text-danger"><?php echo $formatarValorResumo((float) ($resumoFinanceiro['em_atraso'] ?? 0)); ?></div>
+                    <div class="text-muted small">Em Atraso</div>
+                    <div class="text-muted small"><?php echo $formatarQuantidadeResumo((int) ($resumoFinanceiro['quantidade_em_atraso'] ?? 0)); ?></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body p-4">
         <form method="GET" action="/financeiro/contas-a-pagar" class="row g-3 align-items-end">

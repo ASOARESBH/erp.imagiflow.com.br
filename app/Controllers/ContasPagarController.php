@@ -51,6 +51,7 @@ class ContasPagarController extends Controller
             ];
 
             $contas = $this->model->findByTenantId($tenantId, $filtros);
+            $resumoFinanceiro = $this->model->resumoFinanceiroPorTenant($tenantId);
 
             View::render('contas_pagar/index', [
                 '_layout' => 'erp',
@@ -61,6 +62,7 @@ class ContasPagarController extends Controller
                 ],
                 'contas' => $contas,
                 'filtros' => $filtros,
+                'resumoFinanceiro' => $resumoFinanceiro,
             ]);
         } catch (\Exception $e) {
             $this->logger->error('Erro ao listar contas a pagar: ' . $e->getMessage());
