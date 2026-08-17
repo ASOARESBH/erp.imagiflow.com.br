@@ -130,8 +130,9 @@ foreach ($fornecedores as $fornecedor) {
             </div>
 
             <div class="form-group">
-                <label for="recorrencia_intervalo" class="form-label">Intervalo</label>
-                <input type="number" name="recorrencia_intervalo" id="recorrencia_intervalo" class="form-control" value="<?php echo htmlspecialchars($conta->recorrencia_intervalo ?? ''); ?>">
+                <label for="recorrencia_intervalo" class="form-label">Quantidade de parcelas</label>
+                <input type="number" name="recorrencia_intervalo" id="recorrencia_intervalo" class="form-control" min="1" max="120" value="<?php echo htmlspecialchars($conta->recorrencia_intervalo ?? ''); ?>">
+                <div class="form-text">Ex.: 12 gera 12 parcelas, a primeira no vencimento informado e as demais conforme o tipo de recorrência.</div>
             </div>
 
             <div class="form-group">

@@ -15,6 +15,7 @@ $anexos = $anexos ?? [];
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <form method="POST" action="/financeiro/contas-a-pagar/anexos/upload" enctype="multipart/form-data" class="row g-3 align-items-end">
+                <?php echo \App\Core\View::csrfField(); ?>
                 <input type="hidden" name="conta_pagar_id" value="<?php echo (int)$contaId; ?>">
 
                 <div class="col-md-8">
@@ -72,6 +73,11 @@ function confirmDeleteAnexo(id) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '/financeiro/contas-a-pagar/anexos/delete/' + id;
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = '_csrf_token';
+        csrf.value = '<?php echo htmlspecialchars(\App\Core\View::csrfToken(), ENT_QUOTES, 'UTF-8'); ?>';
+        form.appendChild(csrf);
         document.body.appendChild(form);
         form.submit();
     }

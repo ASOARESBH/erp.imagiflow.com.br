@@ -16,24 +16,59 @@ class ContaPagar extends Model
                 LEFT JOIN fornecedores f ON f.id = cp.fornecedor_id
                 LEFT JOIN plano_contas pc ON pc.id = cp.plano_conta_id
                 WHERE cp.id = ?";
-
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$id]);
         return $stmt->fetch(PDO::FETCH_OBJ);
     }
 
+    public function findByIdForTenant(int $id, int $tenantId): object|false
+    {
+        $sql = "SELECT cp.*, f.nome AS fornecedor_nome, pc.codigo AS plano_codigo, pc.nome AS plano_nome
+                FROM {$this->table} cp
+                LEFT JOIN fornecedores f ON f.id = cp.fornecedor_id AND f.tenant_id = cp.tenant_id
+                LEFT JOIN plano_contas pc ON pc.id = cp.plano_conta_id AND pc.tenant_id = cp.tenant_id
+                WHERE cp.id = :id AND cp.tenant_id = :tenant_id";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        return $stmt->fetch(PDO::FETCH_OBJ);
+    }
+
+    /** @return object[] */
     public function findByUsuarioId(int $usuarioId, array $filtros = []): array
     {
-        $where = ["cp.usuario_id = :usuario_id"];
-        $params = [':usuario_id' => $usuarioId];
+        $filtros['usuario_id'] = $usuarioId;
+        return $this->findByFilters($filtros);
+    }
 
-        $status = $filtros['status'] ?? 'aberta';
-        if ($status !== '') {
+    /** @return object[] */
+    public function findByTenantId(int $tenantId, array $filtros = []): array
+    {
+        $filtros['tenant_id'] = $tenantId;
+        return $this->findByFilters($filtros);
+    }
+
+    /** @return object[] */
+    private function findByFilters(array $filtros): array
+    {
+        $where = [];
+        $params = [];
+
+        if (!empty($filtros['tenant_id'])) {
+            $where[] = 'cp.tenant_id = :tenant_id';
+            $params[':tenant_id'] = (int) $filtros['tenant_id'];
+        }
+        if (!empty($filtros['usuario_id'])) {
+            $where[] = 'cp.usuario_id = :usuario_id';
+            $params[':usuario_id'] = (int) $filtros['usuario_id'];
+        }
+
+        $status = (string) ($filtros['status'] ?? 'aberta');
+        if ($status !== '' && $status !== 'todos') {
             $where[] = 'cp.status = :status';
             $params[':status'] = $status;
         }
 
-        $q = trim($filtros['pesquisa'] ?? '');
+        $q = trim((string) ($filtros['pesquisa'] ?? ''));
         if ($q !== '') {
             $where[] = '(cp.descricao LIKE :q1 OR f.nome LIKE :q2)';
             $like = '%' . $q . '%';
@@ -41,13 +76,16 @@ class ContaPagar extends Model
             $params[':q2'] = $like;
         }
 
+        if ($where === []) {
+            return [];
+        }
+
         $sql = "SELECT cp.*, f.nome AS fornecedor_nome, pc.codigo AS plano_codigo
                 FROM {$this->table} cp
-                LEFT JOIN fornecedores f ON f.id = cp.fornecedor_id
-                LEFT JOIN plano_contas pc ON pc.id = cp.plano_conta_id
+                LEFT JOIN fornecedores f ON f.id = cp.fornecedor_id AND f.tenant_id = cp.tenant_id
+                LEFT JOIN plano_contas pc ON pc.id = cp.plano_conta_id AND pc.tenant_id = cp.tenant_id
                 WHERE " . implode(' AND ', $where) . "
-                ORDER BY cp.data_vencimento DESC, cp.id DESC";
-
+                ORDER BY cp.data_vencimento ASC, cp.id ASC";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_OBJ);
@@ -56,95 +94,52 @@ class ContaPagar extends Model
     public function create(array $data): string|false
     {
         $sql = "INSERT INTO {$this->table}
-                (usuario_id, plano_conta_id, fornecedor_id, descricao, valor, data_vencimento, data_pagamento, codigo_barras,
-                 recorrente, recorrencia_tipo, recorrencia_intervalo, status, observacoes)
+                (tenant_id, usuario_id, plano_conta_id, fornecedor_id, descricao, valor, data_vencimento, data_pagamento, codigo_barras,
+                 recorrente, recorrencia_tipo, recorrencia_intervalo, recorrencia_modo, numero_parcela, total_parcelas, grupo_parcelas, status, observacoes)
                 VALUES
-                (:usuario_id, :plano_conta_id, :fornecedor_id, :descricao, :valor, :data_vencimento, :data_pagamento, :codigo_barras,
-                 :recorrente, :recorrencia_tipo, :recorrencia_intervalo, :status, :observacoes)";
+                (:tenant_id, :usuario_id, :plano_conta_id, :fornecedor_id, :descricao, :valor, :data_vencimento, :data_pagamento, :codigo_barras,
+                 :recorrente, :recorrencia_tipo, :recorrencia_intervalo, :recorrencia_modo, :numero_parcela, :total_parcelas, :grupo_parcelas, :status, :observacoes)";
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->bindValue(':usuario_id', $data['usuario_id']);
-        $planoConta = $data['plano_conta_id'] ?? null;
-        if ($planoConta === null || $planoConta === '' || (int)$planoConta === 0) {
-            $stmt->bindValue(':plano_conta_id', null, PDO::PARAM_NULL);
-        } else {
-            $stmt->bindValue(':plano_conta_id', (int)$planoConta, PDO::PARAM_INT);
-        }
-
-        $fornecedorId = $data['fornecedor_id'] ?? null;
-        if ($fornecedorId === '' || $fornecedorId === null) {
-            $stmt->bindValue(':fornecedor_id', null, PDO::PARAM_NULL);
-        } else {
-            $stmt->bindValue(':fornecedor_id', (int)$fornecedorId, PDO::PARAM_INT);
-        }
-
-        $stmt->bindValue(':descricao', trim($data['descricao']));
-        $stmt->bindValue(':valor', $data['valor']);
-        $stmt->bindValue(':data_vencimento', $data['data_vencimento']);
-
-        $dataPagamento = $data['data_pagamento'] ?? null;
-        if ($dataPagamento === '' || $dataPagamento === null) {
-            $stmt->bindValue(':data_pagamento', null, PDO::PARAM_NULL);
-        } else {
-            $stmt->bindValue(':data_pagamento', $dataPagamento);
-        }
-
-        $codigoBarras = $data['codigo_barras'] ?? null;
-        if ($codigoBarras === '' || $codigoBarras === null) {
-            $stmt->bindValue(':codigo_barras', null, PDO::PARAM_NULL);
-        } else {
-            $stmt->bindValue(':codigo_barras', $codigoBarras);
-        }
-
-        $stmt->bindValue(':recorrente', (int)($data['recorrente'] ?? 0), PDO::PARAM_INT);
-
-        $recTipo = $data['recorrencia_tipo'] ?? null;
-        if ($recTipo === '' || $recTipo === null) {
-            $stmt->bindValue(':recorrencia_tipo', null, PDO::PARAM_NULL);
-        } else {
-            $stmt->bindValue(':recorrencia_tipo', $recTipo);
-        }
-
-        $recInt = $data['recorrencia_intervalo'] ?? null;
-        if ($recInt === '' || $recInt === null) {
-            $stmt->bindValue(':recorrencia_intervalo', null, PDO::PARAM_NULL);
-        } else {
-            $stmt->bindValue(':recorrencia_intervalo', (int)$recInt, PDO::PARAM_INT);
-        }
-
+        $stmt->bindValue(':tenant_id', (int) ($data['tenant_id'] ?? 0), PDO::PARAM_INT);
+        $stmt->bindValue(':usuario_id', (int) ($data['usuario_id'] ?? 0), PDO::PARAM_INT);
+        $this->bindNullableInt($stmt, ':plano_conta_id', $data['plano_conta_id'] ?? null);
+        $this->bindNullableInt($stmt, ':fornecedor_id', $data['fornecedor_id'] ?? null);
+        $stmt->bindValue(':descricao', trim((string) ($data['descricao'] ?? '')));
+        $stmt->bindValue(':valor', $data['valor'] ?? '0.00');
+        $stmt->bindValue(':data_vencimento', $data['data_vencimento'] ?? '');
+        $this->bindNullableString($stmt, ':data_pagamento', $data['data_pagamento'] ?? null);
+        $this->bindNullableString($stmt, ':codigo_barras', $data['codigo_barras'] ?? null);
+        $stmt->bindValue(':recorrente', (int) ($data['recorrente'] ?? 0), PDO::PARAM_INT);
+        $this->bindNullableString($stmt, ':recorrencia_tipo', $data['recorrencia_tipo'] ?? null);
+        $this->bindNullableInt($stmt, ':recorrencia_intervalo', $data['recorrencia_intervalo'] ?? null);
+        $this->bindNullableString($stmt, ':recorrencia_modo', $data['recorrencia_modo'] ?? null);
+        $this->bindNullableInt($stmt, ':numero_parcela', $data['numero_parcela'] ?? null);
+        $this->bindNullableInt($stmt, ':total_parcelas', $data['total_parcelas'] ?? null);
+        $this->bindNullableString($stmt, ':grupo_parcelas', $data['grupo_parcelas'] ?? null);
         $stmt->bindValue(':status', $data['status'] ?? 'aberta');
+        $this->bindNullableString($stmt, ':observacoes', $data['observacoes'] ?? null);
 
-        $obs = $data['observacoes'] ?? null;
-        if ($obs === '' || $obs === null) {
-            $stmt->bindValue(':observacoes', null, PDO::PARAM_NULL);
-        } else {
-            $stmt->bindValue(':observacoes', $obs);
-        }
-
-        if ($stmt->execute()) {
-            return $this->pdo->lastInsertId();
-        }
-
-        return false;
+        return $stmt->execute() ? $this->pdo->lastInsertId() : false;
     }
 
     public function update(int $id, array $data): bool
     {
-        $allowedFields = [
-            'plano_conta_id',
-            'fornecedor_id',
-            'descricao',
-            'valor',
-            'data_vencimento',
-            'data_pagamento',
-            'codigo_barras',
-            'recorrente',
-            'recorrencia_tipo',
-            'recorrencia_intervalo',
-            'status',
-            'observacoes',
-        ];
+        return $this->updateWhere($id, null, $data);
+    }
 
+    public function updateForTenant(int $id, int $tenantId, array $data): bool
+    {
+        return $this->updateWhere($id, $tenantId, $data);
+    }
+
+    private function updateWhere(int $id, ?int $tenantId, array $data): bool
+    {
+        $allowedFields = [
+            'plano_conta_id', 'fornecedor_id', 'descricao', 'valor', 'data_vencimento', 'data_pagamento',
+            'codigo_barras', 'recorrente', 'recorrencia_tipo', 'recorrencia_intervalo', 'recorrencia_modo',
+            'numero_parcela', 'total_parcelas', 'grupo_parcelas', 'status', 'observacoes',
+        ];
         $updateFields = [];
         $params = [':id' => $id];
 
@@ -152,29 +147,25 @@ class ContaPagar extends Model
             if (!array_key_exists($field, $data)) {
                 continue;
             }
-
             $updateFields[] = "{$field} = :{$field}";
-
             $value = $data[$field];
-            if (in_array($field, ['fornecedor_id', 'data_pagamento', 'codigo_barras', 'recorrencia_tipo', 'recorrencia_intervalo', 'observacoes'], true)) {
-                if ($value === '' || $value === null) {
-                    $params[":{$field}"] = null;
-                    continue;
-                }
-            }
-
-            if (in_array($field, ['plano_conta_id', 'fornecedor_id', 'recorrente', 'recorrencia_intervalo'], true) && $value !== null) {
-                $params[":{$field}"] = (int)$value;
+            if (in_array($field, ['plano_conta_id', 'fornecedor_id', 'recorrente', 'recorrencia_intervalo', 'numero_parcela', 'total_parcelas'], true)) {
+                $params[":{$field}"] = ($value === '' || $value === null) ? null : (int) $value;
             } else {
-                $params[":{$field}"] = $value;
+                $params[":{$field}"] = ($value === '' || $value === null) ? null : $value;
             }
         }
 
-        if (empty($updateFields)) {
+        if ($updateFields === []) {
             return false;
         }
 
-        $sql = "UPDATE {$this->table} SET " . implode(', ', $updateFields) . " WHERE id = :id";
+        $sql = "UPDATE {$this->table} SET " . implode(', ', $updateFields) . ' WHERE id = :id';
+        if ($tenantId !== null) {
+            $sql .= ' AND tenant_id = :tenant_id';
+            $params[':tenant_id'] = $tenantId;
+        }
+
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute($params);
     }
@@ -183,5 +174,31 @@ class ContaPagar extends Model
     {
         $stmt = $this->pdo->prepare("UPDATE {$this->table} SET status = 'cancelada' WHERE id = ?");
         return $stmt->execute([$id]);
+    }
+
+    public function cancelForTenant(int $id, int $tenantId): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE {$this->table} SET status = 'cancelada' WHERE id = :id AND tenant_id = :tenant_id"
+        );
+        return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+    }
+
+    private function bindNullableInt(\PDOStatement $stmt, string $parameter, mixed $value): void
+    {
+        if ($value === '' || $value === null || (int) $value === 0) {
+            $stmt->bindValue($parameter, null, PDO::PARAM_NULL);
+            return;
+        }
+        $stmt->bindValue($parameter, (int) $value, PDO::PARAM_INT);
+    }
+
+    private function bindNullableString(\PDOStatement $stmt, string $parameter, mixed $value): void
+    {
+        if ($value === '' || $value === null) {
+            $stmt->bindValue($parameter, null, PDO::PARAM_NULL);
+            return;
+        }
+        $stmt->bindValue($parameter, (string) $value);
     }
 }

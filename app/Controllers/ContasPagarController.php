@@ -15,6 +15,7 @@ use App\Models\DdaBoleto;
 use App\Models\Integracao;
 use App\Services\AsaasService;
 use App\Services\ContaPagarStatusService;
+use App\Services\ContaPagarRecorrenciaService;
 
 class ContasPagarController extends Controller
 {
@@ -41,14 +42,15 @@ class ContasPagarController extends Controller
     public function index(): void
     {
         try {
-            $usuarioId = Auth::user()->id;
+            $user = Auth::user();
+            $tenantId = (int) $user->tenant_id;
 
             $filtros = [
                 'status' => $_GET['status'] ?? 'aberta',
                 'pesquisa' => $_GET['q'] ?? '',
             ];
 
-            $contas = $this->model->findByUsuarioId($usuarioId, $filtros);
+            $contas = $this->model->findByTenantId($tenantId, $filtros);
 
             View::render('contas_pagar/index', [
                 '_layout' => 'erp',
@@ -120,6 +122,7 @@ class ContasPagarController extends Controller
             }
 
             $dados = [
+                'tenant_id' => $tenantId,
                 'usuario_id' => $usuarioId,
                 'plano_conta_id' => $planoContaId,
                 'fornecedor_id' => $fornecedorId,
@@ -151,8 +154,34 @@ class ContasPagarController extends Controller
 
             $id = $this->model->create($dados);
             if ($id) {
-                AuditLogger::log('create_conta_pagar', ['id' => $id, 'descricao' => $descricao, 'valor' => $valor]);
-                header("Location: /financeiro/contas-a-pagar/edit/{$id}?success=created&tab=anexos");
+                $totalParcelas = (int) ($dados['recorrencia_intervalo'] ?? 0);
+                $parcelasGeradas = 0;
+                if ((int) $dados['recorrente'] === 1 && $totalParcelas > 1 && !empty($dados['recorrencia_tipo'])) {
+                    $resultadoParcelas = (new ContaPagarRecorrenciaService())->gerarParcelas(
+                        $usuarioId,
+                        $tenantId,
+                        (int) $id,
+                        $totalParcelas,
+                        (string) $dados['recorrencia_tipo']
+                    );
+                    $parcelasGeradas = (int) $resultadoParcelas['geradas'];
+                    if (!empty($resultadoParcelas['erros'])) {
+                        $this->logger->error('Falha ao gerar parcelas de conta a pagar.', [
+                            'conta_id' => (int) $id,
+                            'tenant_id' => $tenantId,
+                            'erros' => $resultadoParcelas['erros'],
+                        ]);
+                    }
+                }
+                AuditLogger::log('create_conta_pagar', [
+                    'id' => $id,
+                    'tenant_id' => $tenantId,
+                    'descricao' => $descricao,
+                    'valor' => $valor,
+                    'parcelas_geradas' => $parcelasGeradas,
+                ]);
+                $success = $parcelasGeradas > 0 ? 'created_parcelas&parcelas=' . ($parcelasGeradas + 1) : 'created';
+                header("Location: /financeiro/contas-a-pagar/edit/{$id}?success={$success}&tab=anexos");
             } else {
                 header('Location: /financeiro/contas-a-pagar/create?error=db_failure');
             }
@@ -168,16 +197,16 @@ class ContasPagarController extends Controller
         $user = Auth::user();
         $usuarioId = $user->id;
         $tenantId = (int) $user->tenant_id;
-        $conta = $this->model->findById((int)$id);
+        $conta = $this->model->findByIdForTenant((int) $id, $tenantId);
 
-        if (!$conta || (int)$conta->usuario_id !== (int)$usuarioId) {
+        if (!$conta) {
             header('Location: /financeiro/contas-a-pagar?error=not_found');
             exit();
         }
 
         $planos = $this->planoContaModel->findByTenantId($tenantId, ['status' => 'ativo', 'tipo' => 'Despesa']);
         $fornecedores = $this->fornecedorModel->findByTenantId($tenantId, ['status' => 'ativo']);
-        $anexos = $this->anexoModel->findByContaId((int)$conta->id, $usuarioId);
+        $anexos = $this->anexoModel->findByContaId((int) $conta->id, $tenantId);
 
         View::render('contas_pagar/form-enterprise', [
             '_layout' => 'erp',
@@ -196,9 +225,9 @@ class ContasPagarController extends Controller
             $user = Auth::user();
             $usuarioId = $user->id;
             $tenantId = (int) $user->tenant_id;
-            $conta = $this->model->findById((int)$id);
+            $conta = $this->model->findByIdForTenant((int) $id, $tenantId);
 
-            if (!$conta || (int)$conta->usuario_id !== (int)$usuarioId) {
+            if (!$conta) {
                 header('Location: /financeiro/contas-a-pagar?error=unauthorized');
                 exit();
             }
@@ -258,9 +287,28 @@ class ContasPagarController extends Controller
                 ]);
             }
 
-            if ($this->model->update((int)$id, $dados)) {
-                AuditLogger::log('update_conta_pagar', ['id' => (int)$id, 'descricao' => $descricao, 'valor' => $valor]);
-                header("Location: /financeiro/contas-a-pagar/edit/{$id}?success=updated&tab=geral");
+            if ($this->model->updateForTenant((int) $id, $tenantId, $dados)) {
+                $totalParcelas = (int) ($dados['recorrencia_intervalo'] ?? 0);
+                $parcelasGeradas = 0;
+                if ((int) $dados['recorrente'] === 1 && $totalParcelas > 1 && !empty($dados['recorrencia_tipo']) && empty($conta->grupo_parcelas)) {
+                    $resultadoParcelas = (new ContaPagarRecorrenciaService())->gerarParcelas(
+                        $usuarioId,
+                        $tenantId,
+                        (int) $id,
+                        $totalParcelas,
+                        (string) $dados['recorrencia_tipo']
+                    );
+                    $parcelasGeradas = (int) $resultadoParcelas['geradas'];
+                }
+                AuditLogger::log('update_conta_pagar', [
+                    'id' => (int) $id,
+                    'tenant_id' => $tenantId,
+                    'descricao' => $descricao,
+                    'valor' => $valor,
+                    'parcelas_geradas' => $parcelasGeradas,
+                ]);
+                $success = $parcelasGeradas > 0 ? 'updated_parcelas&parcelas=' . ($parcelasGeradas + 1) : 'updated';
+                header("Location: /financeiro/contas-a-pagar/edit/{$id}?success={$success}&tab=geral");
             } else {
                 header("Location: /financeiro/contas-a-pagar/edit/{$id}?error=db_failure");
             }
@@ -274,16 +322,21 @@ class ContasPagarController extends Controller
     public function delete($id): void
     {
         try {
-            $usuarioId = Auth::user()->id;
-            $conta = $this->model->findById((int)$id);
+            $user = Auth::user();
+            $tenantId = (int) $user->tenant_id;
+            $conta = $this->model->findByIdForTenant((int) $id, $tenantId);
 
-            if (!$conta || (int)$conta->usuario_id !== (int)$usuarioId) {
+            if (!$conta) {
                 header('Location: /financeiro/contas-a-pagar?error=unauthorized');
                 exit();
             }
 
-            if ($this->model->cancel((int)$id)) {
-                AuditLogger::log('delete_conta_pagar', ['id' => (int)$id, 'descricao' => $conta->descricao ?? null]);
+            if ($this->model->cancelForTenant((int) $id, $tenantId)) {
+                AuditLogger::log('delete_conta_pagar', [
+                    'id' => (int) $id,
+                    'tenant_id' => $tenantId,
+                    'descricao' => $conta->descricao ?? null,
+                ]);
                 header('Location: /financeiro/contas-a-pagar?success=deleted');
             } else {
                 header('Location: /financeiro/contas-a-pagar?error=db_failure');
@@ -298,7 +351,9 @@ class ContasPagarController extends Controller
     public function uploadAnexo(): void
     {
         try {
-            $usuarioId = Auth::user()->id;
+            $user = Auth::user();
+            $usuarioId = (int) $user->id;
+            $tenantId = (int) $user->tenant_id;
             $contaId = (int)($_POST['conta_pagar_id'] ?? 0);
 
             if ($contaId <= 0) {
@@ -306,8 +361,8 @@ class ContasPagarController extends Controller
                 exit();
             }
 
-            $conta = $this->model->findById($contaId);
-            if (!$conta || (int)$conta->usuario_id !== (int)$usuarioId) {
+            $conta = $this->model->findByIdForTenant($contaId, $tenantId);
+            if (!$conta) {
                 header('Location: /financeiro/contas-a-pagar?error=unauthorized');
                 exit();
             }
@@ -343,7 +398,7 @@ class ContasPagarController extends Controller
                 'application/cdfv2',
             ];
 
-            $baseDir = BASE_PATH . '/storage/uploads/contas_pagar/' . $usuarioId . '/' . $contaId;
+            $baseDir = BASE_PATH . '/storage/uploads/contas_pagar/' . $tenantId . '/' . $contaId;
             if (!is_dir($baseDir)) {
                 if (!mkdir($baseDir, 0755, true) && !is_dir($baseDir)) {
                     $this->logger->error('Falha ao criar diretório de upload (contas_pagar): ' . $baseDir . ' | BASE_PATH=' . BASE_PATH);
@@ -402,9 +457,10 @@ class ContasPagarController extends Controller
                     exit();
                 }
 
-                $relativePath = 'storage/uploads/contas_pagar/' . $usuarioId . '/' . $contaId . '/' . $safeName;
+                $relativePath = 'storage/uploads/contas_pagar/' . $tenantId . '/' . $contaId . '/' . $safeName;
 
                 $anexoId = $this->anexoModel->create([
+                    'tenant_id' => $tenantId,
                     'usuario_id' => $usuarioId,
                     'conta_pagar_id' => $contaId,
                     'file_path' => $relativePath,
@@ -437,10 +493,11 @@ class ContasPagarController extends Controller
     public function deleteAnexo($id): void
     {
         try {
-            $usuarioId = Auth::user()->id;
-            $anexo = $this->anexoModel->findById((int)$id);
+            $user = Auth::user();
+            $tenantId = (int) $user->tenant_id;
+            $anexo = $this->anexoModel->findByIdForTenant((int) $id, $tenantId);
 
-            if (!$anexo || (int)$anexo->usuario_id !== (int)$usuarioId) {
+            if (!$anexo) {
                 header('Location: /financeiro/contas-a-pagar?error=unauthorized');
                 exit();
             }
@@ -448,7 +505,7 @@ class ContasPagarController extends Controller
             $contaId = (int)($anexo->conta_pagar_id ?? 0);
             $filePath = BASE_PATH . '/' . ltrim((string)($anexo->file_path ?? ''), '/');
 
-            if ($this->anexoModel->delete((int)$id)) {
+            if ($this->anexoModel->deleteForTenant((int) $id, $tenantId)) {
                 if (is_file($filePath)) {
                     @unlink($filePath);
                 }
@@ -467,10 +524,11 @@ class ContasPagarController extends Controller
     public function downloadAnexo($id): void
     {
         try {
-            $usuarioId = Auth::user()->id;
-            $anexo = $this->anexoModel->findById((int)$id);
+            $user = Auth::user();
+            $tenantId = (int) $user->tenant_id;
+            $anexo = $this->anexoModel->findByIdForTenant((int) $id, $tenantId);
 
-            if (!$anexo || (int)$anexo->usuario_id !== (int)$usuarioId) {
+            if (!$anexo) {
                 http_response_code(403);
                 echo '403 - Acesso Negado';
                 exit();

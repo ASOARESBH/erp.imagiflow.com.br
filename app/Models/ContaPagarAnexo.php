@@ -16,36 +16,44 @@ class ContaPagarAnexo extends Model
         return $stmt->fetch(PDO::FETCH_OBJ);
     }
 
-    public function findByContaId(int $contaPagarId, int $usuarioId): array
+    public function findByIdForTenant(int $id, int $tenantId): object|false
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE conta_pagar_id = ? AND usuario_id = ? ORDER BY id DESC");
-        $stmt->execute([$contaPagarId, $usuarioId]);
+        $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE id = :id AND tenant_id = :tenant_id");
+        $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        return $stmt->fetch(PDO::FETCH_OBJ);
+    }
+
+    /** @return object[] */
+    public function findByContaId(int $contaPagarId, int $tenantId): array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM {$this->table}
+             WHERE conta_pagar_id = :conta_pagar_id AND tenant_id = :tenant_id
+             ORDER BY id DESC"
+        );
+        $stmt->execute([':conta_pagar_id' => $contaPagarId, ':tenant_id' => $tenantId]);
         return $stmt->fetchAll(PDO::FETCH_OBJ);
     }
 
     public function create(array $data): string|false
     {
-        $sql = "INSERT INTO {$this->table} (usuario_id, conta_pagar_id, file_path, original_name, mime_type, file_size)
-                VALUES (:usuario_id, :conta_pagar_id, :file_path, :original_name, :mime_type, :file_size)";
-
+        $sql = "INSERT INTO {$this->table}
+                (tenant_id, usuario_id, conta_pagar_id, file_path, original_name, mime_type, file_size)
+                VALUES (:tenant_id, :usuario_id, :conta_pagar_id, :file_path, :original_name, :mime_type, :file_size)";
         $stmt = $this->pdo->prepare($sql);
-        $stmt->bindValue(':usuario_id', $data['usuario_id']);
-        $stmt->bindValue(':conta_pagar_id', $data['conta_pagar_id']);
-        $stmt->bindValue(':file_path', $data['file_path']);
-        $stmt->bindValue(':original_name', $data['original_name']);
+        $stmt->bindValue(':tenant_id', (int) ($data['tenant_id'] ?? 0), PDO::PARAM_INT);
+        $stmt->bindValue(':usuario_id', (int) ($data['usuario_id'] ?? 0), PDO::PARAM_INT);
+        $stmt->bindValue(':conta_pagar_id', (int) ($data['conta_pagar_id'] ?? 0), PDO::PARAM_INT);
+        $stmt->bindValue(':file_path', (string) ($data['file_path'] ?? ''));
+        $stmt->bindValue(':original_name', (string) ($data['original_name'] ?? 'anexo'));
         $stmt->bindValue(':mime_type', $data['mime_type'] ?? null);
         $stmt->bindValue(':file_size', $data['file_size'] ?? null);
-
-        if ($stmt->execute()) {
-            return $this->pdo->lastInsertId();
-        }
-
-        return false;
+        return $stmt->execute() ? $this->pdo->lastInsertId() : false;
     }
 
-    public function delete(int $id): bool
+    public function deleteForTenant(int $id, int $tenantId): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM {$this->table} WHERE id = ?");
-        return $stmt->execute([$id]);
+        $stmt = $this->pdo->prepare("DELETE FROM {$this->table} WHERE id = :id AND tenant_id = :tenant_id");
+        return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
     }
 }
