@@ -63,6 +63,7 @@ $exportQuery['gerar'] = '1';
             </div>
             <div class="col-md-4">
                 <label for="plano_ids" class="form-label small fw-bold text-muted">Plano de Contas</label>
+                <input type="search" class="form-control form-control-sm mb-2" placeholder="Buscar plano de contas" data-filter-select="plano_ids">
                 <select id="plano_ids" name="plano_ids[]" class="form-select" multiple size="3">
                     <?php foreach ($planos as $plano): ?>
                         <option value="<?php echo (int) $plano->id; ?>" <?php echo $selecionado($filtros['plano_ids'] ?? [], $plano->id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($plano->codigo . ' - ' . $plano->nome); ?></option>
@@ -81,6 +82,7 @@ $exportQuery['gerar'] = '1';
 
             <div class="col-md-6" id="grupoFornecedor">
                 <label for="fornecedor_ids" class="form-label small fw-bold text-muted">Fornecedores</label>
+                <input type="search" class="form-control form-control-sm mb-2" placeholder="Buscar fornecedor por nome ou documento" data-filter-select="fornecedor_ids">
                 <select id="fornecedor_ids" name="fornecedor_ids[]" class="form-select" multiple size="4">
                     <?php foreach ($fornecedores as $fornecedor): ?>
                         <option value="<?php echo (int) $fornecedor->id; ?>" <?php echo $selecionado($filtros['fornecedor_ids'] ?? [], $fornecedor->id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($fornecedor->nome . (!empty($fornecedor->cpf_cnpj) ? ' — ' . $fornecedor->cpf_cnpj : '')); ?></option>
@@ -89,6 +91,7 @@ $exportQuery['gerar'] = '1';
             </div>
             <div class="col-md-6" id="grupoCliente">
                 <label for="cliente_ids" class="form-label small fw-bold text-muted">Clientes</label>
+                <input type="search" class="form-control form-control-sm mb-2" placeholder="Buscar cliente por nome ou documento" data-filter-select="cliente_ids">
                 <select id="cliente_ids" name="cliente_ids[]" class="form-select" multiple size="4">
                     <?php foreach ($clientes as $cliente): ?>
                         <?php $nomeCliente = $cliente->nome_fantasia ?: $cliente->razao_social; ?>

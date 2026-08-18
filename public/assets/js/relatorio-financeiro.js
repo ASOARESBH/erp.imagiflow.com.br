@@ -7,11 +7,11 @@
     const supplierSelect = document.getElementById('fornecedor_ids');
     const customerSelect = document.getElementById('cliente_ids');
 
-    if (!type || !supplierGroup || !customerGroup) {
-        return;
-    }
-
     const syncEntityFilters = () => {
+        if (!type || !supplierGroup || !customerGroup) {
+            return;
+        }
+
         const reportType = type.value;
         const showSupplier = reportType === 'pagar' || reportType === 'comparativo';
         const showCustomer = reportType === 'receber' || reportType === 'comparativo';
@@ -26,6 +26,23 @@
         }
     };
 
-    type.addEventListener('change', syncEntityFilters);
+    document.querySelectorAll('[data-filter-select]').forEach((input) => {
+        const select = document.getElementById(input.dataset.filterSelect || '');
+        if (!select) {
+            return;
+        }
+
+        input.addEventListener('input', () => {
+            const term = input.value.trim().toLocaleLowerCase('pt-BR');
+            Array.from(select.options).forEach((option) => {
+                const matches = option.text.toLocaleLowerCase('pt-BR').includes(term);
+                option.hidden = !matches && !option.selected;
+            });
+        });
+    });
+
+    if (type) {
+        type.addEventListener('change', syncEntityFilters);
+    }
     syncEntityFilters();
 })();
