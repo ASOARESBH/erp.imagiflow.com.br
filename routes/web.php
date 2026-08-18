@@ -48,7 +48,7 @@ Router::get("/portal/login", "AuthController@showLoginForm");
 // ============================================================
 // Portal do Cliente — Rotas Protegidas (requerem sessão do portal)
 // ============================================================
-Router::group(["middleware" => ["PortalCliente"]], function () {
+Router::group(["middleware" => ["PortalCliente", "Csrf"]], function () {
     Router::post("/portal/logout", "AuthController@logout");
 
     // Dashboard
@@ -94,7 +94,7 @@ Router::get("/proposta/aceite/{token}",  "CrmPropostasController@aceitePublico")
 Router::post("/proposta/aceite/{token}", "CrmPropostasController@registrarAceite");
 
 // Rotas protegidas (requerem autenticação)
-Router::group(["middleware" => ["Auth"]], function () {
+Router::group(["middleware" => ["Auth", "Csrf"]], function () {
     // Página inicial redireciona para dashboard
     Router::get("/", "HomeController@index");
 

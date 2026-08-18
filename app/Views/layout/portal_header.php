@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1a56db">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars((string) ($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
     <title><?php echo htmlspecialchars($title ?? t('portal.title')); ?> | <?php echo htmlspecialchars(t('common.app_name')); ?></title>
     <meta name="application-name" content="ERP IMAGINIFLOW">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-imaginiflow-32.png?v=20260814">

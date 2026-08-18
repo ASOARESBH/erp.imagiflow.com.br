@@ -31,6 +31,7 @@ if ($_ec) {
   <title><?php echo htmlspecialchars(t('common.app_name')); ?></title>
   <meta name="application-name" content="ERP IMAGINIFLOW">
   <meta name="theme-color" content="#00529B">
+  <meta name="csrf-token" content="<?php echo htmlspecialchars((string) ($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-imaginiflow-32.png?v=20260814">
   <link rel="icon" type="image/png" sizes="48x48" href="/assets/favicon-imaginiflow-48.png?v=20260814">
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png?v=20260814">

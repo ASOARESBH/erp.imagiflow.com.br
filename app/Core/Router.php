@@ -13,6 +13,7 @@ class Router
     // Registro global de middlewares
     protected static array $middlewares = [
         'Auth'            => AuthMiddleware::class,
+        'Csrf'            => \App\Middlewares\CsrfMiddleware::class,
         'Permission'      => \App\Middlewares\PermissionMiddleware::class,
         'PortalCliente'   => \App\Middlewares\PortalClienteMiddleware::class,
         'WhatsappApiAuth' => \App\Middlewares\WhatsappApiAuthMiddleware::class,

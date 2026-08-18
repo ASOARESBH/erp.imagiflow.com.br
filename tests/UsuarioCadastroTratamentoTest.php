@@ -24,5 +24,8 @@ assertCadastroUsuario(strpos($model, 'function findAnyByEmail') !== false, 'O mo
 assertCadastroUsuario(strpos($model, 'function setStatusForCurrentTenant') !== false, 'O model deve expor atualização de status isolada por tenant.');
 assertCadastroUsuario(strpos($view, "urlParams.get('ref')") !== false, 'A tela deve mostrar o código de correlação quando necessário.');
 assertCadastroUsuario(strpos($view, 'invalid_email') !== false, 'A tela deve informar e-mail inválido de forma acionável.');
+assertCadastroUsuario(strpos($controller, '$rolesPermitidos = [\'operador\', \'financeiro\', \'leitura\', \'admin\']') !== false, 'A criação deve limitar os papéis delegáveis pelo tenant.');
+assertCadastroUsuario(strpos($controller, '$rolesPermitidos[] = \'superadmin\'') === false, 'O tenant não pode delegar superadmin.');
+assertCadastroUsuario(strpos($controller, "'superadmin' || \$targetUser->role === 'saas_owner'") !== false, 'Contas privilegiadas devem ficar fora da gestão do tenant.');
 
 echo "OK: cadastro de usuário possui validação, correlação e tratamento seguro.\n";

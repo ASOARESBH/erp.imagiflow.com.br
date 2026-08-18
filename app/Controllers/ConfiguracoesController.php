@@ -183,10 +183,8 @@ class ConfiguracoesController extends Controller
                 exit();
             }
 
+            // Papéis de controle global nunca podem ser delegados pela área de um tenant.
             $rolesPermitidos = ['operador', 'financeiro', 'leitura', 'admin'];
-            if ($currentUser->role === 'superadmin') {
-                $rolesPermitidos[] = 'superadmin';
-            }
             if (!in_array($role, $rolesPermitidos, true)) {
                 header('Location: /configuracoes/usuarios/create?error=invalid_role');
                 exit();
@@ -312,7 +310,9 @@ class ConfiguracoesController extends Controller
             if (empty($nome) || empty($email)) {
                 header("Location: /configuracoes/usuarios/edit/{$id}?error=missing_fields"); exit();
             }
-            if ($currentUser->role === 'admin' && in_array($role, ['admin', 'superadmin'])) {
+            $rolesPermitidos = ['operador', 'financeiro', 'leitura', 'admin'];
+            if (!in_array($role, $rolesPermitidos, true)
+                || $usuario->role === 'superadmin') {
                 header("Location: /configuracoes/usuarios/edit/{$id}?error=invalid_role"); exit();
             }
             $emailExistente = $this->userModel->findByEmail($email);
@@ -434,9 +434,11 @@ class ConfiguracoesController extends Controller
 
     private function canManageUser($currentUser, $targetUser): bool
     {
-        if ($currentUser->role === 'superadmin') return true;
-        if ($currentUser->role === 'admin') return !in_array($targetUser->role, ['admin', 'superadmin']);
-        return false;
+        // Contas privilegiadas são administradas exclusivamente pelo control-plane SaaS.
+        if ($targetUser->role === 'superadmin' || $targetUser->role === 'saas_owner') {
+            return false;
+        }
+        return in_array($currentUser->role, ['admin', 'superadmin'], true);
     }
 
     // ================================================================

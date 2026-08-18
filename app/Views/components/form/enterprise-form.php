@@ -301,6 +301,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const error = urlParams.get('error');
     const success = urlParams.get('success');
+    const successEntity = <?php echo json_encode($config['success_entity'] ?? 'Registro', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 
     if (error) {
         const errorMessages = {
@@ -331,9 +332,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (success) {
         const successMessages = {
-            'created': 'Cliente cadastrado com sucesso!',
+            'created': successEntity + ' cadastrado(a) com sucesso!',
             'updated': 'Alterações salvas com sucesso!',
-            'deleted': 'Cliente removido com sucesso.'
+            'deleted': successEntity + ' removido(a) com sucesso.'
         };
         Swal.fire({
             icon: 'success',

@@ -16,6 +16,7 @@ $formConfig = [
     "record_id"  => $fornecedor->id ?? null,
     "active_tab" => $activeTab,
     "class"      => "fornecedores-form",
+    "success_entity" => "Fornecedor",
     "actions"    => [
         [
             "url"   => "/fornecedores",

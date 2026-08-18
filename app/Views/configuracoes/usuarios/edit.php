@@ -85,9 +85,6 @@ $currentUser = $currentUser ?? null;
                 'leitura'    => ['label' => 'Leitura',       'desc' => 'Visualização apenas, sem edição', 'icon' => 'fa-eye'],
                 'admin'      => ['label' => 'Administrador', 'desc' => 'Acesso completo exceto superadmin', 'icon' => 'fa-user-shield'],
             ];
-            if ($currentUser && $currentUser->role === 'superadmin') {
-                $roles['superadmin'] = ['label' => 'Super Admin', 'desc' => 'Acesso total ao sistema', 'icon' => 'fa-crown'];
-            }
             foreach ($roles as $key => $info):
               $isSelected = $usuario->role === $key;
             ?>
