@@ -31,7 +31,7 @@ $currentUser = $currentUser ?? null;
       <div class="d-flex justify-content-between align-items-start">
         <div>
           <h1><i class="fas fa-user-plus me-2"></i>Novo Usuário</h1>
-          <p>Cadastre um novo usuário com acesso ao ERP InLaudo</p>
+          <p>Cadastre um novo usuário com acesso ao ERP IMAGINIFLOW</p>
         </div>
         <a href="/configuracoes?tab=usuarios" class="btn btn-sm btn-light"><i class="fas fa-arrow-left me-1"></i> Voltar</a>
       </div>
@@ -138,20 +138,25 @@ document.querySelector('.role-card')?.classList.add('selected');
 
 // Alertas por URL
 const urlParams = new URLSearchParams(window.location.search);
-const error = urlParams.get('error');
-if (error) {
-  const msgs = {
-    missing_fields: 'Preencha todos os campos obrigatórios.',
-    email_exists:   'Este e-mail já está em uso.',
-    invalid_role:   'Você não tem permissão para atribuir este perfil.',
-    create_failed:  'Falha ao criar usuário. Tente novamente.',
-    exception:      'Erro inesperado. Tente novamente.',
-  };
-  const div = document.createElement('div');
-  div.className = 'alert alert-danger alert-dismissible fade show';
-  div.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>${msgs[error] || 'Erro desconhecido.'}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-  document.getElementById('alertContainer').appendChild(div);
-}
+  const error = urlParams.get('error');
+  const reference = urlParams.get('ref');
+  if (error) {
+    const msgs = {
+      missing_fields: 'Informe um nome com pelo menos três caracteres e um e-mail.',
+      invalid_email:  'Informe um endereço de e-mail válido.',
+      email_exists:   'Este e-mail já está cadastrado no ERP. Use outro endereço ou vincule o usuário existente.',
+      invalid_role:   'Você não tem permissão para atribuir este perfil.',
+      invalid_status: 'O status inicial informado é inválido.',
+      create_failed:  'Não foi possível concluir o cadastro do usuário.',
+      status_failed:  'O usuário foi criado, mas não foi possível aplicar o status selecionado.',
+      exception:      'Ocorreu uma falha ao processar o cadastro do usuário.',
+    };
+    const detail = reference ? ` Código de atendimento: <strong>${reference}</strong>.` : '';
+    const div = document.createElement('div');
+    div.className = 'alert alert-danger alert-dismissible fade show';
+    div.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>${msgs[error] || 'Não foi possível concluir a operação.'}${detail}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+    document.getElementById('alertContainer').appendChild(div);
+  }
 </script>
 
 <?php require_once dirname(__DIR__, 2) . '/layout/erp_footer.php'; ?>

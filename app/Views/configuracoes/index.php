@@ -97,6 +97,13 @@ $roleLabels = [
   <?php if ($error && isset($errorMessages[$error])): ?>
   <div class="cfg-alert cfg-alert-danger"><i class="fas fa-exclamation-triangle"></i> <?php echo $errorMessages[$error]; ?></div>
   <?php endif; ?>
+  <?php if (($_GET['warning'] ?? '') === 'welcome_failed'): ?>
+  <div class="cfg-alert" style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa">
+    <i class="fas fa-envelope-circle-check"></i>
+    O usuário foi cadastrado, mas o convite por e-mail não pôde ser enviado. Verifique a integração de e-mail e use a ação de redefinição de senha para reenviar o convite.
+    <?php if (!empty($_GET['ref'])): ?><span style="font-size:.78rem;margin-left:.35rem">Código: <strong><?php echo htmlspecialchars((string) $_GET['ref']); ?></strong></span><?php endif; ?>
+  </div>
+  <?php endif; ?>
 
   <!-- Abas -->
   <div class="cfg-tabs">

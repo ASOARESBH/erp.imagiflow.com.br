@@ -69,6 +69,24 @@ class User extends Model
     }
 
     /**
+     * Confere se o e-mail já está cadastrado globalmente. A tabela users possui
+     * unicidade por e-mail, portanto esta consulta evita uma exceção de banco
+     * e permite uma mensagem adequada ao administrador do tenant.
+     */
+    public function findAnyByEmail(string $email): object|false
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT id, email, status
+             FROM {$this->table}
+             WHERE email = :email
+             LIMIT 1"
+        );
+        $stmt->execute([':email' => strtolower(trim($email))]);
+
+        return $stmt->fetch() ?: false;
+    }
+
+    /**
      * Localiza o tenant padrão ativo de um usuário; usado por redefinição de senha
      * no host compartilhado antes de executar métodos que exigem TenantContext.
      */
@@ -277,6 +295,35 @@ class User extends Model
             ]);
             return false;
         }
+    }
+
+    /**
+     * Atualiza o status de um usuário somente quando ele possui vínculo ativo
+     * com o tenant atual.
+     */
+    public function setStatusForCurrentTenant(int $id, string $status): bool
+    {
+        if (!in_array($status, ['ativo', 'inativo'], true)) {
+            return false;
+        }
+
+        $stmt = $this->pdo->prepare(
+            "UPDATE {$this->table}
+             SET status = :status, updated_at = NOW()
+             WHERE id = :id
+               AND EXISTS (
+                   SELECT 1 FROM user_tenants ut
+                   WHERE ut.user_id = {$this->table}.id
+                     AND ut.tenant_id = :tenant_id
+                     AND ut.status = 'active'
+               )"
+        );
+
+        return $stmt->execute([
+            ':status' => $status,
+            ':id' => $id,
+            ':tenant_id' => TenantContext::id(),
+        ]);
     }
 
     /**

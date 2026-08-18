@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\View;
 use App\Core\Auth;
+use App\Core\Mail;
 use App\Core\Audit\AuditLogger;
 use App\Models\User;
 use App\Models\PasswordResetToken;
@@ -159,54 +160,119 @@ class ConfiguracoesController extends Controller
     public function usuariosStore(): void
     {
         if (!Auth::can('manage_users')) {
-            header("Location: /configuracoes?error=unauthorized");
+            header('Location: /configuracoes?error=unauthorized');
             exit();
         }
+
         $currentUser = Auth::user();
+        $reference = $this->userDiagnosticReference();
+
         try {
-            $nome        = trim($_POST['name']  ?? '');
-            $email       = trim($_POST['email'] ?? '');
-            $role        = $_POST['role']   ?? 'user';
-            $status      = $_POST['status'] ?? 'ativo';
+            $nome = trim((string) ($_POST['name'] ?? ''));
+            $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+            $role = (string) ($_POST['role'] ?? 'operador');
+            $status = (string) ($_POST['status'] ?? 'ativo');
             $sendWelcome = isset($_POST['send_welcome']);
 
-            if (empty($nome) || empty($email)) {
-                header("Location: /configuracoes/usuarios/create?error=missing_fields"); exit();
+            if (strlen($nome) < 3 || $email === '') {
+                header('Location: /configuracoes/usuarios/create?error=missing_fields');
+                exit();
             }
-            if ($currentUser->role === 'admin' && in_array($role, ['admin', 'superadmin'])) {
-                header("Location: /configuracoes/usuarios/create?error=invalid_role"); exit();
-            }
-            if ($this->userModel->findByEmail($email)) {
-                header("Location: /configuracoes/usuarios/create?error=email_exists"); exit();
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                header('Location: /configuracoes/usuarios/create?error=invalid_email');
+                exit();
             }
 
-            $tempPassword   = bin2hex(random_bytes(8));
-            $hashedPassword = password_hash($tempPassword, PASSWORD_DEFAULT);
+            $rolesPermitidos = ['operador', 'financeiro', 'leitura', 'admin'];
+            if ($currentUser->role === 'superadmin') {
+                $rolesPermitidos[] = 'superadmin';
+            }
+            if (!in_array($role, $rolesPermitidos, true)) {
+                header('Location: /configuracoes/usuarios/create?error=invalid_role');
+                exit();
+            }
+            if (!in_array($status, ['ativo', 'inativo'], true)) {
+                header('Location: /configuracoes/usuarios/create?error=invalid_status');
+                exit();
+            }
+            if ($this->userModel->findAnyByEmail($email)) {
+                header('Location: /configuracoes/usuarios/create?error=email_exists');
+                exit();
+            }
+
+            $hashedPassword = password_hash(bin2hex(random_bytes(8)), PASSWORD_DEFAULT);
+            if ($hashedPassword === false) {
+                throw new \RuntimeException('Não foi possível gerar a credencial inicial.');
+            }
+
             $newId = $this->userModel->create([
-                'name' => $nome, 'email' => $email,
-                'password' => $hashedPassword, 'role' => $role,
+                'name' => $nome,
+                'email' => $email,
+                'password' => $hashedPassword,
+                'role' => $role,
             ]);
 
-            if ($newId) {
-                if ($status === 'inativo') {
-                    $this->userModel->pdo->prepare("UPDATE users SET status = 'inativo' WHERE id = ?")->execute([$newId]);
-                }
-                AuditLogger::log('create_user', ['created_by' => $currentUser->id, 'new_user_id' => $newId, 'name' => $nome, 'email' => $email, 'role' => $role]);
-                if ($sendWelcome) {
-                    $this->passwordResetModel->invalidateUserTokens((int)$newId);
-                    $token = bin2hex(random_bytes(32));
-                    $this->passwordResetModel->create((int)$newId, $token);
-                    $resetLink = "http://" . $_SERVER['HTTP_HOST'] . "/reset-password/{$token}";
-                    $mailService = $this->buildMailService();
-                    $mailService->sendPasswordResetEmail($email, $nome, $resetLink);
-                }
-                header("Location: /configuracoes?tab=usuarios&success=user_created");
-            } else {
-                header("Location: /configuracoes/usuarios/create?error=create_failed");
+            if (!$newId) {
+                AuditLogger::log('user_create_failed', [
+                    'reference' => $reference,
+                    'created_by' => $currentUser->id,
+                    'role' => $role,
+                ]);
+                header('Location: /configuracoes/usuarios/create?error=create_failed&ref=' . rawurlencode($reference));
+                exit();
             }
-        } catch (\Exception $e) {
-            AuditLogger::log('user_create_exception', ['error' => $e->getMessage()]);
-            header("Location: /configuracoes/usuarios/create?error=exception");
+
+            if (!$this->userModel->setStatusForCurrentTenant((int) $newId, $status)) {
+                AuditLogger::log('user_status_after_create_failed', [
+                    'reference' => $reference,
+                    'created_by' => $currentUser->id,
+                    'new_user_id' => (int) $newId,
+                ]);
+                header('Location: /configuracoes/usuarios/create?error=status_failed&ref=' . rawurlencode($reference));
+                exit();
+            }
+
+            AuditLogger::log('create_user', [
+                'created_by' => $currentUser->id,
+                'new_user_id' => (int) $newId,
+                'role' => $role,
+                'status' => $status,
+            ]);
+
+            if ($sendWelcome) {
+                try {
+                    $this->passwordResetModel->invalidateUserTokens((int) $newId);
+                    $tokenData = $this->passwordResetModel->createForUser((int) $newId);
+                    $emailSent = Mail::sendPasswordResetLink(
+                        $email,
+                        $this->passwordResetUrl($tokenData['raw']),
+                        (int) $currentUser->id
+                    );
+                    if (!$emailSent) {
+                        throw new \RuntimeException('O serviço de e-mail não confirmou o envio.');
+                    }
+                } catch (\Throwable $emailException) {
+                    AuditLogger::log('user_welcome_email_failed', [
+                        'reference' => $reference,
+                        'created_by' => $currentUser->id,
+                        'new_user_id' => (int) $newId,
+                        'exception' => get_class($emailException),
+                        'message' => $emailException->getMessage(),
+                    ]);
+                    header('Location: /configuracoes?tab=usuarios&success=user_created&warning=welcome_failed&ref=' . rawurlencode($reference));
+                    exit();
+                }
+            }
+
+            header('Location: /configuracoes?tab=usuarios&success=user_created');
+        } catch (\Throwable $exception) {
+            AuditLogger::log('user_create_exception', [
+                'reference' => $reference,
+                'created_by' => $currentUser->id,
+                'exception' => get_class($exception),
+                'message' => $exception->getMessage(),
+            ]);
+            header('Location: /configuracoes/usuarios/create?error=exception&ref=' . rawurlencode($reference));
         }
         exit();
     }
@@ -253,10 +319,12 @@ class ConfiguracoesController extends Controller
             if ($emailExistente && $emailExistente->id != $id) {
                 header("Location: /configuracoes/usuarios/edit/{$id}?error=email_exists"); exit();
             }
-            $stmt = $this->userModel->pdo->prepare(
-                "UPDATE users SET name = :name, email = :email, role = :role, status = :status, updated_at = NOW() WHERE id = :id"
-            );
-            $success = $stmt->execute([':name' => $nome, ':email' => $email, ':role' => $role, ':status' => $status, ':id' => $id]);
+            $success = $this->userModel->update($id, [
+                'name' => $nome,
+                'email' => $email,
+                'role' => $role,
+                'status' => $status,
+            ]);
             if ($success) {
                 AuditLogger::log('update_user', ['updated_by' => $currentUser->id, 'user_id' => $id, 'old_name' => $usuario->name, 'new_name' => $nome, 'old_role' => $usuario->role, 'new_role' => $role]);
                 header("Location: /configuracoes?tab=usuarios&success=user_updated");
@@ -284,29 +352,35 @@ class ConfiguracoesController extends Controller
         if (!$usuario || !$this->canManageUser($currentUser, $usuario)) {
             header("Location: /configuracoes?tab=usuarios&error=cannot_reset"); exit();
         }
+        $reference = $this->userDiagnosticReference();
         try {
-            // Gera e persiste o token de reset
             $this->passwordResetModel->invalidateUserTokens($id);
-            $token     = bin2hex(random_bytes(32));
-            $this->passwordResetModel->create($id, $token);
-            $resetLink = "http://" . $_SERVER['HTTP_HOST'] . "/reset-password/{$token}";
-
-            // Carrega as credenciais SMTP do banco (não do .env)
-            $mailService = $this->buildMailService();
-            $emailSent   = $mailService->sendPasswordResetEmail($usuario->email, $usuario->name, $resetLink);
+            $tokenData = $this->passwordResetModel->createForUser($id);
+            $emailSent = Mail::sendPasswordResetLink(
+                (string) $usuario->email,
+                $this->passwordResetUrl($tokenData['raw']),
+                (int) $currentUser->id
+            );
+            if (!$emailSent) {
+                throw new \RuntimeException('O serviço de e-mail não confirmou o envio.');
+            }
 
             AuditLogger::log('reset_user_password', [
-                'reset_by'   => $currentUser->id,
-                'user_id'    => $id,
-                'email_sent' => $emailSent,
-            ]);
-            header("Location: /configuracoes?tab=usuarios&success=password_reset");
-        } catch (\Exception $e) {
-            AuditLogger::log('password_reset_exception', [
-                'error'   => $e->getMessage(),
+                'reference' => $reference,
+                'reset_by' => $currentUser->id,
                 'user_id' => $id,
+                'email_sent' => true,
             ]);
-            header("Location: /configuracoes?tab=usuarios&error=reset_failed");
+            header('Location: /configuracoes?tab=usuarios&success=password_reset');
+        } catch (\Throwable $exception) {
+            AuditLogger::log('password_reset_exception', [
+                'reference' => $reference,
+                'reset_by' => $currentUser->id,
+                'user_id' => $id,
+                'exception' => get_class($exception),
+                'message' => $exception->getMessage(),
+            ]);
+            header('Location: /configuracoes?tab=usuarios&error=reset_failed&ref=' . rawurlencode($reference));
         }
         exit();
     }
@@ -328,8 +402,7 @@ class ConfiguracoesController extends Controller
             echo json_encode(['success' => false, 'error' => 'Cannot toggle this user']); exit();
         }
         $novoStatus = ($usuario->status ?? 'ativo') === 'ativo' ? 'inativo' : 'ativo';
-        $stmt = $this->userModel->pdo->prepare("UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?");
-        $ok   = $stmt->execute([$novoStatus, $id]);
+        $ok = $this->userModel->setStatusForCurrentTenant($id, $novoStatus);
         AuditLogger::log('toggle_user_status', ['toggled_by' => $currentUser->id, 'user_id' => $id, 'new_status' => $novoStatus]);
         echo json_encode(['success' => $ok, 'status' => $novoStatus]);
         exit();
@@ -338,6 +411,26 @@ class ConfiguracoesController extends Controller
     // ================================================================
     // Helpers de permissão
     // ================================================================
+
+    private function userDiagnosticReference(): string
+    {
+        return 'USR-' . strtoupper(substr(hash('sha256', uniqid('', true)), 0, 10));
+    }
+
+    private function passwordResetUrl(string $rawToken): string
+    {
+        $baseUrl = rtrim((string) ($_ENV['APP_URL'] ?? ''), '/');
+        $parts = parse_url($baseUrl);
+        if (!is_array($parts)
+            || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])) {
+            $host = strtolower(trim((string) ($_ENV['SAAS_SHARED_HOST'] ?? 'erp.imagiflow.com.br')));
+            $host = preg_replace('/[^a-z0-9.-]/', '', $host) ?: 'erp.imagiflow.com.br';
+            $baseUrl = 'https://' . $host;
+        }
+
+        return $baseUrl . '/reset-password/' . rawurlencode($rawToken);
+    }
 
     private function canManageUser($currentUser, $targetUser): bool
     {
