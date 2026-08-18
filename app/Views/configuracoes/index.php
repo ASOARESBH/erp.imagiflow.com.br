@@ -3,7 +3,7 @@ use App\Core\Auth;
 use App\Core\View;
 require_once dirname(__DIR__) . '/layout/erp_header.php';
 
-$activeTab   = $activeTab ?? 'geral';
+$activeTab   = $activeTab ?? 'financeiro';
 $currentUser = $currentUser ?? Auth::user();
 $usuarios    = $usuarios ?? [];
 
@@ -69,7 +69,7 @@ $roleLabels = [
   <!-- Header -->
   <div class="cfg-header">
     <h1><i class="fas fa-cog me-2" style="color:#00529B"></i>Configurações</h1>
-    <p>Gerencie as configurações do sistema e os usuários com acesso ao ERP</p>
+    <p>Gerencie as preferências operacionais da sua empresa e os usuários vinculados ao ERP</p>
   </div>
 
   <!-- Alertas de feedback -->
@@ -100,9 +100,6 @@ $roleLabels = [
 
   <!-- Abas -->
   <div class="cfg-tabs">
-    <button class="cfg-tab <?php echo $activeTab === 'geral' ? 'active' : ''; ?>" onclick="switchTab('geral', this)">
-      <i class="fas fa-sliders-h"></i> Geral
-    </button>
     <?php if (Auth::can('manage_users')): ?>
     <button class="cfg-tab <?php echo $activeTab === 'usuarios' ? 'active' : ''; ?>" onclick="switchTab('usuarios', this)">
       <i class="fas fa-users-cog"></i> Usuários
@@ -126,56 +123,6 @@ $roleLabels = [
       <i class="far fa-bell"></i> Notificações
     </button>
     <?php endif; ?>
-  </div>
-
-  <!-- ===== ABA: GERAL ===== -->
-  <div id="tab-geral" style="display:<?php echo $activeTab === 'geral' ? 'block' : 'none'; ?>">
-    <div class="cfg-card">
-      <div class="cfg-section">
-        <h2 class="cfg-section-title"><i class="fas fa-info-circle text-primary"></i> Informações do Sistema</h2>
-        <div class="cfg-info-grid">
-          <div class="cfg-info-item">
-            <div class="cfg-info-label">Versão</div>
-            <div class="cfg-info-value">InLaudo ERP v1.0.2</div>
-          </div>
-          <div class="cfg-info-item">
-            <div class="cfg-info-label">Ambiente</div>
-            <div class="cfg-info-value"><?php echo php_uname('n'); ?></div>
-          </div>
-          <div class="cfg-info-item">
-            <div class="cfg-info-label">PHP</div>
-            <div class="cfg-info-value"><?php echo PHP_VERSION; ?></div>
-          </div>
-          <div class="cfg-info-item">
-            <div class="cfg-info-label">Usuário Logado</div>
-            <div class="cfg-info-value"><?php echo htmlspecialchars($currentUser->name ?? '—'); ?></div>
-          </div>
-          <div class="cfg-info-item">
-            <div class="cfg-info-label">Perfil de Acesso</div>
-            <div class="cfg-info-value"><?php echo $roleLabels[$currentUser->role ?? 'user']['label'] ?? ucfirst($currentUser->role ?? ''); ?></div>
-          </div>
-          <div class="cfg-info-item">
-            <div class="cfg-info-label">Data/Hora do Servidor</div>
-            <div class="cfg-info-value"><?php echo date('d/m/Y H:i:s'); ?></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="cfg-section" style="border-top:1px solid #f1f5f9">
-        <h2 class="cfg-section-title"><i class="fas fa-plug text-primary"></i> Integrações Disponíveis</h2>
-        <div class="d-flex gap-2 flex-wrap">
-          <a href="/integracao/asaas" class="btn btn-outline-primary btn-sm">
-            <i class="fas fa-credit-card me-1"></i> Asaas — Pagamentos
-          </a>
-          <a href="/integracao/cora" class="btn btn-outline-warning btn-sm">
-            <i class="fas fa-university me-1"></i> Cora — Boletos
-          </a>
-          <a href="/integracao/email" class="btn btn-outline-secondary btn-sm">
-            <i class="fas fa-envelope me-1"></i> E-mail (SMTP)
-          </a>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- ===== ABA: USUÁRIOS ===== -->

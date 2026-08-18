@@ -736,14 +736,11 @@ if ($_ec) {
           <div class="nav-label"><?php echo htmlspecialchars(t('common.settings')); ?></div>
           <li
             class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false) ? 'open active' : ''; ?>">
-            <a href="/configuracoes" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.settings')); ?>">
+            <a href="/configuracoes?tab=financeiro" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.settings')); ?>">
               <i class="fas fa-cog"></i>
               <span class="link-text"><?php echo htmlspecialchars(t('common.settings')); ?></span>
             </a>
             <ul class="submenu">
-              <li><a href="/configuracoes?tab=geral"
-                  class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false && ($_GET['tab'] ?? 'geral') === 'geral') ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.general')); ?></a>
-              </li>
               <li><a href="/configuracoes?tab=financeiro"
                   class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false && ($_GET['tab'] ?? '') === 'financeiro') ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.financial')); ?></a>
               </li>

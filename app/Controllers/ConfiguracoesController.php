@@ -92,8 +92,12 @@ class ConfiguracoesController extends Controller
             exit();
         }
 
-        $activeTab  = $_GET['tab'] ?? 'geral';
-        $usuarios   = Auth::can('manage_users') ? $this->userModel->findAll() : [];
+        $abasPermitidas = ['usuarios', 'notas-fiscais', 'financeiro', 'cnes', 'notificacoes'];
+        $activeTab = $_GET['tab'] ?? 'financeiro';
+        if (!in_array($activeTab, $abasPermitidas, true)) {
+            $activeTab = 'financeiro';
+        }
+        $usuarios = Auth::can('manage_users') ? $this->userModel->findAll() : [];
 
         // Configurações de alertas de notificação
         $notificacaoConfigs = [];

@@ -593,9 +593,6 @@ Router::group(["middleware" => ["Auth"]], function () {
     // Logging de Erros do Frontend
     Router::post("/api/log/error", "LogController@saveClientError");
 
-    // Diagnóstico temporário (REMOVER APÓS USO)
-    Router::get("/diagnostico/upload-info", "DiagnosticoController@uploadInfo");
-
     // Perfil do usuário
     Router::group(["middleware" => ["Permission:view_profile"]], function () {
         Router::get("/perfil", "PerfilController@index");
