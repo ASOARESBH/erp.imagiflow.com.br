@@ -32,6 +32,7 @@ class Permission implements PermissionProviderInterface
 
             'view_finance',
             'manage_finance',
+            'view_relatorios_financeiro',
 
             'view_plano_contas',
             'create_plano_contas',
@@ -102,6 +103,7 @@ class Permission implements PermissionProviderInterface
 
             'view_finance',
             'manage_finance',
+            'view_relatorios_financeiro',
 
             'view_plano_contas',
             'create_plano_contas',
@@ -164,6 +166,7 @@ class Permission implements PermissionProviderInterface
         'financeiro' => [
             'view_clients',
             'view_finance',
+            'view_relatorios_financeiro',
 
             'view_plano_contas',
             'create_plano_contas',
@@ -222,6 +225,7 @@ class Permission implements PermissionProviderInterface
             'view_clients',
 
             'view_finance',
+            'view_relatorios_financeiro',
             'view_plano_contas',
             'view_fornecedores',
             'view_contas_pagar',

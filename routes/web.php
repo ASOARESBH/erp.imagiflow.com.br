@@ -269,6 +269,14 @@ Router::group(["middleware" => ["Auth"]], function () {
     Router::post("/exames-tabela/{id}/save-secao", "CorpoClinicoController@saveSecao");
     Router::post("/exames-tabela/{id}/save-tags", "CorpoClinicoController@saveTags");
 
+    // Relatórios Financeiros
+    Router::group(["middleware" => ["Permission:view_relatorios_financeiro"]], function () {
+        Router::get("/relatorios/financeiro", "RelatoriosFinanceiroController@index");
+        Router::get("/relatorios/financeiro/buscar", "RelatoriosFinanceiroController@buscar");
+        Router::get("/relatorios/financeiro/exportar-csv", "RelatoriosFinanceiroController@exportarCsv");
+        Router::get("/relatorios/financeiro/exportar-pdf", "RelatoriosFinanceiroController@exportarPdf");
+    });
+
     // Contas a Pagar
     Router::group(["middleware" => ["Permission:view_contas_pagar"]], function () {
         Router::get("/financeiro/pagar", "ContasPagarController@index");

@@ -719,6 +719,20 @@ if ($_ec) {
             </ul>
           </li>
 
+          <?php if (\App\Core\Auth::can('view_relatorios_financeiro')): ?>
+          <div class="nav-label">RELATÓRIOS</div>
+          <li class="nav-item has-submenu <?php echo strpos($_SERVER['REQUEST_URI'], '/relatorios') !== false ? 'open active' : ''; ?>">
+            <a href="/relatorios/financeiro" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Relatórios">
+              <i class="fas fa-chart-bar"></i>
+              <span class="link-text">Relatórios</span>
+            </a>
+            <ul class="submenu">
+              <li><a href="/relatorios/financeiro"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/relatorios/financeiro') !== false ? 'active' : ''; ?>"><i class="fas fa-wallet me-1"></i> Financeiro</a></li>
+            </ul>
+          </li>
+          <?php endif; ?>
+
           <div class="nav-label"><?php echo htmlspecialchars(t('common.settings')); ?></div>
           <li
             class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/configuracoes') !== false) ? 'open active' : ''; ?>">
