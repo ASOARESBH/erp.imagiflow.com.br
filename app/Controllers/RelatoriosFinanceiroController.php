@@ -33,6 +33,46 @@ class RelatoriosFinanceiroController extends Controller
         $this->renderizarTela(true);
     }
 
+    public function buscarOpcoes(): void
+    {
+        $this->garantirPermissao();
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            $tipo = (string) ($_GET['tipo'] ?? '');
+            $busca = trim((string) ($_GET['q'] ?? ''));
+            if (!in_array($tipo, ['plano', 'fornecedor', 'cliente'], true)) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Tipo de filtro inválido.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            if (mb_strlen($busca) < 2) {
+                echo json_encode(['success' => true, 'data' => []], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $user = Auth::user();
+            $tenantId = (int) ($user->tenant_id ?? 0);
+            if ($tenantId <= 0) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Tenant não identificado.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            echo json_encode([
+                'success' => true,
+                'data' => $this->model->buscarOpcoesFiltro($tenantId, $tipo, $busca),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erro na busca de opções do relatório financeiro.', [
+                'error' => $e->getMessage(),
+                'tipo' => (string) ($_GET['tipo'] ?? ''),
+                'usuario_id' => (int) (Auth::user()->id ?? 0),
+            ]);
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Não foi possível buscar as opções agora.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     private function renderizarTela(bool $forcarBusca): void
     {
         try {
@@ -71,9 +111,9 @@ class RelatoriosFinanceiroController extends Controller
                 'resultado' => $resultado,
                 'erroFiltro' => $erroFiltro,
                 'gerar' => $gerar,
-                'planos' => $this->model->listarPlanos($tenantId),
-                'fornecedores' => $this->model->listarFornecedores($tenantId),
-                'clientes' => $this->model->listarClientes($tenantId),
+                'planos' => $this->model->buscarOpcoesSelecionadas($tenantId, 'plano', $filtros['plano_ids']),
+                'fornecedores' => $this->model->buscarOpcoesSelecionadas($tenantId, 'fornecedor', $filtros['fornecedor_ids']),
+                'clientes' => $this->model->buscarOpcoesSelecionadas($tenantId, 'cliente', $filtros['cliente_ids']),
             ]);
         } catch (\Throwable $e) {
             $this->logger->error('Erro ao consultar relatório financeiro.', [
@@ -99,16 +139,19 @@ class RelatoriosFinanceiroController extends Controller
     /** @return array<string,mixed> */
     private function obterFiltros(): array
     {
+        $tipoRelatorio = (string) ($_GET['tipo_relatorio'] ?? 'pagar');
+        $statusLegado = $this->obterLista('status');
         return [
             'data_inicio' => (string) ($_GET['data_inicio'] ?? date('Y-m-01')),
             'data_fim' => (string) ($_GET['data_fim'] ?? date('Y-m-d')),
             'tipo_data' => (string) ($_GET['tipo_data'] ?? 'vencimento'),
-            'tipo_relatorio' => (string) ($_GET['tipo_relatorio'] ?? 'pagar'),
+            'tipo_relatorio' => $tipoRelatorio,
             'agrupamento' => (string) ($_GET['agrupamento'] ?? 'detalhado'),
             'plano_ids' => $this->obterLista('plano_ids'),
             'fornecedor_ids' => $this->obterLista('fornecedor_ids'),
             'cliente_ids' => $this->obterLista('cliente_ids'),
-            'status' => $this->obterLista('status'),
+            'status_pagar' => $this->obterLista('status_pagar') ?: ($tipoRelatorio === 'pagar' ? $statusLegado : []),
+            'status_receber' => $this->obterLista('status_receber') ?: ($tipoRelatorio === 'receber' ? $statusLegado : []),
             'valor_min' => (string) ($_GET['valor_min'] ?? ''),
             'valor_max' => (string) ($_GET['valor_max'] ?? ''),
         ];
@@ -145,6 +188,12 @@ class RelatoriosFinanceiroController extends Controller
         }
         if (!in_array($filtros['agrupamento'], ['detalhado', 'plano', 'entidade', 'status'], true)) {
             return 'Selecione um agrupamento válido.';
+        }
+        if (array_diff($filtros['status_pagar'], ['aberta', 'paga', 'cancelada']) !== []) {
+            return 'Selecione status válidos para Contas a Pagar.';
+        }
+        if (array_diff($filtros['status_receber'], ['aberta', 'recebida', 'cancelada']) !== []) {
+            return 'Selecione status válidos para Contas a Receber.';
         }
         return '';
     }

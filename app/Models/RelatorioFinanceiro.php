@@ -83,6 +83,99 @@ class RelatorioFinanceiro extends Model
         return $stmt->fetchAll(PDO::FETCH_OBJ);
     }
 
+    /**
+     * Busca opções de filtro sem carregar a base inteira do tenant.
+     *
+     * @return array<int,array{id:int,label:string}>
+     */
+    public function buscarOpcoesFiltro(int $tenantId, string $tipo, string $busca, int $limite = 50): array
+    {
+        $configuracao = $this->configurarOpcaoFiltro($tipo);
+        if ($configuracao === null || mb_strlen(trim($busca)) < 2) {
+            return [];
+        }
+
+        $limite = max(1, min(50, $limite));
+        $parametros = [':tenant_id' => $tenantId];
+        $termo = '%' . trim($busca) . '%';
+        $sql = "SELECT id, {$configuracao['label']} AS label
+                FROM {$configuracao['tabela']}
+                WHERE tenant_id = :tenant_id AND {$configuracao['ativo']}"
+             . " AND ({$configuracao['busca']})"
+             . " ORDER BY {$configuracao['ordem']} LIMIT {$limite}";
+        foreach ($configuracao['parametros_busca'] as $chave) {
+            $parametros[$chave] = $termo;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($parametros);
+        return array_map(static fn(object $item): array => [
+            'id' => (int) $item->id,
+            'label' => (string) $item->label,
+        ], $stmt->fetchAll(PDO::FETCH_OBJ));
+    }
+
+    /** @return array<int,array{id:int,label:string}> */
+    public function buscarOpcoesSelecionadas(int $tenantId, string $tipo, array $ids): array
+    {
+        $configuracao = $this->configurarOpcaoFiltro($tipo);
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn(int $id): bool => $id > 0)));
+        if ($configuracao === null || $ids === []) {
+            return [];
+        }
+
+        $placeholders = [];
+        $parametros = [':tenant_id' => $tenantId];
+        foreach ($ids as $indice => $id) {
+            $chave = ':id_' . $indice;
+            $placeholders[] = $chave;
+            $parametros[$chave] = $id;
+        }
+        $sql = "SELECT id, {$configuracao['label']} AS label
+                FROM {$configuracao['tabela']}
+                WHERE tenant_id = :tenant_id AND {$configuracao['ativo']}
+                  AND id IN (" . implode(', ', $placeholders) . ")
+                ORDER BY {$configuracao['ordem']}";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($parametros);
+        return array_map(static fn(object $item): array => [
+            'id' => (int) $item->id,
+            'label' => (string) $item->label,
+        ], $stmt->fetchAll(PDO::FETCH_OBJ));
+    }
+
+    /** @return array{tabela:string,label:string,ativo:string,busca:string,parametros_busca:array<int,string>,ordem:string}|null */
+    private function configurarOpcaoFiltro(string $tipo): ?array
+    {
+        return match ($tipo) {
+            'plano' => [
+                'tabela' => 'plano_contas',
+                'label' => "CONCAT(codigo, ' - ', nome)",
+                'ativo' => "status = 'ativo'",
+                'busca' => 'codigo LIKE :busca_codigo OR nome LIKE :busca_nome',
+                'parametros_busca' => [':busca_codigo', ':busca_nome'],
+                'ordem' => 'codigo ASC, nome ASC',
+            ],
+            'fornecedor' => [
+                'tabela' => 'fornecedores',
+                'label' => "CONCAT(nome, IF(documento IS NULL OR documento = '', '', CONCAT(' — ', documento)))",
+                'ativo' => "status = 'ativo'",
+                'busca' => 'nome LIKE :busca_nome OR documento LIKE :busca_documento',
+                'parametros_busca' => [':busca_nome', ':busca_documento'],
+                'ordem' => 'nome ASC',
+            ],
+            'cliente' => [
+                'tabela' => 'clientes',
+                'label' => "CONCAT(COALESCE(NULLIF(nome_fantasia, ''), razao_social), IF(cpf_cnpj IS NULL OR cpf_cnpj = '', '', CONCAT(' — ', cpf_cnpj)))",
+                'ativo' => "status = 'ativo'",
+                'busca' => "razao_social LIKE :busca_razao OR nome_fantasia LIKE :busca_fantasia OR cpf_cnpj LIKE :busca_documento",
+                'parametros_busca' => [':busca_razao', ':busca_fantasia', ':busca_documento'],
+                'ordem' => "COALESCE(NULLIF(nome_fantasia, ''), razao_social) ASC",
+            ],
+            default => null,
+        };
+    }
+
     /** @return object[] */
     private function buscarLinhas(int $tenantId, string $tipo, array $filtros): array
     {
@@ -166,7 +259,10 @@ class RelatorioFinanceiro extends Model
         $this->adicionarFiltroLista($extra, $params, "{$alias}.plano_conta_id", $filtros['plano_ids'] ?? [], 'plano');
         $campoEntidade = $isPagar ? "{$alias}.fornecedor_id" : "{$alias}.cliente_id";
         $this->adicionarFiltroLista($extra, $params, $campoEntidade, $isPagar ? ($filtros['fornecedor_ids'] ?? []) : ($filtros['cliente_ids'] ?? []), $isPagar ? 'fornecedor' : 'cliente');
-        $this->adicionarFiltroLista($extra, $params, "{$alias}.status", $filtros['status'] ?? [], 'status', false);
+        $statusPorTipo = $isPagar
+            ? ($filtros['status_pagar'] ?? ($filtros['status'] ?? []))
+            : ($filtros['status_receber'] ?? ($filtros['status'] ?? []));
+        $this->adicionarFiltroLista($extra, $params, "{$alias}.status", $statusPorTipo, $isPagar ? 'status_pagar' : 'status_receber', false);
 
         $valorMin = $this->normalizarValor($filtros['valor_min'] ?? null);
         $valorMax = $this->normalizarValor($filtros['valor_max'] ?? null);

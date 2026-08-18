@@ -273,6 +273,7 @@ Router::group(["middleware" => ["Auth"]], function () {
     Router::group(["middleware" => ["Permission:view_relatorios_financeiro"]], function () {
         Router::get("/relatorios/financeiro", "RelatoriosFinanceiroController@index");
         Router::get("/relatorios/financeiro/buscar", "RelatoriosFinanceiroController@buscar");
+        Router::get("/relatorios/financeiro/opcoes", "RelatoriosFinanceiroController@buscarOpcoes");
         Router::get("/relatorios/financeiro/exportar-csv", "RelatoriosFinanceiroController@exportarCsv");
         Router::get("/relatorios/financeiro/exportar-pdf", "RelatoriosFinanceiroController@exportarPdf");
     });

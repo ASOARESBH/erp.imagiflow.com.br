@@ -63,41 +63,50 @@ $exportQuery['gerar'] = '1';
             </div>
             <div class="col-md-4">
                 <label for="plano_ids" class="form-label small fw-bold text-muted">Plano de Contas</label>
-                <input type="search" class="form-control form-control-sm mb-2" placeholder="Buscar plano de contas" data-filter-select="plano_ids">
-                <select id="plano_ids" name="plano_ids[]" class="form-select" multiple size="3">
+                <input type="search" id="buscaPlano" class="form-control form-control-sm mb-2" placeholder="Digite ao menos 2 caracteres para buscar" data-relatorio-busca="plano" autocomplete="off">
+                <select id="plano_ids" name="plano_ids[]" class="form-select" multiple size="4" data-relatorio-opcoes="plano">
                     <?php foreach ($planos as $plano): ?>
-                        <option value="<?php echo (int) $plano->id; ?>" <?php echo $selecionado($filtros['plano_ids'] ?? [], $plano->id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($plano->codigo . ' - ' . $plano->nome); ?></option>
+                        <option value="<?php echo (int) $plano['id']; ?>" selected><?php echo htmlspecialchars($plano['label']); ?></option>
                     <?php endforeach; ?>
                 </select>
-                <small class="text-muted">Use Ctrl/Cmd para selecionar mais de uma conta.</small>
+                <small class="text-muted">Busque pelo código ou nome. Use Ctrl/Cmd para selecionar mais de uma conta.</small>
             </div>
-            <div class="col-md-4">
-                <label for="status" class="form-label small fw-bold text-muted">Status</label>
-                <select id="status" name="status[]" class="form-select" multiple size="3">
-                    <?php foreach (['aberta' => 'Aberta', 'paga' => 'Paga', 'recebida' => 'Recebida', 'cancelada' => 'Cancelada'] as $valor => $titulo): ?>
-                        <option value="<?php echo $valor; ?>" <?php echo $selecionado($filtros['status'] ?? [], $valor) ? 'selected' : ''; ?>><?php echo $titulo; ?></option>
+            <div class="col-md-4" id="grupoStatusPagar">
+                <label for="status_pagar" class="form-label small fw-bold text-muted">Status (Contas a Pagar)</label>
+                <select id="status_pagar" name="status_pagar[]" class="form-select" multiple size="3">
+                    <?php foreach (['aberta' => 'Aberta', 'paga' => 'Paga', 'cancelada' => 'Cancelada'] as $valor => $titulo): ?>
+                        <option value="<?php echo $valor; ?>" <?php echo $selecionado($filtros['status_pagar'] ?? [], $valor) ? 'selected' : ''; ?>><?php echo $titulo; ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-4" id="grupoStatusReceber">
+                <label for="status_receber" class="form-label small fw-bold text-muted">Status (Contas a Receber)</label>
+                <select id="status_receber" name="status_receber[]" class="form-select" multiple size="3">
+                    <?php foreach (['aberta' => 'Aberta', 'recebida' => 'Recebida', 'cancelada' => 'Cancelada'] as $valor => $titulo): ?>
+                        <option value="<?php echo $valor; ?>" <?php echo $selecionado($filtros['status_receber'] ?? [], $valor) ? 'selected' : ''; ?>><?php echo $titulo; ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
 
             <div class="col-md-6" id="grupoFornecedor">
                 <label for="fornecedor_ids" class="form-label small fw-bold text-muted">Fornecedores</label>
-                <input type="search" class="form-control form-control-sm mb-2" placeholder="Buscar fornecedor por nome ou documento" data-filter-select="fornecedor_ids">
-                <select id="fornecedor_ids" name="fornecedor_ids[]" class="form-select" multiple size="4">
+                <input type="search" id="buscaFornecedor" class="form-control form-control-sm mb-2" placeholder="Digite ao menos 2 caracteres para buscar" data-relatorio-busca="fornecedor" autocomplete="off">
+                <select id="fornecedor_ids" name="fornecedor_ids[]" class="form-select" multiple size="4" data-relatorio-opcoes="fornecedor">
                     <?php foreach ($fornecedores as $fornecedor): ?>
-                        <option value="<?php echo (int) $fornecedor->id; ?>" <?php echo $selecionado($filtros['fornecedor_ids'] ?? [], $fornecedor->id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($fornecedor->nome . (!empty($fornecedor->documento) ? ' — ' . $fornecedor->documento : '')); ?></option>
+                        <option value="<?php echo (int) $fornecedor['id']; ?>" selected><?php echo htmlspecialchars($fornecedor['label']); ?></option>
                     <?php endforeach; ?>
                 </select>
+                <small class="text-muted">Busque por nome ou documento. Use Ctrl/Cmd para seleção múltipla.</small>
             </div>
             <div class="col-md-6" id="grupoCliente">
                 <label for="cliente_ids" class="form-label small fw-bold text-muted">Clientes</label>
-                <input type="search" class="form-control form-control-sm mb-2" placeholder="Buscar cliente por nome ou documento" data-filter-select="cliente_ids">
-                <select id="cliente_ids" name="cliente_ids[]" class="form-select" multiple size="4">
+                <input type="search" id="buscaCliente" class="form-control form-control-sm mb-2" placeholder="Digite ao menos 2 caracteres para buscar" data-relatorio-busca="cliente" autocomplete="off">
+                <select id="cliente_ids" name="cliente_ids[]" class="form-select" multiple size="4" data-relatorio-opcoes="cliente">
                     <?php foreach ($clientes as $cliente): ?>
-                        <?php $nomeCliente = $cliente->nome_fantasia ?: $cliente->razao_social; ?>
-                        <option value="<?php echo (int) $cliente->id; ?>" <?php echo $selecionado($filtros['cliente_ids'] ?? [], $cliente->id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($nomeCliente . (!empty($cliente->cpf_cnpj) ? ' — ' . $cliente->cpf_cnpj : '')); ?></option>
+                        <option value="<?php echo (int) $cliente['id']; ?>" selected><?php echo htmlspecialchars($cliente['label']); ?></option>
                     <?php endforeach; ?>
                 </select>
+                <small class="text-muted">Busque por nome ou documento. Use Ctrl/Cmd para seleção múltipla.</small>
             </div>
             <div class="col-md-3">
                 <label for="valor_min" class="form-label small fw-bold text-muted">Valor mínimo</label>
