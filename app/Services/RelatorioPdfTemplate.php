@@ -18,7 +18,7 @@ class RelatorioPdfTemplate extends \FPDF
         $this->empresa = $empresa;
         $this->titulo = $titulo;
         $this->logoAbsoluto = $logoAbsoluto;
-        $this->SetMargins(10, 41, 10);
+        $this->SetMargins(10, 47, 10);
         $this->SetAutoPageBreak(true, 24);
         $this->AliasNbPages();
     }
@@ -54,22 +54,13 @@ class RelatorioPdfTemplate extends \FPDF
             $this->Cell(188, 5, $this->texto($linhaEmpresa), 0, 0, 'L');
         }
 
-        $this->SetFillColor(255, 255, 255);
-        $this->SetTextColor(0, 89, 162);
-        $this->Rect(239, 7, 46, 21, 'F');
-        $this->SetXY(239, 10);
-        $this->SetFont('Arial', 'B', 8);
-        $this->Cell(46, 5, $this->texto('ERP IMAGINIFLOW'), 0, 2, 'C');
-        $this->SetFont('Arial', '', 7);
-        $this->Cell(46, 4, $this->texto('RELATÓRIO'), 0, 2, 'C');
-        $this->SetFont('Arial', 'B', 7);
-        $this->Cell(46, 5, $this->texto($this->titulo), 0, 0, 'C');
-
         $this->SetTextColor(45, 45, 45);
         $this->SetFont('Arial', 'B', 10);
-        $this->SetXY(10, 38);
-        $this->Cell(277, 6, $this->texto($this->titulo), 0, 0, 'L');
-        $this->Ln(2);
+        $this->SetXY(10, 39);
+        $this->Cell(277, 5, $this->texto($this->titulo), 0, 0, 'L');
+
+        // O controller escreve o período a partir desta posição em uma linha própria.
+        $this->SetY(47);
     }
 
     public function Footer(): void
