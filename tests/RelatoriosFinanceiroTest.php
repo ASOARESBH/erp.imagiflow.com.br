@@ -54,5 +54,9 @@ assertRelatorioFinanceiro(strpos($script, 'setTimeout') !== false && strpos($scr
 assertRelatorioFinanceiro(strpos($script, 'AbortController') !== false, 'A busca deve cancelar requisições pendentes.');
 assertRelatorioFinanceiro(strpos($script, 'selectedOptions') !== false, 'A busca deve preservar opções já selecionadas.');
 assertRelatorioFinanceiro(strpos($script, 'syncContextFilters') !== false, 'A tela deve reagir ao tipo de relatório sem recarregar.');
+assertRelatorioFinanceiro(strpos($view, 'data-relatorio-resultados="fornecedor"') !== false, 'O fornecedor deve exibir resultados em dropdown próprio.');
+assertRelatorioFinanceiro(strpos($view, 'class="d-none" multiple data-relatorio-opcoes="fornecedor"') !== false, 'O select de fornecedor deve permanecer oculto para enviar a seleção.');
+assertRelatorioFinanceiro(strpos($view, 'dropdown-menu') !== false && strpos($script, 'renderDropdown') !== false, 'A busca deve renderizar os resultados dentro de uma lista suspensa.');
+assertRelatorioFinanceiro(strpos($script, 'data-relatorio-selecionados') !== false, 'As seleções devem ser exibidas como etiquetas removíveis.');
 
 echo "OK: relatórios financeiros possuem filtros, RBAC, tenant, exportações e totais.\n";

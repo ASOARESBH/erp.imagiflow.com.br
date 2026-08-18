@@ -63,13 +63,17 @@ $exportQuery['gerar'] = '1';
             </div>
             <div class="col-md-4">
                 <label for="plano_ids" class="form-label small fw-bold text-muted">Plano de Contas</label>
-                <input type="search" id="buscaPlano" class="form-control form-control-sm mb-2" placeholder="Digite ao menos 2 caracteres para buscar" data-relatorio-busca="plano" autocomplete="off">
-                <select id="plano_ids" name="plano_ids[]" class="form-select" multiple size="4" data-relatorio-opcoes="plano">
+                <div class="position-relative">
+                    <input type="search" id="buscaPlano" class="form-control form-control-sm" placeholder="Digite ao menos 2 caracteres para buscar" data-relatorio-busca="plano" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="resultadosPlano">
+                    <div id="resultadosPlano" class="dropdown-menu w-100 top-100 start-0 mt-1 shadow" data-relatorio-resultados="plano" role="listbox"></div>
+                </div>
+                <select id="plano_ids" name="plano_ids[]" class="d-none" multiple data-relatorio-opcoes="plano">
                     <?php foreach ($planos as $plano): ?>
                         <option value="<?php echo (int) $plano['id']; ?>" selected><?php echo htmlspecialchars($plano['label']); ?></option>
                     <?php endforeach; ?>
                 </select>
-                <small class="text-muted">Busque pelo código ou nome. Use Ctrl/Cmd para selecionar mais de uma conta.</small>
+                <div class="d-flex flex-wrap gap-1 mt-2" data-relatorio-selecionados="plano"></div>
+                <small class="text-muted">Busque pelo código ou nome. Clique para selecionar mais de uma conta.</small>
             </div>
             <div class="col-md-4" id="grupoStatusPagar">
                 <label for="status_pagar" class="form-label small fw-bold text-muted">Status (Contas a Pagar)</label>
@@ -90,23 +94,31 @@ $exportQuery['gerar'] = '1';
 
             <div class="col-md-6" id="grupoFornecedor">
                 <label for="fornecedor_ids" class="form-label small fw-bold text-muted">Fornecedores</label>
-                <input type="search" id="buscaFornecedor" class="form-control form-control-sm mb-2" placeholder="Digite ao menos 2 caracteres para buscar" data-relatorio-busca="fornecedor" autocomplete="off">
-                <select id="fornecedor_ids" name="fornecedor_ids[]" class="form-select" multiple size="4" data-relatorio-opcoes="fornecedor">
+                <div class="position-relative">
+                    <input type="search" id="buscaFornecedor" class="form-control form-control-sm" placeholder="Digite ao menos 2 caracteres para buscar" data-relatorio-busca="fornecedor" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="resultadosFornecedor">
+                    <div id="resultadosFornecedor" class="dropdown-menu w-100 top-100 start-0 mt-1 shadow" data-relatorio-resultados="fornecedor" role="listbox"></div>
+                </div>
+                <select id="fornecedor_ids" name="fornecedor_ids[]" class="d-none" multiple data-relatorio-opcoes="fornecedor">
                     <?php foreach ($fornecedores as $fornecedor): ?>
                         <option value="<?php echo (int) $fornecedor['id']; ?>" selected><?php echo htmlspecialchars($fornecedor['label']); ?></option>
                     <?php endforeach; ?>
                 </select>
-                <small class="text-muted">Busque por nome ou documento. Use Ctrl/Cmd para seleção múltipla.</small>
+                <div class="d-flex flex-wrap gap-1 mt-2" data-relatorio-selecionados="fornecedor"></div>
+                <small class="text-muted">Busque por nome ou documento. Clique para adicionar fornecedores.</small>
             </div>
             <div class="col-md-6" id="grupoCliente">
                 <label for="cliente_ids" class="form-label small fw-bold text-muted">Clientes</label>
-                <input type="search" id="buscaCliente" class="form-control form-control-sm mb-2" placeholder="Digite ao menos 2 caracteres para buscar" data-relatorio-busca="cliente" autocomplete="off">
-                <select id="cliente_ids" name="cliente_ids[]" class="form-select" multiple size="4" data-relatorio-opcoes="cliente">
+                <div class="position-relative">
+                    <input type="search" id="buscaCliente" class="form-control form-control-sm" placeholder="Digite ao menos 2 caracteres para buscar" data-relatorio-busca="cliente" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="resultadosCliente">
+                    <div id="resultadosCliente" class="dropdown-menu w-100 top-100 start-0 mt-1 shadow" data-relatorio-resultados="cliente" role="listbox"></div>
+                </div>
+                <select id="cliente_ids" name="cliente_ids[]" class="d-none" multiple data-relatorio-opcoes="cliente">
                     <?php foreach ($clientes as $cliente): ?>
                         <option value="<?php echo (int) $cliente['id']; ?>" selected><?php echo htmlspecialchars($cliente['label']); ?></option>
                     <?php endforeach; ?>
                 </select>
-                <small class="text-muted">Busque por nome ou documento. Use Ctrl/Cmd para seleção múltipla.</small>
+                <div class="d-flex flex-wrap gap-1 mt-2" data-relatorio-selecionados="cliente"></div>
+                <small class="text-muted">Busque por nome ou documento. Clique para adicionar clientes.</small>
             </div>
             <div class="col-md-3">
                 <label for="valor_min" class="form-label small fw-bold text-muted">Valor mínimo</label>
