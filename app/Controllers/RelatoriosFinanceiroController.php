@@ -8,7 +8,8 @@ use App\Core\Logger;
 use App\Core\View;
 use App\Core\Audit\AuditLogger;
 use App\Models\RelatorioFinanceiro;
-use App\Models\Tenant;
+use App\Services\RelatorioPdfTemplate;
+use App\Services\TenantCompanyProfileService;
 
 class RelatoriosFinanceiroController extends Controller
 {
@@ -249,22 +250,19 @@ class RelatoriosFinanceiroController extends Controller
         [$filtros, $resultado, $tenantId, $usuarioId] = $this->obterDadosParaExportacao();
         require_once BASE_PATH . '/app/Lib/fpdf/fpdf.php';
 
-        $tenant = (new Tenant())->findActiveById($tenantId);
-        $nomeEmpresa = trim((string) ($tenant->nome_fantasia ?? $tenant->razao_social ?? $tenant->name ?? 'ERP IMAGINIFLOW'));
+        $perfil = (new TenantCompanyProfileService())->findForTenant($tenantId) ?: (object) [];
+        $empresa = [
+            'razao_social' => (string) ($perfil->razao_social ?? 'Empresa não identificada'),
+            'cpf_cnpj' => (string) ($perfil->cpf_cnpj ?? ''),
+            'email' => (string) ($perfil->email_financeiro ?? $perfil->email_responsavel ?? ''),
+        ];
+        $logoAbsoluto = $this->resolverLogoPdf((string) ($perfil->logo_path ?? ''));
         $linhas = $resultado['linhas'];
         $totais = $resultado['totais'];
         $enc = static fn(string $texto): string => iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $texto);
 
-        $pdf = new \FPDF('L', 'mm', 'A4');
-        $pdf->SetMargins(10, 10, 10);
-        $pdf->SetAutoPageBreak(true, 14);
+        $pdf = new RelatorioPdfTemplate($empresa, 'RELATÓRIO FINANCEIRO', $logoAbsoluto);
         $pdf->AddPage();
-        $pdf->SetFillColor(0, 89, 162);
-        $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetFont('Arial', 'B', 14);
-        $pdf->Cell(277, 10, $enc($nomeEmpresa), 0, 1, 'L', true);
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->Cell(277, 8, $enc('RELATÓRIO FINANCEIRO'), 0, 1, 'L', true);
         $pdf->SetTextColor(40, 40, 40);
         $pdf->SetFont('Arial', '', 8);
         $pdf->Cell(277, 6, $enc('Período: ' . $this->formatarData($filtros['data_inicio']) . ' a ' . $this->formatarData($filtros['data_fim']) . ' | Gerado em: ' . date('d/m/Y H:i')), 0, 1, 'L');
@@ -272,16 +270,20 @@ class RelatoriosFinanceiroController extends Controller
 
         $larguras = [25, 68, 55, 62, 28, 25];
         $titulos = ['Data', 'Descrição', 'Fornecedor / Cliente', 'Plano de Contas', 'Valor', 'Status'];
-        $pdf->SetFillColor(240, 242, 245);
-        $pdf->SetFont('Arial', 'B', 8);
-        foreach ($titulos as $indice => $titulo) {
-            $pdf->Cell($larguras[$indice], 7, $enc($titulo), 1, 0, $indice === 4 ? 'R' : 'L', true);
-        }
-        $pdf->Ln();
-        $pdf->SetFont('Arial', '', 7);
+        $imprimirCabecalhoTabela = static function (\FPDF $documento) use ($larguras, $titulos, $enc): void {
+            $documento->SetFillColor(240, 242, 245);
+            $documento->SetFont('Arial', 'B', 8);
+            foreach ($titulos as $indice => $titulo) {
+                $documento->Cell($larguras[$indice], 7, $enc($titulo), 1, 0, $indice === 4 ? 'R' : 'L', true);
+            }
+            $documento->Ln();
+            $documento->SetFont('Arial', '', 7);
+        };
+        $imprimirCabecalhoTabela($pdf);
         foreach ($linhas as $linha) {
-            if ($pdf->GetY() > 185) {
+            if ($pdf->GetY() > 175) {
                 $pdf->AddPage();
+                $imprimirCabecalhoTabela($pdf);
             }
             $dados = [
                 $this->formatarData($linha->data_referencia ?? null),
@@ -332,6 +334,27 @@ class RelatoriosFinanceiroController extends Controller
             exit($erro);
         }
         return [$filtros, $this->model->buscar($tenantId, $filtros, 1, 100, true), $tenantId, (int) ($user->id ?? 0)];
+    }
+
+    private function resolverLogoPdf(string $logoPath): ?string
+    {
+        $logoPath = trim(str_replace('\\', '/', $logoPath));
+        if ($logoPath === '' || strpos($logoPath, '..') !== false) {
+            return null;
+        }
+
+        $relativo = ltrim($logoPath, '/');
+        $candidatos = [
+            BASE_PATH . '/' . $relativo,
+            BASE_PATH . '/public/' . $relativo,
+            BASE_PATH . '/storage/' . $relativo,
+        ];
+        foreach (array_unique($candidatos) as $caminho) {
+            if (is_file($caminho) && is_readable($caminho)) {
+                return $caminho;
+            }
+        }
+        return null;
     }
 
     private function formatarData(?string $data): string
