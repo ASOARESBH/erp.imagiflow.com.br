@@ -85,7 +85,7 @@ $exportQuery['gerar'] = '1';
                 <input type="search" class="form-control form-control-sm mb-2" placeholder="Buscar fornecedor por nome ou documento" data-filter-select="fornecedor_ids">
                 <select id="fornecedor_ids" name="fornecedor_ids[]" class="form-select" multiple size="4">
                     <?php foreach ($fornecedores as $fornecedor): ?>
-                        <option value="<?php echo (int) $fornecedor->id; ?>" <?php echo $selecionado($filtros['fornecedor_ids'] ?? [], $fornecedor->id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($fornecedor->nome . (!empty($fornecedor->cpf_cnpj) ? ' — ' . $fornecedor->cpf_cnpj : '')); ?></option>
+                        <option value="<?php echo (int) $fornecedor->id; ?>" <?php echo $selecionado($filtros['fornecedor_ids'] ?? [], $fornecedor->id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($fornecedor->nome . (!empty($fornecedor->documento) ? ' — ' . $fornecedor->documento : '')); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>

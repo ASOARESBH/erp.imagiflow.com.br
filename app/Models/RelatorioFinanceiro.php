@@ -61,7 +61,7 @@ class RelatorioFinanceiro extends Model
     public function listarFornecedores(int $tenantId): array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT id, nome, cpf_cnpj
+            "SELECT id, nome, documento
              FROM fornecedores
              WHERE tenant_id = :tenant_id AND status = 'ativo'
              ORDER BY nome ASC"

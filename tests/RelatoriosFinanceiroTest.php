@@ -21,6 +21,8 @@ $grid = file_get_contents($root . '/app/Views/relatorios/financeiro/_grid.php');
 assertRelatorioFinanceiro(strpos($permission, "'view_relatorios_financeiro'") !== false, 'A permissão de relatório financeiro deve existir.');
 assertRelatorioFinanceiro(substr_count($permission, "'view_relatorios_financeiro'") === 4, 'A permissão deve estar somente nos quatro papéis autorizados.');
 assertRelatorioFinanceiro(strpos($model, 'tenant_id = :tenant_id') !== false, 'As consultas devem exigir tenant_id.');
+assertRelatorioFinanceiro(strpos($model, 'SELECT id, nome, documento') !== false, 'O relatório deve consultar o campo documento de fornecedores.');
+assertRelatorioFinanceiro(strpos($model, 'nome, cpf_cnpj\n             FROM fornecedores') === false, 'O relatório não pode consultar cpf_cnpj em fornecedores.');
 assertRelatorioFinanceiro(strpos($model, "'pagar', 'receber', 'comparativo'") !== false, 'O modelo deve atender os três tipos de relatório.');
 assertRelatorioFinanceiro(strpos($model, "'vencimento', 'efetivo', 'emissao'") !== false, 'O modelo deve aceitar os três tipos de data.');
 assertRelatorioFinanceiro(strpos($model, "'detalhado', 'plano', 'entidade', 'status'") !== false, 'O modelo deve aceitar os agrupamentos previstos.');
