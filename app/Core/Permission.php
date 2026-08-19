@@ -80,6 +80,13 @@ class Permission implements PermissionProviderInterface
             'delete_os',
             'faturar_os',
 
+            // RDV e geolocalização da equipe
+            'view_rdv',
+            'create_rdv',
+            'edit_rdv',
+            'approve_rdv',
+            'view_team_locations',
+
             'view_profile',
             'edit_profile',
 
@@ -151,6 +158,13 @@ class Permission implements PermissionProviderInterface
             'delete_os',
             'faturar_os',
 
+            // RDV e geolocalização da equipe
+            'view_rdv',
+            'create_rdv',
+            'edit_rdv',
+            'approve_rdv',
+            'view_team_locations',
+
             'view_profile',
             'edit_profile',
 
@@ -213,6 +227,11 @@ class Permission implements PermissionProviderInterface
             'create_os',
             'edit_os',
 
+            // RDV de campo
+            'view_rdv',
+            'create_rdv',
+            'edit_rdv',
+
             'view_profile',
             'edit_profile',
 
@@ -240,6 +259,9 @@ class Permission implements PermissionProviderInterface
 
             // Manutenção — leitura pode visualizar ordens
             'view_manutencao',
+
+            // RDV — leitura de viagens e despesas
+            'view_rdv',
 
             'view_colaboradores',
 

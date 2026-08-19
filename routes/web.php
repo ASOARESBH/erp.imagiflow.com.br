@@ -681,6 +681,11 @@ Router::group(["middleware" => ["Auth", "Csrf"]], function () {
     // Dashboard de Marketing
     Router::get("/marketing/dashboard",                         "MarketingDisparadorController@dashboard");
 
+    // Mapa da Equipe — visão somente leitura de localizações pontuais de campo
+    Router::group(["middleware" => ["Permission:view_team_locations"]], function () {
+        Router::get("/equipe/mapa", "EquipeLocalizacaoController@index");
+    });
+
     // Configurações (inclui gestão de usuários)
     Router::group(["middleware" => ["Permission:manage_settings"]], function () {
         Router::get("/configuracoes", "ConfiguracoesController@index");

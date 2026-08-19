@@ -99,6 +99,24 @@ class RdvDespesa
         }
     }
 
+    /** Atualiza somente o caminho do comprovante da despesa. */
+    public function updateArquivo(int $id, int $viagemId, string $arquivo): bool
+    {
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE rdv_despesas SET arquivo = :arquivo WHERE id = :id AND viagem_id = :viagem_id"
+            );
+            return $stmt->execute([
+                ':arquivo' => $arquivo,
+                ':id' => $id,
+                ':viagem_id' => $viagemId,
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('[RdvDespesa::updateArquivo] ' . $e->getMessage(), ['id' => $id]);
+            return false;
+        }
+    }
+
     // =========================================================================
     // UPDATE OCR
     // =========================================================================

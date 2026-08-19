@@ -239,6 +239,32 @@ class Auth
     }
 
     /**
+     * Materializa o contrato de autenticação esperado pelo ERP após a validação de um
+     * token móvel. O middleware já confirmou o token, o vínculo ativo e o tenant; este
+     * método não cria sessão web nem registra auditoria para cada requisição da API.
+     */
+    public static function loginFromApiToken(object $token): void
+    {
+        $tenantId = TenantContext::id();
+        if ((int) ($token->tenant_id ?? 0) !== $tenantId) {
+            throw new LogicException('O token não pertence ao tenant da requisição.');
+        }
+
+        $_SESSION['user_id'] = (int) $token->user_id;
+        $_SESSION['user_name'] = (string) ($token->user_name ?? 'Usuário');
+        $_SESSION['user_email'] = $token->user_email ?? null;
+        $_SESSION['user_role'] = (string) ($token->tenant_role ?? 'user');
+        $_SESSION['active_tenant_id'] = $tenantId;
+        $_SESSION['api_token_id'] = (int) ($token->id ?? 0);
+        $_SESSION['api_auth'] = true;
+
+        $userLocale = (string) ($token->user_locale ?? 'pt_BR');
+        if (Lang::instance()->isSupported($userLocale)) {
+            Lang::instance()->setLocale($userLocale);
+        }
+    }
+
+    /**
      * Verifica se o usuário autenticado tem uma permissão no papel do tenant.
      */
     public static function can(string $permission): bool

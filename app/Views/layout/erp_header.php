@@ -708,6 +708,16 @@ if ($_ec) {
             </ul>
           </li>
 
+          <?php if (\App\Core\Auth::can('view_team_locations')): ?>
+          <div class="nav-label">EQUIPE</div>
+          <li class="nav-item">
+            <a href="/equipe/mapa" class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/equipe/mapa') !== false ? 'active' : ''; ?>" data-bs-toggle="tooltip" data-bs-placement="right" title="Mapa da Equipe">
+              <i class="fas fa-map-marker-alt"></i>
+              <span class="link-text">MAPA DA EQUIPE</span>
+            </a>
+          </li>
+          <?php endif; ?>
+
           <div class="nav-label"><?php echo htmlspecialchars(t('common.maintenance')); ?></div>
           <li class="nav-item has-submenu <?php echo strpos($_SERVER['REQUEST_URI'], '/manutencao') !== false ? 'open active' : ''; ?>">
             <a href="/manutencao/ordens" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="right" title="<?php echo htmlspecialchars(t('common.maintenance')); ?>">

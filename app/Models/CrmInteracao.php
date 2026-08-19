@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Core\Model;
+use App\Core\TenantContext;
 use PDO;
 
 class CrmInteracao extends Model
@@ -154,9 +155,10 @@ class CrmInteracao extends Model
 
         $stmt = $this->pdo->prepare(
             "INSERT INTO {$this->table}
-             (usuario_id, related_id, related_type, data_interacao, tipo_interacao, resumo, data_retorno)
-             VALUES (:usuario_id, :related_id, :related_type, :data_interacao, :tipo_interacao, :resumo, :data_retorno)"
+             (tenant_id, usuario_id, related_id, related_type, data_interacao, tipo_interacao, resumo, data_retorno)
+             VALUES (:tenant_id, :usuario_id, :related_id, :related_type, :data_interacao, :tipo_interacao, :resumo, :data_retorno)"
         );
+        $stmt->bindValue(':tenant_id',      TenantContext::id(), PDO::PARAM_INT);
         $stmt->bindValue(':usuario_id',     (int) $data['usuario_id'], PDO::PARAM_INT);
         $stmt->bindValue(':related_id',     (int) $data['related_id'], PDO::PARAM_INT);
         $stmt->bindValue(':related_type',   $data['related_type']);

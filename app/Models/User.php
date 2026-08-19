@@ -178,6 +178,44 @@ class User extends Model
     }
 
     /**
+     * Atualiza somente os campos pessoais permitidos ao próprio usuário no app móvel.
+     * Papel, status e vínculo de tenant não podem ser alterados por este método.
+     */
+    public function updateMobileProfile(int $userId, array $data): bool
+    {
+        $allowed = [];
+        $params = [
+            ':id' => $userId,
+            ':tenant_id' => TenantContext::id(),
+        ];
+
+        if (array_key_exists('name', $data)) {
+            $allowed[] = 'name = :name';
+            $params[':name'] = trim((string) $data['name']);
+        }
+        if (array_key_exists('locale', $data)) {
+            $allowed[] = 'locale = :locale';
+            $params[':locale'] = trim((string) $data['locale']);
+        }
+        if (empty($allowed)) {
+            return false;
+        }
+
+        $stmt = $this->pdo->prepare(
+            'UPDATE users
+             SET ' . implode(', ', $allowed) . ', updated_at = NOW()
+             WHERE id = :id
+               AND EXISTS (
+                   SELECT 1 FROM user_tenants ut
+                   WHERE ut.user_id = users.id
+                     AND ut.tenant_id = :tenant_id
+                     AND ut.status = \'active\'
+               )'
+        );
+        return $stmt->execute($params);
+    }
+
+    /**
      * Atualiza a senha do usuário (hash seguro).
      */
     public function updatePassword(int $userId, string $hashedPassword): bool

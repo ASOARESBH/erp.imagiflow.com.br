@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Core\Model;
+use App\Core\TenantContext;
 use PDO;
 
 class CrmOportunidade extends Model
@@ -168,7 +169,7 @@ class CrmOportunidade extends Model
     public function create(array $data): string|false
     {
         $fields = [
-            'usuario_id','lead_id','cliente_id','titulo_oportunidade','etapa_funil',
+            'tenant_id','usuario_id','lead_id','cliente_id','titulo_oportunidade','etapa_funil',
             'valor_estimado','data_fechamento_prevista','probabilidade_sucesso',
             'status_oportunidade','motivo_perda','modalidade_principal',
             'modalidades_interesse','tipo_contrato','volume_estimado_mes',
@@ -181,7 +182,7 @@ class CrmOportunidade extends Model
         $stmt  = $this->pdo->prepare($sql);
 
         foreach ($fields as $f) {
-            $val = $data[$f] ?? null;
+            $val = $f === 'tenant_id' ? TenantContext::id() : ($data[$f] ?? null);
             $stmt->bindValue(':' . $f, ($val === '') ? null : $val);
         }
 

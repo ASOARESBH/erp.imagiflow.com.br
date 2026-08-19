@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Core\Model;
+use App\Core\TenantContext;
 use PDO;
 
 class CrmLead extends Model
@@ -129,7 +130,7 @@ class CrmLead extends Model
     public function create(array $data): string|false
     {
         $fields = [
-            'usuario_id','nome_lead','email','telefone','celular',
+            'tenant_id','usuario_id','nome_lead','email','telefone','celular',
             'website','instagram','linkedin',
             'cnpj','cpf','tipo_pessoa',
             'razao_social','nome_fantasia','cnae_principal','descricao_cnae',
@@ -147,7 +148,7 @@ class CrmLead extends Model
         $stmt   = $this->pdo->prepare($sql);
 
         foreach ($fields as $f) {
-            $val = $data[$f] ?? null;
+            $val = $f === 'tenant_id' ? TenantContext::id() : ($data[$f] ?? null);
             $stmt->bindValue(':' . $f, ($val === '') ? null : $val);
         }
 
