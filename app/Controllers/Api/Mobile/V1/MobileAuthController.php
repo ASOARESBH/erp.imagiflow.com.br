@@ -48,21 +48,30 @@ class MobileAuthController extends MobileController
             $this->error('Plataforma de dispositivo inválida.', ['device_platform' => ['Use ios ou android.']], 422);
         }
 
-        $tenantId = TenantContext::id();
         $attempts = new MobileLoginAttempt();
-        if ($attempts->isBlocked($tenantId, $email, $ip)) {
-            $this->audit('mobile_login_rate_limited', ['email_hash' => hash('sha256', $email)]);
-            $this->error('Muitas tentativas. Aguarde alguns minutos e tente novamente.', [], 429);
+        $isSharedHost = Auth::isSharedHost();
+        $user = $isSharedHost
+            ? (new User())->findForSharedLogin($email)
+            : (new User())->findByEmail($email);
+        $isValid = $user && ($user->status ?? 'ativo') === 'ativo' && Auth::verifyPassword($password, (string) $user->password);
+
+        // No domínio compartilhado, o servidor resolve exclusivamente o vínculo
+        // ativo user_tenants e materializa o TenantContext antes de emitir token.
+        if ($isValid && $isSharedHost && !Auth::prepareTenantForUser($user)) {
+            $isValid = false;
+            $this->audit('mobile_shared_login_tenant_unavailable', ['user_id' => (int) ($user->id ?? 0)]);
         }
 
-        $user = (new User())->findByEmail($email);
-        $isValid = $user && ($user->status ?? 'ativo') === 'ativo' && Auth::verifyPassword($password, (string) $user->password);
         if (!$isValid) {
-            $attempts->register($tenantId, $email, $ip, false);
             $this->audit('mobile_login_failed', ['email_hash' => hash('sha256', $email)]);
             $this->error('E-mail ou senha inválidos.', ['credentials' => ['E-mail ou senha inválidos.']], 401);
         }
 
+        $tenantId = TenantContext::id();
+        if ($attempts->isBlocked($tenantId, $email, $ip)) {
+            $this->audit('mobile_login_rate_limited', ['email_hash' => hash('sha256', $email)]);
+            $this->error('Muitas tentativas. Aguarde alguns minutos e tente novamente.', [], 429);
+        }
         $attempts->register($tenantId, $email, $ip, true);
 
         if (!empty($user->two_factor_enabled)) {
@@ -94,7 +103,10 @@ class MobileAuthController extends MobileController
         $input = $this->input();
         $email = strtolower(trim((string) ($input['email'] ?? '')));
         if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $user = (new User())->findByEmail($email);
+            $userModel = new User();
+            $user = Auth::isSharedHost()
+                ? $userModel->findForSharedLogin($email)
+                : $userModel->findByEmail($email);
             if ($user) {
                 try {
                     $reset = (new PasswordResetToken())->createForUser((int) $user->id);
