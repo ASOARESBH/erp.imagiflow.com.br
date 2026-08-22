@@ -668,8 +668,8 @@ $ehMedico  = $tipoParte === 'medico';
                                         <?php if (in_array($ap->status, ['rascunho', 'erro'])): ?>
                                         <button type="button" class="btn btn-outline-primary"
                                                 onclick="abrirImportacao(<?php echo $ap->id; ?>, '<?php echo htmlspecialchars($ap->numero); ?>')"
-                                                title="Importar arquivo">
-                                            <i class="fas fa-file-import"></i>
+                                                title="Consultar estudos no VOXEL PACS">
+                                            <i class="fas fa-cloud-download-alt"></i>
                                         </button>
                         <a href="/faturamento/apuracao/delete/<?php echo $ap->id; ?>"
                            class="btn btn-outline-danger"
@@ -700,31 +700,30 @@ $ehMedico  = $tipoParte === 'medico';
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-file-import me-2"></i>Importar Arquivo de Apuração</h5>
+                    <h5 class="modal-title"><i class="fas fa-x-ray me-2"></i>Importar Apuração VOXEL PACS</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info border-0 small">
                         <i class="fas fa-info-circle me-1"></i>
-                        Importe o relatório exportado do PACS/RIS. O sistema irá processar e calcular os valores conforme a tabela de exames cadastrada.
+                        Consulte diretamente os estudos assinados ou liberados no VOXEL PACS. O ImagiFlow preserva a tabela de exames, as regras de contrato e as sub-apurações existentes.
                     </div>
 
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Layout de Importação</label>
-                            <select id="select-layout" class="form-select">
-                                <option value="">Layout Padrão InLaudo</option>
-                                <?php foreach ($layouts ?? [] as $lay): ?>
-                                    <option value="<?php echo $lay->id; ?>" <?php echo $lay->ativo ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($lay->nome); ?>
-                                    </option>
+                            <label class="form-label fw-semibold"><i class="fas fa-user-md me-1 text-muted"></i>Médico (opcional)</label>
+                            <select id="select-medico-voxel" class="form-select">
+                                <option value="">Todos os médicos conciliados</option>
+                                <?php foreach ($medicos ?? [] as $med): ?>
+                                    <option value="<?php echo (int)$med->id; ?>" <?php echo ((int)($contrato->medico_id ?? 0) === (int)$med->id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($med->nome . (!empty($med->crm) ? ' — CRM ' . $med->crm : '')); ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <small class="text-muted">Para contrato de prestador, o médico do contrato precisa possuir CRM.</small>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Arquivo (XLSX, XLS ou CSV)</label>
-                            <input type="file" id="arquivo-apuracao" class="form-control"
-                                   accept=".xlsx,.xls,.csv">
+                            <label class="form-label fw-semibold"><i class="fas fa-hospital me-1 text-muted"></i>Unidade VOXEL (opcional)</label>
+                            <input type="text" id="unidade-voxel" class="form-control" maxlength="255" placeholder="Ex.: NOVA IMAGEM - CAMBUÍ">
+                            <small class="text-muted">Filtra pelo nome canônico da unidade no VOXEL PACS.</small>
                         </div>
                         <?php if (($contrato->tipo_parte ?? '') === 'medico'): ?>
                         <div class="col-md-12">
@@ -813,7 +812,7 @@ $ehMedico  = $tipoParte === 'medico';
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
                     <button type="button" id="btn-importar" class="btn btn-primary" onclick="importarArquivo()">
-                        <i class="fas fa-upload me-1"></i> Importar
+                        <i class="fas fa-cloud-download-alt me-1"></i> Consultar VOXEL
                     </button>
                     <button type="button" id="btn-executar" class="btn btn-success d-none" onclick="executarApuracao()">
                         <i class="fas fa-play me-1"></i> Executar Apuração
@@ -894,7 +893,7 @@ function abrirImportacao(apuracaoId, numero) {
     document.getElementById('exec-resultado')?.classList.add('d-none');
     document.getElementById('btn-executar')?.classList.add('d-none');
     document.getElementById('btn-importar')?.classList.remove('d-none');
-    document.getElementById('arquivo-apuracao').value = '';
+    document.getElementById('unidade-voxel').value = '';
     // Sugerir período padrão: mês anterior
     const hoje = new Date();
     const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
@@ -903,15 +902,12 @@ function abrirImportacao(apuracaoId, numero) {
     document.getElementById('periodo-inicio-import').value = fmt(primeiroDia);
     document.getElementById('periodo-fim-import').value    = fmt(ultimoDia);
     document.querySelector('#modalImportacao .modal-title').innerHTML =
-        '<i class="fas fa-file-import me-2"></i>Importar Apuração <span class="badge bg-secondary font-monospace ms-1">' + numero + '</span>';
+        '<i class="fas fa-x-ray me-2"></i>Importar Apuração VOXEL <span class="badge bg-secondary font-monospace ms-1">' + numero + '</span>';
     const modal = new bootstrap.Modal(document.getElementById('modalImportacao'));
     modal.show();
 }
 
 function importarArquivo() {
-    const fileInput = document.getElementById('arquivo-apuracao');
-    if (!fileInput.files.length) { alert('Selecione um arquivo.'); return; }
-
     const periodoInicio = document.getElementById('periodo-inicio-import').value;
     const periodoFim    = document.getElementById('periodo-fim-import').value;
     if (!periodoInicio || !periodoFim) {
@@ -931,21 +927,22 @@ function importarArquivo() {
     }
 
     const formData = new FormData();
+    formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]')?.content || '');
     formData.append('apuracao_id', currentApuracaoId);
-    formData.append('layout_id', document.getElementById('select-layout').value);
-    formData.append('arquivo_apuracao', fileInput.files[0]);
     formData.append('periodo_inicio', periodoInicio);
     formData.append('periodo_fim', periodoFim);
+    formData.append('medico_id', document.getElementById('select-medico-voxel')?.value || '');
+    formData.append('unidade', document.getElementById('unidade-voxel')?.value || '');
     if (clienteSelect) formData.append('cliente_id', clienteSelect.value);
 
     document.getElementById('btn-importar').disabled = true;
-    document.getElementById('btn-importar').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Importando...';
+    document.getElementById('btn-importar').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Consultando VOXEL...';
 
-    fetch('/contratos/importar-apuracao', { method: 'POST', body: formData })
+    fetch('/contratos/importar-apuracao-voxel', { method: 'POST', body: formData })
         .then(r => r.json())
         .then(data => {
             document.getElementById('btn-importar').disabled = false;
-            document.getElementById('btn-importar').innerHTML = '<i class="fas fa-upload me-1"></i> Importar';
+            document.getElementById('btn-importar').innerHTML = '<i class="fas fa-cloud-download-alt me-1"></i> Consultar VOXEL';
 
             if (data.success) {
                 // Mostrar preview
@@ -961,16 +958,23 @@ function importarArquivo() {
                         <td>${row.data_conclusao || ''}</td>
                     </tr>`;
                 });
-                document.getElementById('total-linhas').textContent = data.total_linhas + ' linha(s)';
+                const resumo = [data.total_linhas + ' novo(s)'];
+                if (data.ja_existentes) resumo.push(data.ja_existentes + ' já importado(s)');
+                if (data.pendentes_medico) resumo.push(data.pendentes_medico + ' pendente(s) de conciliação médica');
+                document.getElementById('total-linhas').textContent = resumo.join(' · ');
                 document.getElementById('preview-container').classList.remove('d-none');
-                document.getElementById('btn-executar').classList.remove('d-none');
+                if (Number(data.total_linhas || 0) > 0) {
+                    document.getElementById('btn-executar').classList.remove('d-none');
+                } else {
+                    document.getElementById('btn-executar').classList.add('d-none');
+                }
             } else {
                 alert('Erro: ' + (data.message || 'Falha na importação'));
             }
         })
         .catch(e => {
             document.getElementById('btn-importar').disabled = false;
-            document.getElementById('btn-importar').innerHTML = '<i class="fas fa-upload me-1"></i> Importar';
+            document.getElementById('btn-importar').innerHTML = '<i class="fas fa-cloud-download-alt me-1"></i> Consultar VOXEL';
             alert('Erro de conexão: ' + e.message);
         });
 }
@@ -982,8 +986,8 @@ function executarApuracao() {
     document.getElementById('btn-importar').classList.add('d-none');
 
     const formData = new FormData();
+    formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]')?.content || '');
     formData.append('apuracao_id', currentApuracaoId);
-    formData.append('layout_id', document.getElementById('select-layout').value);
 
     fetch('/contratos/executar-apuracao', { method: 'POST', body: formData })
         .then(r => r.json())

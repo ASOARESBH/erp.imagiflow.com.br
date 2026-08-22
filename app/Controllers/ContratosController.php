@@ -10,6 +10,7 @@ use App\Models\Contrato;
 use App\Models\ContratoAnexo;
 use App\Models\Apuracao;
 use App\Models\ApuracaoItem;
+use App\Models\ApuracaoVoxelImport;
 use App\Models\LayoutExame;
 use App\Models\Medico;
 use App\Models\Cliente;
@@ -879,6 +880,10 @@ class ContratosController extends Controller
                     'usuario_id'   => $usuarioId,
                     'log_execucao' => implode("\n", $log),
                 ]);
+            }
+
+            if (($apuracao->origem ?? '') === 'pacs') {
+                (new ApuracaoVoxelImport())->markImportedByApuracao($usuarioId, $apuracaoId);
             }
 
             AuditLogger::log('apuracao_executada', [

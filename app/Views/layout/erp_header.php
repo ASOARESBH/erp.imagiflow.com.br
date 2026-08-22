@@ -776,6 +776,9 @@ if ($_ec) {
               <li><a href="/integracao/email"
                   class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/integracao/email') !== false ? 'active' : ''; ?>"><?php echo htmlspecialchars(t('common.email')); ?></a>
               </li>
+              <li><a href="/integracao/imagiflow"
+                  class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/integracao/imagiflow') !== false ? 'active' : ''; ?>">IMAGIFLOW / VOXEL PACS</a>
+              </li>
               <li><a href="/integracao/whatsapp"
                   class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/integracao/whatsapp') !== false ? 'active' : ''; ?>">WHATSAPP</a>
               </li>

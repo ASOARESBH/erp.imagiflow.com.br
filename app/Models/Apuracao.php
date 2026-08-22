@@ -115,7 +115,7 @@ class Apuracao extends Model
         $campos = [];
         $params = [':id' => $id, ':usuario_id' => $data['usuario_id']];
         $permitidos = ['status','total_exames','total_normal','total_urgencia','valor_total','valor_venda_total',
-                       'log_execucao','periodo_inicio','periodo_fim','arquivo_import','cliente_id'];
+                       'log_execucao','periodo_inicio','periodo_fim','arquivo_import','cliente_id','origem'];
         foreach ($permitidos as $campo) {
             if (array_key_exists($campo, $data)) {
                 $campos[] = "{$campo} = :{$campo}";

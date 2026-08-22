@@ -420,6 +420,11 @@ Router::group(["middleware" => ["Auth", "Csrf"]], function () {
         Router::post("/integracao/email/alertas/salvar", "IntegracaoController@emailAlertasSalvar");
         Router::post("/integracao/email/alertas/disparar", "IntegracaoController@emailAlertasDisparar");
 
+        // Integração ImagiFlow / VOXEL PACS
+        Router::get("/integracao/imagiflow", "IntegracaoVoxelController@index");
+        Router::post("/integracao/imagiflow/save", "IntegracaoVoxelController@save");
+        Router::post("/integracao/imagiflow/test", "IntegracaoVoxelController@test");
+
         // Integração Bot WhatsApp
         Router::get("/integracao/whatsapp",               "IntegracaoWhatsappController@index");
         Router::post("/integracao/whatsapp/gerar-token",  "IntegracaoWhatsappController@gerarToken");
@@ -618,6 +623,7 @@ Router::group(["middleware" => ["Auth", "Csrf"]], function () {
     Router::get("/contratos/delete-anexo/{id}", "ContratosController@deleteAnexo");
     Router::post("/contratos/nova-apuracao", "ContratosController@novaApuracao");
     Router::post("/contratos/importar-apuracao", "ContratosController@importarApuracao");
+    Router::post("/contratos/importar-apuracao-voxel", "VoxelApuracaoController@importar");
     Router::post("/contratos/executar-apuracao", "ContratosController@executarApuracao");
     // Cobranças vinculadas ao contrato
     Router::post("/contratos/gerar-cobrancas/{id}", "ContratosController@gerarCobrancas");
